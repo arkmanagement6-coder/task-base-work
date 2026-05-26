@@ -357,9 +357,14 @@
               localStorage.setItem("krv-users-checksum", cleanChecksum);
             }
           } else {
-            // First time initialization or missing checksum
+            // First time initialization or migrating to secure database layout
+            setUsers(DEFAULT_USERS);
+            verifiedUsers = DEFAULT_USERS;
             const cleanChecksum = await signUsersList(DEFAULT_USERS);
+            localStorage.setItem("krv-users", JSON.stringify(DEFAULT_USERS));
             localStorage.setItem("krv-users-checksum", cleanChecksum);
+            // Clean up any legacy unsigned session keys to keep local storage clean
+            localStorage.removeItem("krv-current-user");
           }
 
           // 2. Verify Session Integrity
