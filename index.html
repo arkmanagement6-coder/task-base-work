@@ -423,6 +423,23 @@
         localStorage.setItem("krv-theme", theme);
       }, [theme]);
 
+      // URL Hash Router for Direct Linking
+      useEffect(() => {
+        const handleHashRoute = () => {
+          const hash = window.location.hash;
+          if (hash === "#login") {
+            setCurrentPage("login");
+          } else if (hash === "#signup") {
+            setCurrentPage("signup");
+          } else if (hash === "#home" || hash === "") {
+            setCurrentPage("home");
+          }
+        };
+        handleHashRoute();
+        window.addEventListener("hashchange", handleHashRoute);
+        return () => window.removeEventListener("hashchange", handleHashRoute);
+      }, []);
+
       const triggerToast = (message, type = "success") => {
         setToast({ message, type });
       };
