@@ -3052,24 +3052,55 @@
     // 3. Task Management (CRUD)
     function AdminTasks({ tasks, setTasks, triggerToast }) {
       const [showCreate, setShowCreate] = useState(false);
+      const [editingTaskId, setEditingTaskId] = useState(null);
       const [form, setForm] = useState({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
 
-      const handleCreateTask = (e) => {
+      const toggleForm = () => {
+        if (showCreate) {
+          setForm({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
+          setEditingTaskId(null);
+        }
+        setShowCreate(!showCreate);
+      };
+
+      const handleFormSubmit = (e) => {
         e.preventDefault();
         
-        const newTask = {
-          id: "t" + (tasks.length + 1),
-          title: form.title,
-          category: form.category,
-          links: form.links,
-          amount: parseFloat(form.amount) || 0,
-          remarks: form.remarks,
-          deadline: form.deadline,
-          status: "Active"
-        };
+        if (editingTaskId) {
+          // Edit Mode
+          setTasks(prev => prev.map(t => {
+            if (t.id === editingTaskId) {
+              return {
+                ...t,
+                title: form.title,
+                category: form.category,
+                links: form.links,
+                amount: parseFloat(form.amount) || 0,
+                remarks: form.remarks,
+                deadline: form.deadline
+              };
+            }
+            return t;
+          }));
+          triggerToast("Workforce task updated successfully!");
+          setEditingTaskId(null);
+        } else {
+          // Create Mode
+          const newTask = {
+            id: "t" + (tasks.length + 1),
+            title: form.title,
+            category: form.category,
+            links: form.links,
+            amount: parseFloat(form.amount) || 0,
+            remarks: form.remarks,
+            deadline: form.deadline,
+            status: "Active"
+          };
 
-        setTasks([...tasks, newTask]);
-        triggerToast("New digital task created successfully!");
+          setTasks([...tasks, newTask]);
+          triggerToast("New digital task created successfully!");
+        }
+
         setForm({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
         setShowCreate(false);
       };
@@ -3083,15 +3114,15 @@
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-bold">Total Assigned Tasks: {tasks.length} Active</h3>
-            <button onClick={() => setShowCreate(!showCreate)} className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md cursor-pointer">
+            <button onClick={toggleForm} className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md cursor-pointer">
               {showCreate ? "Cancel" : "Create New Task"}
             </button>
           </div>
 
           {showCreate && (
             <div className="glass-card rounded-2xl p-6">
-              <h4 className="font-bold text-base mb-4">Create Workforce Task</h4>
-              <form onSubmit={handleCreateTask} className="space-y-4">
+              <h4 className="font-bold text-base mb-4">{editingTaskId ? "Edit Workforce Task" : "Create Workforce Task"}</h4>
+              <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Title</label>
@@ -3106,6 +3137,7 @@
                     <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
                       <option value="Google Review">Google Maps Review</option>
                       <option value="Application Review">Application Review</option>
+                      <option value="Application Review Provide by Brand">Application Review Provide by Brand</option>
                       <option value="Audio Recording">Audio Recording</option>
                       <option value="Video Recording">Video Recording</option>
                       <option value="Product Review">Product Review</option>
@@ -3125,7 +3157,7 @@
                   <textarea required rows="3" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Instructions for candidate..."></textarea>
                 </div>
                 <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition cursor-pointer">
-                  Save & Assign Task
+                  {editingTaskId ? "Save & Update Task" : "Save & Assign Task"}
                 </button>
               </form>
             </div>
@@ -3146,9 +3178,24 @@
 
                 <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-800">
                   <span className="text-[10px] text-slate-500 font-bold uppercase">Deadline: {t.deadline}</span>
-                  <button onClick={() => handleDeleteTask(t.id)} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer">
-                    <Icon name="trash" className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button 
+                      onClick={() => {
+                        setForm({ title: t.title, category: t.category, links: t.links, amount: t.amount.toString(), remarks: t.remarks, deadline: t.deadline });
+                        setEditingTaskId(t.id);
+                        setShowCreate(true);
+                        // Scroll to top of list area so they see the editor form open
+                        window.scrollTo({ top: 100, behavior: "smooth" });
+                      }} 
+                      className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg cursor-pointer"
+                      title="Edit Task"
+                    >
+                      <Icon name="edit" className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDeleteTask(t.id)} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer" title="Delete Task">
+                      <Icon name="trash" className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
