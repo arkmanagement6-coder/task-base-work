@@ -81,6 +81,12 @@
     .slide-in {
       animation: slideRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    
+    /* Fix native option elements background/color combination in Chrome/Edge dark mode */
+    option {
+      background-color: #0f172a !important;
+      color: #ffffff !important;
+    }
   </style>
 </head>
 <body class="app-bg min-h-screen text-[var(--text-main)] transition-colors duration-300">
@@ -2603,6 +2609,7 @@
                   notifications={notifications}
                   triggerToast={triggerToast}
                   updateWallet={updateWallet}
+                  setPreviewImage={setPreviewImage}
                 />
               )}
 
@@ -2952,7 +2959,7 @@
     }
 
     // 4. Submissions Review System
-    function AdminReviews({ submissions, setSubmissions, users, setNotifications, notifications, triggerToast, updateWallet }) {
+    function AdminReviews({ submissions, setSubmissions, users, setNotifications, notifications, triggerToast, updateWallet, setPreviewImage }) {
       const [reviewModal, setReviewModal] = useState(null);
       const [rejectionReason, setRejectionReason] = useState("");
 
@@ -3066,9 +3073,15 @@
                   </div>
 
                   <div>
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Proof Screenshot</span>
-                    <div className="max-h-40 overflow-hidden border border-slate-700 rounded-lg p-1 bg-slate-950/20">
-                      <img src={reviewModal.screenshot || "assets/dashboard_preview.png"} className="mx-auto max-h-36 rounded object-cover" />
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Proof Screenshot (Click to Expand)</span>
+                    <div className="max-h-40 overflow-hidden border border-slate-700 rounded-lg p-1 bg-slate-950/20 flex items-center justify-center">
+                      <img 
+                        src={reviewModal.screenshot || reviewModal.video || "assets/dashboard_preview.png"} 
+                        alt="Proof Screenshot"
+                        onClick={() => setPreviewImage && setPreviewImage({ title: `Proof: Task SUB-${reviewModal.id.toUpperCase()}`, url: reviewModal.screenshot || reviewModal.video || "assets/dashboard_preview.png" })}
+                        onError={(e) => { e.target.src = "assets/krv_logo.png"; }}
+                        className="mx-auto max-h-36 rounded object-contain cursor-zoom-in hover:scale-[1.02] transition duration-200" 
+                      />
                     </div>
                   </div>
 
