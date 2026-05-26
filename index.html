@@ -228,6 +228,43 @@
     };
 
     // ==========================================
+    // IMAGE PREVIEW POPUP MODAL
+    // ==========================================
+    const ImagePreviewModal = ({ image, onClose }) => {
+      if (!image) return null;
+      return (
+        <div 
+          onClick={onClose} 
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 cursor-zoom-out"
+        >
+          <div className="absolute top-4 right-4 z-50 flex gap-4">
+            <button onClick={onClose} className="p-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white shadow-lg cursor-pointer">
+              <Icon name="x-circle" className="w-6 h-6" />
+            </button>
+          </div>
+          
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="w-full max-w-3xl flex flex-col items-center gap-4 cursor-default"
+          >
+            <h3 className="text-base md:text-lg font-bold text-white tracking-wide uppercase">{image.title}</h3>
+            
+            <div className="border border-slate-700/50 rounded-2xl overflow-hidden bg-slate-950 max-h-[75vh] max-w-full flex items-center justify-center p-2 shadow-2xl relative">
+              <img 
+                src={image.url} 
+                alt={image.title} 
+                onError={(e) => { e.target.src = "assets/krv_logo.png"; }}
+                className="max-h-[70vh] max-w-full rounded-xl object-contain shadow-inner animate-pulse" 
+              />
+            </div>
+            
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Click outside image or click (X) to close preview</span>
+          </div>
+        </div>
+      );
+    };
+
+    // ==========================================
     // MASTER APPLICATION ENTRY POINT
     // ==========================================
     function App() {
@@ -1111,6 +1148,7 @@
     }) {
       const [sidebarOpen, setSidebarOpen] = useState(true);
       const [notificationDropdown, setNotificationDropdown] = useState(false);
+      const [previewImage, setPreviewImage] = useState(null);
 
       // Local KYC fetch
       const myKyc = useMemo(() => kycRecords.find(k => k.user_id === currentUser.id) || null, [kycRecords, currentUser]);
@@ -1318,6 +1356,7 @@
                   setKycRecords={setKycRecords}
                   myKyc={myKyc}
                   triggerToast={triggerToast}
+                  setPreviewImage={setPreviewImage}
                 />
               )}
 
@@ -1340,6 +1379,7 @@
               )}
             </div>
           </div>
+          {previewImage && <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />}
         </div>
       );
     }
@@ -1829,7 +1869,7 @@
     }
 
     // 4. KYC
-    function CandidateKyc({ currentUser, setCurrentUser, users, setUsers, kycRecords, setKycRecords, myKyc, triggerToast }) {
+    function CandidateKyc({ currentUser, setCurrentUser, users, setUsers, kycRecords, setKycRecords, myKyc, triggerToast, setPreviewImage }) {
       const [form, setForm] = useState({
         holder: myKyc ? myKyc.account_holder : "",
         accNumber: myKyc ? myKyc.account_number : "",
@@ -1928,7 +1968,13 @@
                     <div key={idx} className="space-y-2">
                       <span className="block text-xs font-bold uppercase text-slate-400">{doc.label}</span>
                       <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-2 bg-slate-900/40 aspect-video flex items-center justify-center overflow-hidden">
-                        <img src={doc.img} alt={doc.label} className="max-h-full max-w-full rounded object-cover cursor-pointer hover:scale-105 transition" />
+                        <img 
+                          src={doc.img} 
+                          alt={doc.label} 
+                          onClick={() => setPreviewImage && setPreviewImage({ title: doc.label, url: doc.img })}
+                          onError={(e) => { e.target.src = "assets/krv_logo.png"; }}
+                          className="max-h-full max-w-full rounded object-cover cursor-zoom-in hover:scale-105 transition" 
+                        />
                       </div>
                     </div>
                   ))}
@@ -2005,7 +2051,11 @@
                     <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative h-36 flex items-center justify-center bg-white/5">
                       <input disabled={currentUser.kyc_status === "Approved"} type="file" accept="image/*" onChange={(e) => handleFilePreview(e, item.field)} className="absolute inset-0 opacity-0 cursor-pointer" />
                       {previews[item.field] ? (
-                        <img src={previews[item.field]} className="max-h-full max-w-full rounded object-cover" />
+                        <img 
+                          src={previews[item.field]} 
+                          onError={(e) => { e.target.src = "assets/krv_logo.png"; }}
+                          className="max-h-full max-w-full rounded object-cover" 
+                        />
                       ) : (
                         <div className="space-y-1">
                           <Icon name="upload" className="w-5 h-5 mx-auto text-slate-400" />
@@ -2376,6 +2426,7 @@
       tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, updateWallet
     }) {
       const [sidebarOpen, setSidebarOpen] = useState(true);
+      const [previewImage, setPreviewImage] = useState(null);
 
       const menuItems = [
         { id: "admin-dashboard", icon: "home", label: "Dashboard" },
@@ -2520,6 +2571,7 @@
                   setNotifications={setNotifications}
                   notifications={notifications}
                   triggerToast={triggerToast}
+                  setPreviewImage={setPreviewImage}
                 />
               )}
 
@@ -2541,6 +2593,7 @@
 
             </div>
           </div>
+          {previewImage && <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />}
         </div>
       );
     }
@@ -3059,7 +3112,7 @@
     }
 
     // 6. KYC Approvals Manager
-    function AdminKyc({ kycRecords, setKycRecords, users, setUsers, setNotifications, notifications, triggerToast }) {
+    function AdminKyc({ kycRecords, setKycRecords, users, setUsers, setNotifications, notifications, triggerToast, setPreviewImage }) {
       const [rejectModal, setRejectModal] = useState(null);
       const [rejectReason, setRejectReason] = useState("");
       const [filterStatus, setFilterStatus] = useState("Pending");
@@ -3207,9 +3260,18 @@
                           ].map((doc, idx) => (
                             <div key={idx} className="space-y-1.5 text-center">
                               <span className="block text-[10px] text-slate-500 uppercase font-bold">{doc.label}</span>
-                              <a href={doc.img} target="_blank" className="border border-slate-200 dark:border-slate-800 rounded-lg p-1 bg-slate-950/20 aspect-video flex items-center justify-center overflow-hidden hover:scale-105 transition duration-200">
-                                <img src={doc.img} className="max-h-full max-w-full rounded object-cover" />
-                              </a>
+                              <button 
+                                type="button"
+                                onClick={() => setPreviewImage && setPreviewImage({ title: doc.label, url: doc.img })}
+                                className="w-full border border-slate-200 dark:border-slate-800 rounded-lg p-1 bg-slate-950/20 aspect-video flex items-center justify-center overflow-hidden hover:scale-105 transition duration-200 cursor-zoom-in"
+                              >
+                                <img 
+                                  src={doc.img} 
+                                  alt={doc.label} 
+                                  onError={(e) => { e.target.src = "assets/krv_logo.png"; }}
+                                  className="max-h-full max-w-full rounded object-cover" 
+                                />
+                              </button>
                             </div>
                           ))}
                         </div>
