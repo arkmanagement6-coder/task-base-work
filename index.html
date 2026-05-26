@@ -97,6 +97,19 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useMemo } = React;
 
+    // Cryptographic Secure One-Way SHA-256 Hash Function
+    const sha256 = async (text) => {
+      const msgBuffer = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const getSaltedHash = async (email, password) => {
+      const payload = `${email.toLowerCase()}:${password}:KRV-PEPPER-2026-T#9!`;
+      return await sha256(payload);
+    };
+
     // ==========================================
     // CUSTOM SVG ICON COMPONENT
     // ==========================================
@@ -132,7 +145,7 @@
         download: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></g>,
         lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
         user: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /></g>,
-        phone: <g><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></g>,
+        phone: <g><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 .8 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6" /* Fallback path trimmed */ /></g>, // Keeping standard icons
         mail: <g><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></g>,
         "map-pin": <g><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></g>,
         share: <g><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></g>,
@@ -165,10 +178,10 @@
     // SEEDING DEFAULT MOCK DATA
     // ==========================================
     const DEFAULT_USERS = [
-      { id: "admin", name: "KRV System Admin", email: "admin@krv.com", password: "admin123", mobile: "9876543210", role: "admin" },
-      { id: "c1", name: "Rahul Sharma", email: "rahul@gmail.com", password: "rahul123", mobile: "9988776655", city: "Mumbai", pincode: "400001", referral_code: "KRV500", wallet_balance: 750, earnings_pending: 120, earnings_paid: 2500, kyc_status: "Approved", role: "candidate" },
-      { id: "c2", name: "Priya Patel", email: "priya@gmail.com", password: "priya123", mobile: "9876123450", city: "Ahmedabad", pincode: "380001", referral_code: "", wallet_balance: 0, earnings_pending: 250, earnings_paid: 0, kyc_status: "Pending", role: "candidate" },
-      { id: "c3", name: "Amit Verma", email: "amit@gmail.com", password: "amit123", mobile: "8877665544", city: "Delhi", pincode: "110001", referral_code: "REF99", wallet_balance: 50, earnings_pending: 0, earnings_paid: 300, kyc_status: "Rejected", role: "candidate" }
+      { id: "admin", name: "KRV System Admin", email: "admin@krv.com", password: "d521ef4a952f07f31cafa3476ee0cc430a2a375c7eb7356034b24bb0c5a37310", mobile: "9876543210", role: "admin" },
+      { id: "c1", name: "Rahul Sharma", email: "rahul@gmail.com", password: "d029b6414b8d45715252d8c1f4061b2b193dd8070a8b5711c610e4380a9c2f8b", mobile: "9988776655", city: "Mumbai", pincode: "400001", referral_code: "KRV500", wallet_balance: 750, earnings_pending: 120, earnings_paid: 2500, kyc_status: "Approved", role: "candidate" },
+      { id: "c2", name: "Priya Patel", email: "priya@gmail.com", password: "6d0877c1f0b6fce330bfad96b5856d8494191efbb44a3f1b54aae81084b9b27d", mobile: "9876123450", city: "Ahmedabad", pincode: "380001", referral_code: "", wallet_balance: 0, earnings_pending: 250, earnings_paid: 0, kyc_status: "Pending", role: "candidate" },
+      { id: "c3", name: "Amit Verma", email: "amit@gmail.com", password: "778013965465006af1ea60778cd1b5420bf020732605a200357cafdd4b56554b", mobile: "8877665544", city: "Delhi", pincode: "110001", referral_code: "REF99", wallet_balance: 50, earnings_pending: 0, earnings_paid: 300, kyc_status: "Rejected", role: "candidate" }
     ];
 
     const DEFAULT_TASKS = [
@@ -274,6 +287,22 @@
     // ==========================================
     // MASTER APPLICATION ENTRY POINT
     // ==========================================
+    // Cryptographic Session Signature
+    const signSession = async (user) => {
+      if (!user) return "";
+      const payload = `${user.id}:${user.email}:${user.role}`;
+      return await sha256(payload + ":KRV-SESSION-SECRET-2026!");
+    };
+
+    // Cryptographic Users Database Signature
+    const signUsersList = async (usersList) => {
+      const payload = usersList.map(u => `${u.id}:${u.email}:${u.role}:${u.password}`).join("|");
+      return await sha256(payload + ":KRV-DATABASE-SECRET-2026!");
+    };
+
+    // ==========================================
+    // MASTER APPLICATION ENTRY POINT
+    // ==========================================
     function App() {
       // Dark/Light theme state
       const [theme, setTheme] = useState(() => localStorage.getItem("krv-theme") || "dark");
@@ -291,14 +320,90 @@
       const [notifications, setNotifications] = useState(() => JSON.parse(localStorage.getItem("krv-notifications")) || DEFAULT_NOTIFICATIONS);
       
       // Session management
-      const [currentUser, setCurrentUser] = useState(() => JSON.parse(localStorage.getItem("krv-current-user")) || null);
+      const [currentUser, setCurrentUser] = useState(null);
+      const [isSessionVerifying, setIsSessionVerifying] = useState(() => !!localStorage.getItem("krv-current-user-session"));
       
       // Toast system
       const [toast, setToast] = useState(null);
 
-      // Save databases to LocalStorage upon changes
+      // Session and Database Integrity Verification on Mount
       useEffect(() => {
-        localStorage.setItem("krv-users", JSON.stringify(users));
+        const verifyIntegrityAndSession = async () => {
+          // 1. Verify Users DB Integrity
+          const storedUsers = localStorage.getItem("krv-users");
+          const storedChecksum = localStorage.getItem("krv-users-checksum");
+          let verifiedUsers = users;
+
+          if (storedUsers && storedChecksum) {
+            try {
+              const parsedUsers = JSON.parse(storedUsers);
+              const expectedChecksum = await signUsersList(parsedUsers);
+              if (storedChecksum === expectedChecksum) {
+                verifiedUsers = parsedUsers;
+              } else {
+                // Tampering detected, restore clean defaults
+                setUsers(DEFAULT_USERS);
+                verifiedUsers = DEFAULT_USERS;
+                const cleanChecksum = await signUsersList(DEFAULT_USERS);
+                localStorage.setItem("krv-users", JSON.stringify(DEFAULT_USERS));
+                localStorage.setItem("krv-users-checksum", cleanChecksum);
+                triggerToast("Security Warning: Database manipulation detected. Reverting records.", "error");
+              }
+            } catch (e) {
+              setUsers(DEFAULT_USERS);
+              verifiedUsers = DEFAULT_USERS;
+              const cleanChecksum = await signUsersList(DEFAULT_USERS);
+              localStorage.setItem("krv-users", JSON.stringify(DEFAULT_USERS));
+              localStorage.setItem("krv-users-checksum", cleanChecksum);
+            }
+          } else {
+            // First time initialization or missing checksum
+            const cleanChecksum = await signUsersList(DEFAULT_USERS);
+            localStorage.setItem("krv-users-checksum", cleanChecksum);
+          }
+
+          // 2. Verify Session Integrity
+          const storedSession = localStorage.getItem("krv-current-user-session");
+          if (storedSession) {
+            try {
+              const { user, signature } = JSON.parse(storedSession);
+              if (user && signature) {
+                const expectedSignature = await signSession(user);
+                if (signature === expectedSignature) {
+                  // Check if user exists with correct role in verified users list
+                  const matchedUser = verifiedUsers.find(
+                    u => u.id === user.id && u.role === user.role && u.email.toLowerCase() === user.email.toLowerCase()
+                  );
+                  if (matchedUser) {
+                    setCurrentUser(matchedUser);
+                    setIsSessionVerifying(false);
+                    return;
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("Session verification failed", e);
+            }
+            // Invalid session or tampered, force logout
+            setCurrentUser(null);
+            localStorage.removeItem("krv-current-user-session");
+            triggerToast("Security Violation: Invalid or tampered session. Logged out.", "error");
+          }
+          setIsSessionVerifying(false);
+        };
+
+        verifyIntegrityAndSession();
+      }, []);
+
+      // Save databases to LocalStorage upon changes with checksum protection
+      useEffect(() => {
+        const saveSecureDb = async () => {
+          localStorage.setItem("krv-users", JSON.stringify(users));
+          const newChecksum = await signUsersList(users);
+          localStorage.setItem("krv-users-checksum", newChecksum);
+        };
+        saveSecureDb();
+
         localStorage.setItem("krv-tasks", JSON.stringify(tasks));
         localStorage.setItem("krv-submissions", JSON.stringify(submissions));
         localStorage.setItem("krv-kyc", JSON.stringify(kycRecords));
@@ -322,11 +427,13 @@
         setToast({ message, type });
       };
 
-      const handleLogin = (email, password) => {
-        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+      const handleLogin = async (email, password) => {
+        const hashedPassword = await getSaltedHash(email, password);
+        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === hashedPassword);
         if (user) {
           setCurrentUser(user);
-          localStorage.setItem("krv-current-user", JSON.stringify(user));
+          const signature = await signSession(user);
+          localStorage.setItem("krv-current-user-session", JSON.stringify({ user, signature }));
           triggerToast(`Welcome back, ${user.name}!`);
           setCurrentPage(user.role === "admin" ? "admin-dashboard" : "dashboard");
           return true;
@@ -338,20 +445,9 @@
 
       const handleLogout = () => {
         setCurrentUser(null);
-        localStorage.removeItem("krv-current-user");
+        localStorage.removeItem("krv-current-user-session");
         triggerToast("Logged out successfully.", "info");
         setCurrentPage("home");
-      };
-
-      // Floating role switcher helper (for developers testing the app)
-      const forceLoginAs = (userId) => {
-        const user = users.find(u => u.id === userId);
-        if (user) {
-          setCurrentUser(user);
-          localStorage.setItem("krv-current-user", JSON.stringify(user));
-          triggerToast(`Switched Sandbox to: ${user.name}`);
-          setCurrentPage(user.role === "admin" ? "admin-dashboard" : "dashboard");
-        }
       };
 
       // Real-time Wallet sync helper
@@ -367,6 +463,18 @@
           return u;
         }));
       };
+
+      if (isSessionVerifying) {
+        return (
+          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-white">
+            <div className="glass-card rounded-2xl p-8 max-w-sm w-full text-center space-y-4">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <h3 className="text-lg font-bold">Verifying Session...</h3>
+              <p className="text-xs text-slate-400">Establishing cryptographically secured workforce connection.</p>
+            </div>
+          </div>
+        );
+      }
 
       return (
         <div className="min-h-screen flex flex-col font-sans transition-colors duration-300">
@@ -459,35 +567,7 @@
             )}
           </main>
 
-          {/* SANDBOX FLOATING QUICK SWITCHER (EXTREMELY USEFUL FOR TESTING END-TO-END FLOW) */}
-          <div className="fixed bottom-4 left-4 z-40 flex flex-col gap-2">
-            <div className="dropdown dropdown-top dropdown-end group relative">
-              <button className="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg cursor-pointer">
-                <span>⚡ Sandbox Switcher</span>
-                <Icon name="chevron-down" className="w-3 h-3" />
-              </button>
-              
-              <div className="hidden group-hover:block absolute bottom-full left-0 pb-3 w-64 z-50">
-                <div className="bg-slate-900 border border-slate-700 text-white rounded-lg shadow-xl py-2 glass-card">
-                  <p className="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-700 pb-2 mb-1">
-                    Change Role Instantly
-                  </p>
-                  <button onClick={() => forceLoginAs("c1")} className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-600 transition flex items-center justify-between">
-                    <span>👦 Rahul (Approved KYC)</span>
-                    <span className="bg-emerald-500/20 text-emerald-300 px-1 rounded text-[9px]">Candidate</span>
-                  </button>
-                  <button onClick={() => forceLoginAs("c2")} className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-600 transition flex items-center justify-between">
-                    <span>👧 Priya (Pending KYC)</span>
-                    <span className="bg-yellow-500/20 text-yellow-300 px-1 rounded text-[9px]">Candidate</span>
-                  </button>
-                  <button onClick={() => forceLoginAs("c3")} className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-600 transition flex items-center justify-between">
-                    <span>👨 Amit (Rejected KYC)</span>
-                    <span className="bg-rose-500/20 text-rose-300 px-1 rounded text-[9px]">Candidate</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* SANDBOX SWITCHER REMOVED FOR SECURE DEPLOYMENT */}
         </div>
       );
     }
@@ -935,11 +1015,11 @@
         setFormData({ ...formData, [e.target.name]: e.target.value });
       };
 
-      const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
         e.preventDefault();
         
         if (currentPage === "login") {
-          handleLogin(formData.email, formData.password);
+          await handleLogin(formData.email, formData.password);
         } else if (currentPage === "signup") {
           if (formData.password !== formData.confirmPassword) {
             triggerToast("Passwords do not match.", "error");
@@ -950,11 +1030,13 @@
             return;
           }
 
+          const hashedPassword = await getSaltedHash(formData.email, formData.password);
+
           const newUser = {
             id: "c" + (users.length + 1),
             name: formData.name,
             email: formData.email,
-            password: formData.password,
+            password: hashedPassword,
             mobile: formData.mobile,
             city: formData.city,
             pincode: formData.pincode,
@@ -972,7 +1054,7 @@
         }
       };
 
-      const handleForgotSubmit = (e) => {
+      const handleForgotSubmit = async (e) => {
         e.preventDefault();
         if (forgotStep === 1) {
           if (!users.some(u => u.email.toLowerCase() === formData.email.toLowerCase())) {
@@ -991,9 +1073,10 @@
             triggerToast("Incorrect OTP.", "error");
           }
         } else {
+          const hashedPassword = await getSaltedHash(formData.email, formData.password);
           setUsers(prev => prev.map(u => {
             if (u.email.toLowerCase() === formData.email.toLowerCase()) {
-              return { ...u, password: formData.password };
+              return { ...u, password: hashedPassword };
             }
             return u;
           }));
@@ -1145,23 +1228,7 @@
                   
                   <div className="text-center text-xs text-slate-400 mt-4">
                     {currentPage === "login" ? (
-                      <div>
-                        <p>Don't have an account? <button type="button" onClick={() => setCurrentPage("signup")} className="text-blue-500 hover:underline font-bold">Sign Up</button></p>
-                        
-                        <div className="text-center mt-4 pt-4 border-t border-slate-800/40">
-                          <button 
-                            type="button" 
-                            onClick={() => {
-                              setFormData({ ...formData, email: "admin@krv.com", password: "admin123" });
-                              triggerToast("Admin credentials pre-filled!");
-                            }} 
-                            className="text-[10px] uppercase font-extrabold tracking-widest text-slate-500 hover:text-blue-400 transition flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
-                          >
-                            <Icon name="lock" className="w-3 h-3 text-slate-500" />
-                            <span>System Administrator Portal</span>
-                          </button>
-                        </div>
-                      </div>
+                      <p>Don't have an account? <button type="button" onClick={() => setCurrentPage("signup")} className="text-blue-500 hover:underline font-bold">Sign Up</button></p>
                     ) : (
                       <p>Already have an account? <button type="button" onClick={() => setCurrentPage("login")} className="text-blue-500 hover:underline font-bold">Log In</button></p>
                     )}
@@ -1415,6 +1482,7 @@
                   users={users}
                   setUsers={setUsers}
                   triggerToast={triggerToast}
+                  setCurrentUser={setCurrentUser}
                 />
               )}
 
@@ -2363,16 +2431,17 @@
     }
 
     // 6. Profile
-    function CandidateProfile({ currentUser, users, setUsers, triggerToast }) {
+    function CandidateProfile({ currentUser, users, setUsers, triggerToast, setCurrentUser }) {
       const [pwd, setPwd] = useState({ old: "", new: "", confirm: "" });
       const [showOld, setShowOld] = useState(false);
       const [showNew, setShowNew] = useState(false);
       const [showConfirm, setShowConfirm] = useState(false);
 
-      const handleUpdatePassword = (e) => {
+      const handleUpdatePassword = async (e) => {
         e.preventDefault();
         
-        if (pwd.old !== currentUser.password) {
+        const hashedOld = await getSaltedHash(currentUser.email, pwd.old);
+        if (hashedOld !== currentUser.password) {
           triggerToast("Incorrect current password.", "error");
           return;
         }
@@ -2382,9 +2451,18 @@
           return;
         }
 
+        const hashedNew = await getSaltedHash(currentUser.email, pwd.new);
         setUsers(prev => prev.map(u => {
           if (u.id === currentUser.id) {
-            return { ...u, password: pwd.new };
+            const updated = { ...u, password: hashedNew };
+            if (setCurrentUser) {
+              setCurrentUser(updated);
+              // Update secure session storage asynchronously
+              signSession(updated).then(signature => {
+                localStorage.setItem("krv-current-user-session", JSON.stringify({ user: updated, signature }));
+              });
+            }
+            return updated;
           }
           return u;
         }));
