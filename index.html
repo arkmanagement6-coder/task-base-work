@@ -1283,6 +1283,7 @@
                   setSubmissions={setSubmissions} 
                   triggerToast={triggerToast}
                   setUsers={setUsers}
+                  setCurrentPage={setCurrentPage}
                 />
               )}
 
@@ -1436,7 +1437,7 @@
     }
 
     // 2. Tasks
-    function CandidateTasks({ currentUser, tasks, submissions, setSubmissions, triggerToast, setUsers }) {
+    function CandidateTasks({ currentUser, tasks, submissions, setSubmissions, triggerToast, setUsers, setCurrentPage }) {
       const [filterCategory, setFilterCategory] = useState("All");
       const [submitDrawer, setSubmitDrawer] = useState(null);
       const [formProof, setFormProof] = useState({ link: "", remarks: "" });
@@ -1498,6 +1499,63 @@
         setFormProof({ link: "", remarks: "" });
         setScreenshotFile(null);
       };
+
+      // KYC Validation Lockout Guard Page
+      if (currentUser.kyc_status !== "Approved") {
+        return (
+          <div className="max-w-xl mx-auto py-10 text-center space-y-6">
+            <div className="w-20 h-20 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto border border-amber-500/20">
+              <Icon name="lock" className="w-10 h-10" />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold tracking-tight">Earning Tasks Locked</h3>
+              <p className="text-xs text-slate-450 dark:text-slate-405 leading-relaxed">
+                {currentUser.kyc_status === "Pending" ? (
+                  "Your KYC Verification is currently Under Review. Our administration team is auditing your bank account details and Aadhaar cards. Tasks will unlock immediately once approved (usually reviewed within 24 hours)."
+                ) : currentUser.kyc_status === "Rejected" ? (
+                  "Your KYC Verification was Rejected by the administrator. Please navigate to the KYC Verification menu to inspect the rejection reason, update details, and re-submit to restore task access."
+                ) : (
+                  "To secure direct direct-to-bank payments and satisfy platform anti-spam rules, you are required to submit identity files under the KYC Verification panel before unlocking active earning tasks."
+                )}
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800/40 bg-white/40 dark:bg-slate-900/40 backdrop-blur text-xs text-slate-400 space-y-3 max-w-sm mx-auto">
+              <div className="flex items-center justify-between font-bold border-b border-slate-200/50 dark:border-slate-800/50 pb-2 mb-1">
+                <span className="uppercase text-[10px] tracking-wider text-slate-400">Verification Steps</span>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                  currentUser.kyc_status === "Pending" ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" :
+                  currentUser.kyc_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                  "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+                }`}>{currentUser.kyc_status || "Not Started"}</span>
+              </div>
+              
+              <div className="flex items-center gap-2.5">
+                <Icon name="check-circle" className="w-4 h-4 text-emerald-500" />
+                <span className="text-left text-[11px]">Submit bank accounts & Aadhaar files</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Icon name="clock" className={`w-4 h-4 ${currentUser.kyc_status === "Pending" ? "text-amber-500" : "text-slate-500"}`} />
+                <span className="text-left text-[11px] text-slate-400">Admin audits details within 24 hours</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Icon name="wallet" className="w-4 h-4 text-slate-500" />
+                <span className="text-left text-[11px] text-slate-400">Unlock full catalog & withdraw funds</span>
+              </div>
+            </div>
+
+            {currentUser.kyc_status !== "Pending" && (
+              <button 
+                onClick={() => setCurrentPage("kyc")} 
+                className="w-full max-w-xs py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition uppercase tracking-wider cursor-pointer mx-auto"
+              >
+                Go to KYC Verification
+              </button>
+            )}
+          </div>
+        );
+      }
 
       return (
         <div className="space-y-6">
@@ -1836,6 +1894,77 @@
 
         triggerToast("KYC details submitted for admin review.");
       };
+
+      // Read-Only View for Pending/Approved KYC
+      if (currentUser.kyc_status === "Pending" || currentUser.kyc_status === "Approved") {
+        return (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6 border-b border-slate-200/50 dark:border-slate-800/40 pb-4">
+                <div>
+                  <h3 className="text-lg font-bold">Identity KYC Verification</h3>
+                  <p className="text-xs text-slate-400">
+                    {currentUser.kyc_status === "Pending" 
+                      ? "Your submitted KYC profile details are currently under review." 
+                      : "Your identity KYC verification profile has been verified successfully."}
+                  </p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                  currentUser.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                  "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                }`}>{currentUser.kyc_status}</span>
+              </div>
+
+              <div className="space-y-6">
+                <h4 className="font-bold text-sm text-slate-300">Submitted Documents</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    { label: "Aadhaar Card Front", img: previews.aadhaarFront },
+                    { label: "Aadhaar Card Back", img: previews.aadhaarBack },
+                    { label: "Verification Selfie", img: previews.selfie }
+                  ].map((doc, idx) => (
+                    <div key={idx} className="space-y-2">
+                      <span className="block text-xs font-bold uppercase text-slate-400">{doc.label}</span>
+                      <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-2 bg-slate-900/40 aspect-video flex items-center justify-center overflow-hidden">
+                        <img src={doc.img} alt={doc.label} className="max-h-full max-w-full rounded object-cover cursor-pointer hover:scale-105 transition" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t border-slate-200/50 dark:border-slate-800/40 pt-6 space-y-4">
+                  <h4 className="font-bold text-sm text-slate-300">Direct Bank Account Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-xl bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/60">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Account Holder Name</span>
+                      <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{form.holder}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank Account Number</span>
+                      <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{form.accNumber}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank Name</span>
+                      <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{form.bank}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank IFSC Code</span>
+                      <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{form.ifsc}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {currentUser.kyc_status === "Pending" && (
+                  <div className="p-4 rounded-xl border border-blue-500/25 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs flex items-center gap-3">
+                    <Icon name="clock" className="w-5 h-5 animate-pulse text-amber-500" />
+                    <span>Our admin team is currently auditing these files. Tasks will unlock instantly once approved.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
 
       return (
         <div className="max-w-4xl mx-auto space-y-6">
@@ -2398,6 +2527,7 @@
                   submissions={submissions} 
                   withdrawals={withdrawals}
                   kycRecords={kycRecords}
+                  tasks={tasks}
                 />
               )}
 
@@ -2930,8 +3060,10 @@
     function AdminKyc({ kycRecords, setKycRecords, users, setUsers, setNotifications, notifications, triggerToast }) {
       const [rejectModal, setRejectModal] = useState(null);
       const [rejectReason, setRejectReason] = useState("");
+      const [filterStatus, setFilterStatus] = useState("Pending");
 
-      const pendingKyc = useMemo(() => kycRecords.filter(k => k.status === "Pending"), [kycRecords]);
+      // Filter KYC records by status
+      const filteredKyc = useMemo(() => kycRecords.filter(k => k.status === filterStatus), [kycRecords, filterStatus]);
 
       const handleApproveKyc = (kyc) => {
         setKycRecords(prev => prev.map(k => k.id === kyc.id ? { ...k, status: "Approved" } : k));
@@ -2979,54 +3111,125 @@
       };
 
       return (
-        <div className="glass-card rounded-2xl p-6">
-          <h3 className="text-lg font-bold mb-4">Pending Candidates KYC: {pendingKyc.length} Records</h3>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
-                  <th className="py-3">Holder Name</th>
-                  <th>Bank Account</th>
-                  <th>IFSC</th>
-                  <th>Aadhaar / Selfie Inspect</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
-                {pendingKyc.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="py-6 text-center text-slate-500">No pending candidate identity files to verify.</td>
-                  </tr>
-                ) : (
-                  pendingKyc.map(k => (
-                    <tr key={k.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
-                      <td className="py-3.5 font-bold">{k.account_holder}</td>
-                      <td className="text-slate-400">{k.account_number} ({k.bank_name})</td>
-                      <td className="text-slate-400">{k.ifsc}</td>
-                      <td>
-                        <div className="flex gap-2">
-                          <a href={k.aadhaar_front} target="_blank" className="text-[10px] text-blue-500 underline font-bold uppercase">Front</a>
-                          <a href={k.aadhaar_back} target="_blank" className="text-[10px] text-blue-500 underline font-bold uppercase">Back</a>
-                          <a href={k.selfie} target="_blank" className="text-[10px] text-blue-500 underline font-bold uppercase">Selfie</a>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="flex gap-2">
-                          <button onClick={() => setRejectModal(k)} className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold uppercase cursor-pointer">
-                            Reject
-                          </button>
-                          <button onClick={() => handleApproveKyc(k)} className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold uppercase cursor-pointer">
-                            Approve
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        <div className="space-y-6">
+          {/* Status Filter Tab */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {["Pending", "Approved", "Rejected"].map(status => (
+              <button 
+                key={status} 
+                onClick={() => setFilterStatus(status)}
+                className={`px-4 py-2 rounded-full text-xs font-bold shrink-0 cursor-pointer ${
+                  filterStatus === status ? "bg-blue-600 text-white shadow animate-pulse" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                {status} KYC ({kycRecords.filter(k => k.status === status).length})
+              </button>
+            ))}
           </div>
+
+          <h3 className="text-base font-bold">Candidate-wise KYC Documents Directory ({filteredKyc.length})</h3>
+
+          {filteredKyc.length === 0 ? (
+            <div className="p-10 text-center glass-card rounded-2xl text-slate-500 text-xs">
+              No candidates found with {filterStatus} KYC status.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {filteredKyc.map(k => {
+                const candidate = users.find(u => u.id === k.user_id);
+                return (
+                  <div key={k.id} className="glass-card rounded-2xl p-6 border border-slate-200/65 dark:border-slate-850 space-y-6">
+                    {/* Header Candidate Info */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/50 dark:border-slate-800/40 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-600/10 text-blue-500 flex items-center justify-center font-bold">
+                          {candidate ? candidate.name[0] : k.account_holder[0]}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">{candidate ? candidate.name : k.account_holder}</h4>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                            ID: USER-{k.user_id.toUpperCase()} | {candidate?.email} | Mob: {candidate?.mobile}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-left md:text-right text-xs">
+                        <span className="text-slate-400 block uppercase text-[9px] font-bold tracking-wider">Candidate Location</span>
+                        <span className="font-semibold block text-slate-700 dark:text-slate-350 mt-0.5">
+                          {candidate?.city || "N/A"} - {candidate?.pincode || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bank Details & Document Photos Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Bank Account */}
+                      <div className="p-5 rounded-xl bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/60 space-y-4 flex flex-col justify-between">
+                        <div>
+                          <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-3">Direct Bank Transfer Details</h5>
+                          <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                              <span className="text-slate-400 block text-[9px] font-bold uppercase">Account Holder</span>
+                              <span className="font-semibold text-slate-900 dark:text-slate-200 block mt-1">{k.account_holder}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[9px] font-bold uppercase">Account Number</span>
+                              <span className="font-bold text-slate-900 dark:text-slate-200 block mt-1">{k.account_number}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[9px] font-bold uppercase">Bank Name</span>
+                              <span className="font-semibold text-slate-900 dark:text-slate-200 block mt-1">{k.bank_name}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[9px] font-bold uppercase">IFSC Code</span>
+                              <span className="font-bold text-slate-900 dark:text-slate-200 block mt-1">{k.ifsc}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {k.rejection_reason && (
+                          <div className="p-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-450 text-[11px] font-medium mt-3">
+                            <span className="font-bold">Rejection Feedback: </span>{k.rejection_reason}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Documents Grid */}
+                      <div className="space-y-4">
+                        <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Identity Document Files</h5>
+                        <div className="grid grid-cols-3 gap-3">
+                          {[
+                            { label: "Aadhaar Front", img: k.aadhaar_front },
+                            { label: "Aadhaar Back", img: k.aadhaar_back },
+                            { label: "Selfie Image", img: k.selfie }
+                          ].map((doc, idx) => (
+                            <div key={idx} className="space-y-1.5 text-center">
+                              <span className="block text-[10px] text-slate-500 uppercase font-bold">{doc.label}</span>
+                              <a href={doc.img} target="_blank" className="border border-slate-200 dark:border-slate-800 rounded-lg p-1 bg-slate-950/20 aspect-video flex items-center justify-center overflow-hidden hover:scale-105 transition duration-200">
+                                <img src={doc.img} className="max-h-full max-w-full rounded object-cover" />
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions Panel */}
+                    {filterStatus === "Pending" && (
+                      <div className="flex justify-end gap-3 pt-4 border-t border-slate-200/50 dark:border-slate-800/40">
+                        <button onClick={() => setRejectModal(k)} className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer shadow transition">
+                          Reject KYC
+                        </button>
+                        <button onClick={() => handleApproveKyc(k)} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer shadow transition">
+                          Approve KYC Identity
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* KYC Reject Reason input box */}
           {rejectModal && (
@@ -3034,16 +3237,16 @@
               <div className="w-full max-w-md glass-card rounded-2xl p-6 relative">
                 <button onClick={() => setRejectModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-5 h-5" /></button>
                 
-                <h3 className="text-lg font-bold mb-4">Reject KYC: {rejectModal.account_holder}</h3>
+                <h3 className="text-lg font-bold mb-4 text-slate-900 dark:text-white">Reject KYC: {rejectModal.account_holder}</h3>
                 
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Rejection Reason</label>
-                    <input required type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Blur Aadhaar card details, selfie mismatch..." />
+                    <input required type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="Blur Aadhaar card details, selfie mismatch..." />
                   </div>
                   
-                  <button onClick={() => handleRejectKyc(rejectModal)} className="w-full py-3 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">
-                    Reject KYC Verification
+                  <button onClick={() => handleRejectKyc(rejectModal)} className="w-full py-3.5 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer shadow transition">
+                    Confirm Reject KYC
                   </button>
                 </div>
               </div>
@@ -3054,37 +3257,70 @@
     }
 
     // 7. System Reports Generator
-    function AdminReports({ users, submissions, withdrawals, kycRecords }) {
+    function AdminReports({ users, submissions, withdrawals, kycRecords, tasks }) {
       const [filterStatus, setFilterStatus] = useState("All");
-      const [filterRole, setFilterRole] = useState("All");
+      const [filterCategory, setFilterCategory] = useState("All");
+      const [filterCandidate, setFilterCandidate] = useState("All");
+      const [startDate, setStartDate] = useState("");
+      const [endDate, setEndDate] = useState("");
+
+      const candidates = useMemo(() => users.filter(u => u.role === "candidate"), [users]);
 
       const filteredList = useMemo(() => {
         return submissions.filter(s => {
           const matchStatus = filterStatus === "All" || s.review_status === filterStatus;
-          const user = users.find(u => u.id === s.user_id);
-          const matchRole = filterRole === "All" || (user && user.city.toLowerCase() === filterRole.toLowerCase());
-          return matchStatus && matchRole;
+          
+          // Match category of the task
+          const task = tasks.find(t => t.id === s.task_id);
+          const matchCategory = filterCategory === "All" || (task && task.category === filterCategory);
+          
+          // Match specific candidate
+          const matchCandidate = filterCandidate === "All" || s.user_id === filterCandidate;
+          
+          // Match Date Range
+          let matchDate = true;
+          if (startDate) {
+            matchDate = matchDate && (s.date >= startDate);
+          }
+          if (endDate) {
+            matchDate = matchDate && (s.date <= endDate);
+          }
+          
+          return matchStatus && matchCategory && matchCandidate && matchDate;
         });
-      }, [submissions, users, filterStatus, filterRole]);
+      }, [submissions, tasks, filterStatus, filterCategory, filterCandidate, startDate, endDate]);
 
       const handleExport = (format) => {
         let content = "";
         let filename = `krv_admin_workforce_report_${new Date().toISOString().split('T')[0]}`;
         
         if (format === "csv") {
-          content = "Sub ID,Candidate ID,Price,Status,Date\n" + 
-            filteredList.map(s => `SUB-${s.id.toUpperCase()},USER-${s.user_id.toUpperCase()},${s.amount},${s.review_status},${s.date}`).join("\n");
+          content = "Sub ID,Candidate Name,Task Title,Price,Status,Date\n" + 
+            filteredList.map(s => {
+              const candidate = users.find(u => u.id === s.user_id);
+              const task = tasks.find(t => t.id === s.task_id);
+              return `SUB-${s.id.toUpperCase()},"${candidate ? candidate.name : 'N/A'}","${task ? task.title : 'N/A'}",${s.amount},${s.review_status},${s.date}`;
+            }).join("\n");
           filename += ".csv";
         } else if (format === "excel") {
-          content = "Sub ID\tCandidate ID\tPrice\tStatus\tDate\n" + 
-            filteredList.map(s => `SUB-${s.id.toUpperCase()}\tUSER-${s.user_id.toUpperCase()}\t${s.amount}\t${s.review_status}\t${s.date}`).join("\n");
+          content = "Sub ID\tCandidate Name\tTask Title\tPrice\tStatus\tDate\n" + 
+            filteredList.map(s => {
+              const candidate = users.find(u => u.id === s.user_id);
+              const task = tasks.find(t => t.id === s.task_id);
+              return `SUB-${s.id.toUpperCase()}\t${candidate ? candidate.name : 'N/A'}\t${task ? task.title : 'N/A'}\t${s.amount}\t${s.review_status}\t${s.date}`;
+            }).join("\n");
           filename += ".xls";
         } else {
           content = "KRV ADMIN MASTER AUDIT REPORT\n=============================\n" +
             `Generated: ${new Date().toLocaleString()}\n` +
+            `Filters: Status=${filterStatus} | Category=${filterCategory} | Candidate=${filterCandidate}\n` +
             `Total Filtered Entries: ${filteredList.length} submissions\n\n` +
             "SUBMISSIONS AUDIT DATA:\n------------------------\n" +
-            filteredList.map(s => `[SUB-${s.id.toUpperCase()}] Candidate: USER-${s.user_id.toUpperCase()} | Price: Rs.${s.amount} | Status: ${s.review_status} | Date: ${s.date}`).join("\n");
+            filteredList.map(s => {
+              const candidate = users.find(u => u.id === s.user_id);
+              const task = tasks.find(t => t.id === s.task_id);
+              return `[SUB-${s.id.toUpperCase()}] Candidate: ${candidate ? candidate.name : 'N/A'} | Task: ${task ? task.title : 'N/A'} | Price: Rs.${s.amount} | Status: ${s.review_status} | Date: ${s.date}`;
+            }).join("\n");
           filename += ".pdf";
         }
 
@@ -3099,11 +3335,11 @@
 
       return (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 rounded-2xl glass-card">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-5 rounded-2xl glass-card text-xs">
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Audit Status</label>
-              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
-                <option value="All">All Reviews</option>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Audit Status</label>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500">
+                <option value="All">All Statuses</option>
                 <option value="Approved">Approved</option>
                 <option value="Pending">Pending</option>
                 <option value="Rejected">Rejected</option>
@@ -3111,23 +3347,49 @@
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">City Filter</label>
-              <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
-                <option value="All">All Locations</option>
-                <option value="mumbai">Mumbai</option>
-                <option value="ahmedabad">Ahmedabad</option>
-                <option value="delhi">Delhi</option>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Task Category</label>
+              <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500">
+                <option value="All">All Categories</option>
+                <option value="Application Review">Application Review</option>
+                <option value="Google Review">Google Review</option>
+                <option value="Audio Recording">Audio Recording</option>
+                <option value="Video Recording">Video Recording</option>
+                <option value="Product Review">Product Review</option>
               </select>
             </div>
 
-            <div className="md:col-span-2 flex items-end gap-3 justify-end mt-4 md:mt-0">
-              <button onClick={() => handleExport("csv")} className="px-4 py-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-850 flex items-center gap-2 cursor-pointer">
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Candidate</label>
+              <select value={filterCandidate} onChange={(e) => setFilterCandidate(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500">
+                <option value="All">All Candidates</option>
+                {candidates.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} (USER-{c.id.toUpperCase()})</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Start Date</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">End Date</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          {/* Export Buttons bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-slate-50/50 dark:bg-slate-900/40 border border-slate-250 dark:border-slate-800 text-xs">
+            <span className="font-semibold text-slate-400">Export options for {filteredList.length} filtered rows:</span>
+            <div className="flex gap-2">
+              <button onClick={() => handleExport("csv")} className="px-4 py-2 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition">
                 <Icon name="download" className="w-4 h-4" /> CSV Export
               </button>
-              <button onClick={() => handleExport("excel")} className="px-4 py-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-850 flex items-center gap-2 cursor-pointer">
+              <button onClick={() => handleExport("excel")} className="px-4 py-2 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition">
                 <Icon name="download" className="w-4 h-4" /> Excel XLS
               </button>
-              <button onClick={() => handleExport("pdf")} className="px-4 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2 cursor-pointer">
+              <button onClick={() => handleExport("pdf")} className="px-4 py-2 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2 cursor-pointer transition">
                 <Icon name="download" className="w-4 h-4" /> PDF Report
               </button>
             </div>
