@@ -1168,18 +1168,18 @@
       return (
         <div className="min-h-screen flex">
           {/* Sidebar */}
-          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 flex flex-col justify-between transition-all duration-300 ${
+          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 shrink-0 flex flex-col justify-between transition-all duration-300 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full md:w-0"
           } fixed md:relative h-full md:h-auto z-30`}>
             
             <div>
               {/* Sidebar Branding */}
-              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20">
+              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20 whitespace-nowrap">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">K</div>
-                  <div>
-                    <span className="text-sm font-bold tracking-tight text-white block">KRV Portal</span>
-                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest">Candidate</span>
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">K</div>
+                  <div className="min-w-0">
+                    <span className="text-sm font-bold tracking-tight text-white block truncate">KRV Portal</span>
+                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">Candidate</span>
                   </div>
                 </div>
                 <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><Icon name="x-circle" className="w-4 h-4" /></button>
@@ -1191,18 +1191,18 @@
                   <button 
                     key={item.id}
                     onClick={() => setCurrentPage(item.id)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
                       currentPage === item.id 
                         ? "bg-blue-600 text-white shadow-lg" 
                         : "hover:bg-slate-800 hover:text-white"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon name={item.icon} className="w-4 h-4" />
-                      <span>{item.label}</span>
+                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap">{item.label}</span>
                     </div>
                     {item.alert && (
-                      <span className={`w-2 h-2 rounded-full ${currentUser.kyc_status === "Rejected" ? "bg-rose-500" : "bg-yellow-500"}`} />
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${currentUser.kyc_status === "Rejected" ? "bg-rose-500" : "bg-yellow-500"}`} />
                     )}
                   </button>
                 ))}
@@ -1211,9 +1211,9 @@
 
             {/* Logout button */}
             <div className="p-4 border-t border-slate-800 bg-slate-950/15">
-              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer">
-                <Icon name="logout" className="w-4 h-4" />
-                <span>Logout</span>
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer whitespace-nowrap">
+                <Icon name="logout" className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Logout</span>
               </button>
             </div>
           </aside>
@@ -2442,18 +2442,18 @@
       return (
         <div className="min-h-screen flex">
           {/* Admin Sidebar */}
-          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 flex flex-col justify-between transition-all duration-300 ${
+          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 shrink-0 flex flex-col justify-between transition-all duration-300 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full md:w-0"
           } fixed md:relative h-full md:h-auto z-30`}>
             
             <div>
               {/* Sidebar Branding */}
-              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20">
+              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20 whitespace-nowrap">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">K</div>
-                  <div>
-                    <span className="text-sm font-bold tracking-tight text-white block">KRV Admin</span>
-                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest">Portal Manager</span>
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">K</div>
+                  <div className="min-w-0">
+                    <span className="text-sm font-bold tracking-tight text-white block truncate">KRV Admin</span>
+                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">Portal Manager</span>
                   </div>
                 </div>
                 <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><Icon name="x-circle" className="w-4 h-4" /></button>
@@ -2465,15 +2465,15 @@
                   <button 
                     key={item.id}
                     onClick={() => setCurrentPage(item.id)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
                       currentPage === item.id 
                         ? "bg-blue-600 text-white shadow-lg" 
                         : "hover:bg-slate-800 hover:text-white"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon name={item.icon} className="w-4 h-4" />
-                      <span>{item.label}</span>
+                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap">{item.label}</span>
                     </div>
                   </button>
                 ))}
@@ -2482,9 +2482,9 @@
 
             {/* Logout button */}
             <div className="p-4 border-t border-slate-800 bg-slate-950/15">
-              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer">
-                <Icon name="logout" className="w-4 h-4" />
-                <span>Logout</span>
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer whitespace-nowrap">
+                <Icon name="logout" className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Logout</span>
               </button>
             </div>
           </aside>
