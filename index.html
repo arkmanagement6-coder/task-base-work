@@ -131,6 +131,7 @@
         "map-pin": <g><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></g>,
         share: <g><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></g>,
         eye: <g><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></g>,
+        "eye-off": <g><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></g>,
         shield: <g><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></g>,
         settings: <g><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></g>,
         "check": <g><polyline points="20 6 9 17 4 12" /></g>,
@@ -923,6 +924,8 @@
         name: "", email: "", mobile: "", city: "", pincode: "", referral: "", password: "", confirmPassword: ""
       });
       const [forgotStep, setForgotStep] = useState(1);
+      const [showPassword, setShowPassword] = useState(false);
+      const [showConfirmPassword, setShowConfirmPassword] = useState(false);
       const [otpInput, setOtpInput] = useState("");
       const [simulatedOtp, setSimulatedOtp] = useState("");
 
@@ -1043,7 +1046,12 @@
                   {forgotStep === 3 && (
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-400 mb-2">New Password</label>
-                      <input required type="password" name="password" value={formData.password} onChange={handleChange} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Min 6 characters" minLength={6} />
+                      <div className="relative">
+                        <input required type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-4 pr-10 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Min 6 characters" minLength={6} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                          <Icon name={showPassword ? "eye" : "eye-off"} className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -1100,12 +1108,22 @@
                   <div className={currentPage === "signup" ? "grid grid-cols-2 gap-4" : "space-y-4"}>
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Password</label>
-                      <input required type="password" name="password" value={formData.password} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="••••••••" minLength={6} />
+                      <div className="relative">
+                        <input required type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-3.5 pr-10 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="••••••••" minLength={6} />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                          <Icon name={showPassword ? "eye" : "eye-off"} className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                     {currentPage === "signup" && (
                       <div>
                         <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Confirm Password</label>
-                        <input required type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="••••••••" minLength={6} />
+                        <div className="relative">
+                          <input required type={showConfirmPassword ? "text" : "password"} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="w-full pl-3.5 pr-10 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="••••••••" minLength={6} />
+                          <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                            <Icon name={showConfirmPassword ? "eye" : "eye-off"} className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2233,6 +2251,9 @@
     // 6. Profile
     function CandidateProfile({ currentUser, users, setUsers, triggerToast }) {
       const [pwd, setPwd] = useState({ old: "", new: "", confirm: "" });
+      const [showOld, setShowOld] = useState(false);
+      const [showNew, setShowNew] = useState(false);
+      const [showConfirm, setShowConfirm] = useState(false);
 
       const handleUpdatePassword = (e) => {
         e.preventDefault();
@@ -2291,15 +2312,30 @@
             <form onSubmit={handleUpdatePassword} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Current Password</label>
-                <input required type="password" value={pwd.old} onChange={(e) => setPwd({ ...pwd, old: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+                <div className="relative">
+                  <input required type={showOld ? "text" : "password"} value={pwd.old} onChange={(e) => setPwd({ ...pwd, old: e.target.value })} className="w-full pl-3 pr-10 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+                  <button type="button" onClick={() => setShowOld(!showOld)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <Icon name={showOld ? "eye" : "eye-off"} className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-400 mb-2">New Password</label>
-                <input required type="password" value={pwd.new} onChange={(e) => setPwd({ ...pwd, new: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+                <div className="relative">
+                  <input required type={showNew ? "text" : "password"} value={pwd.new} onChange={(e) => setPwd({ ...pwd, new: e.target.value })} className="w-full pl-3 pr-10 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+                  <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <Icon name={showNew ? "eye" : "eye-off"} className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Confirm New Password</label>
-                <input required type="password" value={pwd.confirm} onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+                <div className="relative">
+                  <input required type={showConfirm ? "text" : "password"} value={pwd.confirm} onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} className="w-full pl-3 pr-10 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+                  <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <Icon name={showConfirm ? "eye" : "eye-off"} className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <button type="submit" className="w-full py-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition cursor-pointer">
