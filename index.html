@@ -1368,6 +1368,10 @@
                   myKyc={myKyc}
                   triggerToast={triggerToast}
                   setUsers={setUsers}
+                  kycRecords={kycRecords}
+                  setKycRecords={setKycRecords}
+                  submissions={submissions}
+                  tasks={tasks}
                 />
               )}
 
@@ -1747,57 +1751,81 @@
     }
 
     // 3. Earnings
-    function CandidateEarnings({ currentUser, withdrawals, setWithdrawals, myKyc, triggerToast, setUsers }) {
-      const [withdrawAmount, setWithdrawAmount] = useState("");
+    function CandidateEarnings({ 
+      currentUser, withdrawals, setWithdrawals, myKyc, triggerToast, setUsers, 
+      kycRecords, setKycRecords, submissions, tasks 
+    }) {
+      const [isEditingBank, setIsEditingBank] = useState(false);
+      
+      const mySubmissions = useMemo(() => submissions.filter(s => s.user_id === currentUser.id), [submissions, currentUser]);
       
       const stats = useMemo(() => {
-        const approvedW = withdrawals.filter(w => w.status === "Approved");
+        const approvedSub = mySubmissions.filter(s => s.review_status === "Approved");
+        const pendingSub = mySubmissions.filter(s => s.review_status === "Pending");
         return {
-          pending: withdrawals.filter(w => w.status === "Pending").reduce((sum, w) => sum + w.amount, 0),
-          paid: approvedW.reduce((sum, w) => sum + w.amount, 0)
+          approvedEarnings: approvedSub.reduce((sum, s) => sum + s.amount, 0),
+          pendingEarnings: pendingSub.reduce((sum, s) => sum + s.amount, 0),
+          approvedCount: approvedSub.length,
+          pendingCount: pendingSub.length
         };
-      }, [withdrawals]);
+      }, [mySubmissions]);
 
-      const handleWithdrawRequest = (e) => {
+      const [bankForm, setBankForm] = useState({
+        holder: myKyc ? myKyc.account_holder : "",
+        accNumber: myKyc ? myKyc.account_number : "",
+        bank: myKyc ? myKyc.bank_name : "",
+        ifsc: myKyc ? myKyc.ifsc : ""
+      });
+
+      // Synchronize bankForm state if myKyc updates
+      useEffect(() => {
+        if (myKyc) {
+          setBankForm({
+            holder: myKyc.account_holder,
+            accNumber: myKyc.account_number,
+            bank: myKyc.bank_name,
+            ifsc: myKyc.ifsc
+          });
+        }
+      }, [myKyc]);
+
+      const handleSaveBank = (e) => {
         e.preventDefault();
         
-        const amt = parseFloat(withdrawAmount);
-        if (isNaN(amt) || amt <= 0) {
-          triggerToast("Invalid withdrawal amount.", "error");
+        if (!bankForm.holder || !bankForm.accNumber || !bankForm.bank || !bankForm.ifsc) {
+          triggerToast("All bank details are required.", "error");
           return;
         }
 
-        if (currentUser.kyc_status !== "Approved") {
-          triggerToast("You must complete and approve KYC verification to request withdrawals.", "error");
-          return;
-        }
-
-        if (amt > currentUser.wallet_balance) {
-          triggerToast("Insufficient wallet balance.", "error");
-          return;
-        }
-
-        const newRequest = {
-          id: "w" + (withdrawals.length + 1),
+        const newKyc = {
+          id: myKyc ? myKyc.id : "k" + (kycRecords.length + 1),
           user_id: currentUser.id,
-          amount: amt,
-          status: "Pending",
-          date: new Date().toISOString().split('T')[0],
-          bank_details: `${myKyc.bank_name} - ${myKyc.account_number}`
+          account_holder: bankForm.holder,
+          account_number: bankForm.accNumber,
+          bank_name: bankForm.bank,
+          ifsc: bankForm.ifsc,
+          aadhaar_front: myKyc ? myKyc.aadhaar_front : "assets/dashboard_preview.png",
+          aadhaar_back: myKyc ? myKyc.aadhaar_back : "assets/dashboard_preview.png",
+          selfie: myKyc ? myKyc.selfie : "assets/krv_logo.png",
+          status: "Pending" // Re-submit for review
         };
 
-        setWithdrawals([...withdrawals, newRequest]);
-        
-        // Deduct from wallet balance instantly
+        if (myKyc) {
+          setKycRecords(prev => prev.map(k => k.id === myKyc.id ? newKyc : k));
+        } else {
+          setKycRecords([...kycRecords, newKyc]);
+        }
+
+        // Update user KYC status
         setUsers(prev => prev.map(u => {
           if (u.id === currentUser.id) {
-            return { ...u, wallet_balance: u.wallet_balance - amt };
+            return { ...u, kyc_status: "Pending" };
           }
           return u;
         }));
 
-        triggerToast("Withdrawal request submitted successfully!");
-        setWithdrawAmount("");
+        triggerToast("Bank details saved & submitted for audit!");
+        setIsEditingBank(false);
       };
 
       return (
@@ -1807,90 +1835,149 @@
             <div className="p-6 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg">
               <span className="text-[10px] font-bold uppercase tracking-widest text-blue-100">Wallet Balance</span>
               <h3 className="text-4xl font-extrabold mt-2">₹{currentUser.wallet_balance}</h3>
-              <p className="text-xs text-blue-200 mt-2">Verified earnings ready for bank transfer.</p>
+              <p className="text-xs text-blue-200 mt-2">Verified earnings ready for direct deposit.</p>
             </div>
             
             <div className="p-6 rounded-2xl glass-card">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Withdrawals</span>
-              <h3 className="text-4xl font-extrabold mt-2 text-amber-500">₹{stats.pending}</h3>
-              <p className="text-xs text-slate-500 mt-2">Awaiting admin fund transfer release.</p>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Approved Task Earnings</span>
+              <h3 className="text-4xl font-extrabold mt-2 text-emerald-500">₹{stats.approvedEarnings}</h3>
+              <p className="text-xs text-slate-500 mt-2">Payouts cleared from {stats.approvedCount} completed tasks.</p>
             </div>
 
             <div className="p-6 rounded-2xl glass-card">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Paid Amount</span>
-              <h3 className="text-4xl font-extrabold mt-2 text-emerald-500">₹{stats.paid}</h3>
-              <p className="text-xs text-slate-500 mt-2">Transferred to HDFC verified account.</p>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Auditing</span>
+              <h3 className="text-4xl font-extrabold mt-2 text-amber-500">₹{stats.pendingEarnings}</h3>
+              <p className="text-xs text-slate-500 mt-2">Awaiting review for {stats.pendingCount} submissions.</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Request Withdrawal Form */}
+            {/* Direct Bank Account Details Card */}
             <div className="glass-card rounded-2xl p-6">
-              <h3 className="text-lg font-bold mb-2">Request Bank Withdrawal</h3>
-              <p className="text-xs text-slate-400 mb-6">Funds are transferred directly into verified KYC bank details.</p>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold">Direct Bank Account</h3>
+                  <p className="text-xs text-slate-400">KYC verification bank transfer details.</p>
+                </div>
+                {!isEditingBank && (
+                  <button 
+                    onClick={() => setIsEditingBank(true)}
+                    className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  >
+                    <Icon name="edit" className="w-3.5 h-3.5" />
+                    <span>Edit Details</span>
+                  </button>
+                )}
+              </div>
 
-              {currentUser.kyc_status !== "Approved" ? (
-                <div className="p-6 text-center bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-400">
-                  <Icon name="x-circle" className="w-10 h-10 mx-auto mb-3" />
-                  <h4 className="font-bold text-sm">KYC Approved Status Required</h4>
-                  <p className="text-xs mt-1">Please complete KYC uploads and wait for admin verification before withdraws.</p>
+              {isEditingBank ? (
+                <form onSubmit={handleSaveBank} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Account Holder Name</label>
+                    <input required type="text" value={bankForm.holder} onChange={(e) => setBankForm({ ...bankForm, holder: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="John Doe" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Account Number</label>
+                    <input required type="text" value={bankForm.accNumber} onChange={(e) => setBankForm({ ...bankForm, accNumber: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="998877665544" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Name</label>
+                      <input required type="text" value={bankForm.bank} onChange={(e) => setBankForm({ ...bankForm, bank: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="HDFC Bank" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">IFSC Code</label>
+                      <input required type="text" value={bankForm.ifsc} onChange={(e) => setBankForm({ ...bankForm, ifsc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="HDFC0001234" />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={() => setIsEditingBank(false)} className="w-1/2 py-2.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer">
+                      Cancel
+                    </button>
+                    <button type="submit" className="w-1/2 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow transition cursor-pointer">
+                      Save & Verify
+                    </button>
+                  </div>
+                </form>
+              ) : myKyc ? (
+                <div className="space-y-4">
+                  <div className="p-5 rounded-xl bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/60 space-y-3.5 text-xs">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Account Holder Name</span>
+                      <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{myKyc.account_holder}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank Account Number</span>
+                      <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{myKyc.account_number}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank Name</span>
+                        <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{myKyc.bank_name}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank IFSC Code</span>
+                        <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{myKyc.ifsc}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 rounded-xl border border-blue-500/25 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs flex items-center gap-2.5">
+                    <Icon name="shield" className="w-4 h-4 shrink-0 text-blue-500" />
+                    <span>Direct deposits are released to this bank account instantly upon task approvals.</span>
+                  </div>
                 </div>
               ) : (
-                <form onSubmit={handleWithdrawRequest} className="space-y-4">
-                  <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
-                    <p className="font-semibold uppercase text-slate-400 text-[10px]">Verified Bank Details</p>
-                    <p className="text-sm font-bold">{myKyc.account_holder}</p>
-                    <p className="text-slate-400">A/c: {myKyc.account_number} ({myKyc.bank_name})</p>
-                    <p className="text-slate-400">IFSC Code: {myKyc.ifsc}</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Withdraw Amount</label>
-                    <input required type="number" min="1" max={currentUser.wallet_balance} value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Enter amount to withdraw" />
-                  </div>
-
-                  <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition cursor-pointer">
-                    Submit Withdrawal Request
+                <div className="p-6 text-center bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-500">
+                  <Icon name="alert-circle" className="w-10 h-10 mx-auto mb-3" />
+                  <h4 className="font-bold text-sm">No Bank Account Details Found</h4>
+                  <p className="text-xs mt-1 mb-4">Please submit your KYC or add bank details here to enable task payouts.</p>
+                  <button 
+                    type="button"
+                    onClick={() => setIsEditingBank(true)}
+                    className="px-5 py-2.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-bold transition shadow hover:bg-amber-600 cursor-pointer"
+                  >
+                    Add Bank Details Now
                   </button>
-                </form>
+                </div>
               )}
             </div>
 
-            {/* Withdrawal History */}
+            {/* Task Payout History */}
             <div className="glass-card rounded-2xl p-6">
-              <h3 className="text-lg font-bold mb-4">Transaction History</h3>
+              <h3 className="text-lg font-bold mb-4">Task Payout History ({mySubmissions.filter(s => s.review_status === "Approved").length})</h3>
               <div className="overflow-y-auto max-h-80">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
                       <th className="py-2.5">Date</th>
+                      <th>Task Description</th>
                       <th>Amount</th>
-                      <th>Account</th>
-                      <th>Status</th>
+                      <th>Payout Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
-                    {withdrawals.filter(w => w.user_id === currentUser.id).length === 0 ? (
+                    {mySubmissions.filter(s => s.review_status === "Approved").length === 0 ? (
                       <tr>
-                        <td colSpan="4" className="py-6 text-center text-slate-500">No withdrawal requests found.</td>
+                        <td colSpan="4" className="py-8 text-center text-slate-500">No approved task payouts logged yet.</td>
                       </tr>
                     ) : (
-                      withdrawals.filter(w => w.user_id === currentUser.id).reverse().map(w => (
-                        <tr key={w.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
-                          <td className="py-3 text-slate-400">{w.date}</td>
-                          <td className="font-bold text-emerald-500">₹{w.amount}</td>
-                          <td className="text-slate-400 max-w-[120px] truncate">{w.bank_details}</td>
-                          <td>
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                              w.status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
-                              w.status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
-                              "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                            }`}>
-                              {w.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      mySubmissions.filter(s => s.review_status === "Approved").reverse().map(s => {
+                        const taskDetail = tasks.find(t => t.id === s.task_id);
+                        return (
+                          <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/15">
+                            <td className="py-3 text-slate-400">{s.date}</td>
+                            <td className="font-semibold max-w-[150px] truncate" title={taskDetail ? taskDetail.title : `Task-${s.task_id}`}>{taskDetail ? taskDetail.title : `Task-${s.task_id}`}</td>
+                            <td className="font-bold text-emerald-500">₹{s.amount}</td>
+                            <td>
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                Released
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
