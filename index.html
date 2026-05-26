@@ -1,0 +1,3227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KRV Management — Task Based Workforce Portal</title>
+  <!-- Tailwind CSS v4 JIT Browser Compiler -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- React & ReactDOM 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Chart.js for Admin Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts: Outfit (headings) & Inter (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style type="text/css">
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+    }
+    
+    /* Premium Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(37, 99, 235, 0.2);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(37, 99, 235, 0.4);
+    }
+
+    /* Core Theme Transitions & Variables */
+    :root {
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #dbeafe 100%);
+      --glass-bg: rgba(255, 255, 255, 0.7);
+      --glass-border: rgba(15, 23, 42, 0.06);
+      --glass-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.08);
+      --text-main: #0f172a;
+      --text-sub: #475569;
+    }
+    
+    .dark {
+      --bg-gradient: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
+      --glass-bg: rgba(15, 23, 42, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.5);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+
+    .app-bg {
+      background: var(--bg-gradient);
+    }
+    
+    .glass-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--glass-shadow);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Sliding animations */
+    @keyframes slideRight {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(0); }
+    }
+    .slide-in {
+      animation: slideRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  </style>
+</head>
+<body class="app-bg min-h-screen text-[var(--text-main)] transition-colors duration-300">
+  
+  <div id="root"></div>
+
+  <!-- React code with Babel -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ==========================================
+    // CUSTOM SVG ICON COMPONENT
+    // ==========================================
+    const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+      const icons = {
+        home: <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10" />,
+        tasks: <path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />,
+        earnings: <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />,
+        reports: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8" />,
+        kyc: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM12 8v4M12 16h.01" />,
+        profile: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
+        support: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+        logout: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
+        bell: <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />,
+        wallet: <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4M4 6v12a2 2 0 0 0 2 2h14v-4M20 12a2 2 0 0 0 0 4h-4a2 2 0 0 0 0-4h4z" />,
+        "arrow-right": <path d="M5 12h14M12 5l7 7-7 7" />,
+        "arrow-up-right": <path d="M7 17L17 7M7 7h10v10" />,
+        "check-circle": <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3" />,
+        clock: <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />,
+        "alert-circle": <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />,
+        "x-circle": <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />,
+        search: <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />,
+        plus: <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />,
+        trash: <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />,
+        edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
+        "chevron-down": <polyline points="6 9 12 15 18 9" />,
+        "chevron-right": <polyline points="9 18 15 12 9 6" />,
+        "chevron-left": <polyline points="15 18 9 12 15 6" />,
+        sun: <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />,
+        moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />,
+        copy: <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />,
+        upload: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
+        download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
+        lock: <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />,
+        user: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
+        phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />,
+        mail: <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />,
+        "map-pin": <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />,
+        share: <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />,
+        eye: <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />,
+        shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+        settings: <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />,
+        "check": <polyline points="20 6 9 17 4 12" />
+      };
+
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={className}
+          {...props}
+        >
+          {icons[name] || <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />}
+        </svg>
+      );
+    };
+
+    // ==========================================
+    // SEEDING DEFAULT MOCK DATA
+    // ==========================================
+    const DEFAULT_USERS = [
+      { id: "admin", name: "KRV System Admin", email: "admin@krv.com", password: "admin123", mobile: "9876543210", role: "admin" },
+      { id: "c1", name: "Rahul Sharma", email: "rahul@gmail.com", password: "rahul123", mobile: "9988776655", city: "Mumbai", pincode: "400001", referral_code: "KRV500", wallet_balance: 750, earnings_pending: 120, earnings_paid: 2500, kyc_status: "Approved", role: "candidate" },
+      { id: "c2", name: "Priya Patel", email: "priya@gmail.com", password: "priya123", mobile: "9876123450", city: "Ahmedabad", pincode: "380001", referral_code: "", wallet_balance: 0, earnings_pending: 250, earnings_paid: 0, kyc_status: "Pending", role: "candidate" },
+      { id: "c3", name: "Amit Verma", email: "amit@gmail.com", password: "amit123", mobile: "8877665544", city: "Delhi", pincode: "110001", referral_code: "REF99", wallet_balance: 50, earnings_pending: 0, earnings_paid: 300, kyc_status: "Rejected", role: "candidate" }
+    ];
+
+    const DEFAULT_TASKS = [
+      { id: "t1", title: "Install & Review Sakhicare App", category: "Application Review", links: "https://play.google.com/store/apps/details?id=com.sakhicare", amount: 40, remarks: "Install app, open it for 2 minutes, and leave a positive 5-star review on Playstore.", deadline: "2026-06-15", status: "Active" },
+      { id: "t2", title: "Review Patel Bhai Restaurant on Google Maps", category: "Google Review", links: "https://maps.google.com/?q=patel+bhai+restaurant", amount: 25, remarks: "Write a genuine review sharing your thoughts on their quality and fast service. Min 15 words.", deadline: "2026-06-10", status: "Active" },
+      { id: "t3", title: "Record Voice Reading 5 Technical Prompts", category: "Audio Recording", links: "https://krv.com/prompts/read-technical", amount: 60, remarks: "Speak clearly in English, avoid background noises. Submit MP3 or WAV file.", deadline: "2026-06-20", status: "Active" },
+      { id: "t4", title: "Create Video Explaining Hotel Sai Shahu Benefits", category: "Video Recording", links: "https://saishahu.com", amount: 120, remarks: "Record a short 20-30s landscape video reviewing room comfort and service quality.", deadline: "2026-06-25", status: "Active" },
+      { id: "t5", title: "Write Product Review for FitVybe Smartwatch", category: "Product Review", links: "https://fitvybe.com/smartwatch", amount: 50, remarks: "Write a descriptive product critique highlighting steps accuracy, sleep monitor, and battery life.", deadline: "2026-06-12", status: "Active" }
+    ];
+
+    const DEFAULT_SUBMISSIONS = [
+      { id: "s1", user_id: "c1", task_id: "t1", submitted_link: "https://play.google.com/store/review?id=rahul", screenshot: "assets/dashboard_preview.png", video: "", remarks: "Excellent app, reviewed with name Rahul Sharma", review_status: "Approved", amount: 40, date: "2026-05-24" },
+      { id: "s2", user_id: "c1", task_id: "t2", submitted_link: "https://google.maps/review/patelbhai/rahul", screenshot: "assets/dashboard_preview.png", video: "", remarks: "Left a detailed map review with pictures.", review_status: "Pending", amount: 25, date: "2026-05-25" },
+      { id: "s3", user_id: "c2", task_id: "t3", submitted_link: "https://drive.google.com/audio/priya", screenshot: "", video: "assets/dashboard_preview.png", remarks: "Uploaded voice sample correctly.", review_status: "Pending", amount: 60, date: "2026-05-25" },
+      { id: "s4", user_id: "c2", task_id: "t4", submitted_link: "https://youtube.com/watch?v=saishahu", screenshot: "", video: "assets/dashboard_preview.png", remarks: "Sai Shahu video review uploaded.", review_status: "Pending", amount: 120, date: "2026-05-26" },
+      { id: "s5", user_id: "c3", task_id: "t5", submitted_link: "https://amazon.in/review/fitvybe", screenshot: "assets/dashboard_preview.png", video: "", remarks: "Left review on Amazon store.", review_status: "Rejected", amount: 50, rejection_reason: "Screenshot was blurry and could not verify username.", date: "2026-05-23" }
+    ];
+
+    const DEFAULT_KYC = [
+      { id: "k1", user_id: "c1", account_holder: "Rahul Sharma", account_number: "998877665544", bank_name: "HDFC Bank", ifsc: "HDFC0001234", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "assets/krv_logo.png", status: "Approved" },
+      { id: "k2", user_id: "c2", account_holder: "Priya Patel", account_number: "112233445566", bank_name: "SBI Bank", ifsc: "SBIN0007890", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "assets/krv_logo.png", status: "Pending" },
+      { id: "k3", user_id: "c3", account_holder: "Amit Verma", account_number: "554433221100", bank_name: "ICICI Bank", ifsc: "ICIC0009876", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "assets/krv_logo.png", status: "Rejected", rejection_reason: "Selfie did not match Aadhaar picture clear details." }
+    ];
+
+    const DEFAULT_WITHDRAWALS = [
+      { id: "w1", user_id: "c1", amount: 1500, status: "Approved", date: "2026-05-20", bank_details: "HDFC Bank - 998877665544" },
+      { id: "w2", user_id: "c1", amount: 1000, status: "Approved", date: "2026-05-23", bank_details: "HDFC Bank - 998877665544" },
+      { id: "w3", user_id: "c1", amount: 500, status: "Pending", date: "2026-05-26", bank_details: "HDFC Bank - 998877665544" }
+    ];
+
+    const DEFAULT_TICKETS = [
+      { id: "tk1", user_id: "c1", subject: "Payment Delay", category: "Payments", description: "My withdrawal of 500 Rs is still showing pending.", status: "Open", replies: [{ sender: "Rahul", message: "Please check, it has been 3 days." }] },
+      { id: "tk2", user_id: "c3", subject: "Aadhaar Reject Query", category: "KYC Support", description: "Why was my Aadhaar selfie rejected?", status: "Closed", replies: [{ sender: "System", message: "Selfie was blurred. Please reupload a high resolution selfie with proper lighting." }] }
+    ];
+
+    const DEFAULT_NOTIFICATIONS = [
+      { id: "n1", user_id: "c1", title: "KYC Approved", message: "Congratulations! Your KYC documents are verified successfully. You can now access and complete tasks.", date: "2026-05-24" },
+      { id: "n2", user_id: "c1", title: "Task Approved", message: "Your submission for 'Install & Review Sakhicare App' was approved. ₹40 has been added to your wallet.", date: "2026-05-25" },
+      { id: "n3", user_id: "c3", title: "KYC Rejected", message: "Your KYC was rejected due to a blurry selfie image. Please reupload.", date: "2026-05-23" }
+    ];
+
+    // ==========================================
+    // TOAST NOTIFICATION
+    // ==========================================
+    const Toast = ({ message, type = "success", onClose }) => {
+      useEffect(() => {
+        const timer = setTimeout(onClose, 3500);
+        return () => clearTimeout(timer);
+      }, [onClose]);
+
+      const colors = {
+        success: "bg-emerald-600 border-emerald-500",
+        error: "bg-rose-600 border-rose-500",
+        info: "bg-blue-600 border-blue-500"
+      };
+
+      return (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg text-white animate-bounce ${colors[type]}`}>
+          <Icon name={type === "success" ? "check-circle" : type === "error" ? "x-circle" : "alert-circle"} className="w-5 h-5" />
+          <span className="text-sm font-medium">{message}</span>
+          <button onClick={onClose} className="hover:opacity-75"><Icon name="x-circle" className="w-4 h-4" /></button>
+        </div>
+      );
+    };
+
+    // ==========================================
+    // MASTER APPLICATION ENTRY POINT
+    // ==========================================
+    function App() {
+      // Dark/Light theme state
+      const [theme, setTheme] = useState(() => localStorage.getItem("krv-theme") || "dark");
+      
+      // Page routing state
+      const [currentPage, setCurrentPage] = useState("home");
+      
+      // Central Mock Databases
+      const [users, setUsers] = useState(() => JSON.parse(localStorage.getItem("krv-users")) || DEFAULT_USERS);
+      const [tasks, setTasks] = useState(() => JSON.parse(localStorage.getItem("krv-tasks")) || DEFAULT_TASKS);
+      const [submissions, setSubmissions] = useState(() => JSON.parse(localStorage.getItem("krv-submissions")) || DEFAULT_SUBMISSIONS);
+      const [kycRecords, setKycRecords] = useState(() => JSON.parse(localStorage.getItem("krv-kyc")) || DEFAULT_KYC);
+      const [withdrawals, setWithdrawals] = useState(() => JSON.parse(localStorage.getItem("krv-withdrawals")) || DEFAULT_WITHDRAWALS);
+      const [tickets, setTickets] = useState(() => JSON.parse(localStorage.getItem("krv-tickets")) || DEFAULT_TICKETS);
+      const [notifications, setNotifications] = useState(() => JSON.parse(localStorage.getItem("krv-notifications")) || DEFAULT_NOTIFICATIONS);
+      
+      // Session management
+      const [currentUser, setCurrentUser] = useState(() => JSON.parse(localStorage.getItem("krv-current-user")) || null);
+      
+      // Toast system
+      const [toast, setToast] = useState(null);
+
+      // Save databases to LocalStorage upon changes
+      useEffect(() => {
+        localStorage.setItem("krv-users", JSON.stringify(users));
+        localStorage.setItem("krv-tasks", JSON.stringify(tasks));
+        localStorage.setItem("krv-submissions", JSON.stringify(submissions));
+        localStorage.setItem("krv-kyc", JSON.stringify(kycRecords));
+        localStorage.setItem("krv-withdrawals", JSON.stringify(withdrawals));
+        localStorage.setItem("krv-tickets", JSON.stringify(tickets));
+        localStorage.setItem("krv-notifications", JSON.stringify(notifications));
+      }, [users, tasks, submissions, kycRecords, withdrawals, tickets, notifications]);
+
+      // Apply theme to document
+      useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === "dark") {
+          root.classList.add("dark");
+        } else {
+          root.classList.remove("dark");
+        }
+        localStorage.setItem("krv-theme", theme);
+      }, [theme]);
+
+      const triggerToast = (message, type = "success") => {
+        setToast({ message, type });
+      };
+
+      const handleLogin = (email, password) => {
+        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+        if (user) {
+          setCurrentUser(user);
+          localStorage.setItem("krv-current-user", JSON.stringify(user));
+          triggerToast(`Welcome back, ${user.name}!`);
+          setCurrentPage(user.role === "admin" ? "admin-dashboard" : "dashboard");
+          return true;
+        } else {
+          triggerToast("Invalid email or password.", "error");
+          return false;
+        }
+      };
+
+      const handleLogout = () => {
+        setCurrentUser(null);
+        localStorage.removeItem("krv-current-user");
+        triggerToast("Logged out successfully.", "info");
+        setCurrentPage("home");
+      };
+
+      // Floating role switcher helper (for developers testing the app)
+      const forceLoginAs = (userId) => {
+        const user = users.find(u => u.id === userId);
+        if (user) {
+          setCurrentUser(user);
+          localStorage.setItem("krv-current-user", JSON.stringify(user));
+          triggerToast(`Switched Sandbox to: ${user.name}`);
+          setCurrentPage(user.role === "admin" ? "admin-dashboard" : "dashboard");
+        }
+      };
+
+      // Real-time Wallet sync helper
+      const updateCandidateWallet = (userId, approvedAmount) => {
+        setUsers(prev => prev.map(u => {
+          if (u.id === userId) {
+            return {
+              ...u,
+              wallet_balance: u.wallet_balance + approvedAmount,
+              earnings_pending: Math.max(0, u.earnings_pending - approvedAmount)
+            };
+          }
+          return u;
+        }));
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col font-sans transition-colors duration-300">
+          
+          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+          {/* MAIN PAGE RENDERER */}
+          <main className="flex-grow flex flex-col">
+            {currentPage === "home" && (
+              <LandingPage 
+                setCurrentPage={setCurrentPage} 
+                theme={theme} 
+                setTheme={setTheme}
+                currentUser={currentUser}
+                handleLogout={handleLogout}
+              />
+            )}
+            
+            {(currentPage === "login" || currentPage === "signup" || currentPage === "forgot-password") && (
+              <AuthPage 
+                currentPage={currentPage}
+                setCurrentPage={setCurrentPage}
+                handleLogin={handleLogin}
+                users={users}
+                setUsers={setUsers}
+                triggerToast={triggerToast}
+                theme={theme}
+                setTheme={setTheme}
+              />
+            )}
+
+            {/* CANDIDATE SIDE PANEL ROUTING */}
+            {currentUser && currentUser.role === "candidate" && [
+              "dashboard", "tasks", "earnings", "reports", "kyc", "profile", "support"
+            ].includes(currentPage) && (
+              <CandidatePanel 
+                currentPage={currentPage}
+                setCurrentPage={setCurrentPage}
+                currentUser={currentUser}
+                setCurrentUser={setCurrentUser}
+                users={users}
+                setUsers={setUsers}
+                tasks={tasks}
+                setTasks={setTasks}
+                submissions={submissions}
+                setSubmissions={setSubmissions}
+                kycRecords={kycRecords}
+                setKycRecords={setKycRecords}
+                withdrawals={withdrawals}
+                setWithdrawals={setWithdrawals}
+                tickets={tickets}
+                setTickets={setTickets}
+                notifications={notifications}
+                setNotifications={setNotifications}
+                handleLogout={handleLogout}
+                theme={theme}
+                setTheme={setTheme}
+                triggerToast={triggerToast}
+              />
+            )}
+
+            {/* ADMIN SIDE PANEL ROUTING */}
+            {currentUser && currentUser.role === "admin" && [
+              "admin-dashboard", "admin-candidates", "admin-tasks", "admin-reviews", "admin-earnings", "admin-kyc", "admin-reports", "admin-settings"
+            ].includes(currentPage) && (
+              <AdminPanel 
+                currentPage={currentPage}
+                setCurrentPage={setCurrentPage}
+                currentUser={currentUser}
+                users={users}
+                setUsers={setUsers}
+                tasks={tasks}
+                setTasks={setTasks}
+                submissions={submissions}
+                setSubmissions={setSubmissions}
+                kycRecords={kycRecords}
+                setKycRecords={setKycRecords}
+                withdrawals={withdrawals}
+                setWithdrawals={setWithdrawals}
+                tickets={tickets}
+                setTickets={setTickets}
+                notifications={notifications}
+                setNotifications={setNotifications}
+                handleLogout={handleLogout}
+                theme={theme}
+                setTheme={setTheme}
+                triggerToast={triggerToast}
+                updateWallet={updateCandidateWallet}
+              />
+            )}
+          </main>
+
+          {/* SANDBOX FLOATING QUICK SWITCHER (EXTREMELY USEFUL FOR TESTING END-TO-END FLOW) */}
+          <div className="fixed bottom-4 left-4 z-40 flex flex-col gap-2">
+            <div className="dropdown dropdown-top dropdown-end group relative">
+              <button className="flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg cursor-pointer">
+                <span>⚡ Sandbox Switcher</span>
+                <Icon name="chevron-down" className="w-3 h-3" />
+              </button>
+              
+              <div className="hidden group-hover:block absolute bottom-10 left-0 bg-slate-900 border border-slate-700 text-white rounded-lg shadow-xl py-2 w-64 glass-card">
+                <p className="px-3 py-1 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-700 pb-2 mb-1">
+                  Change Role Instantly
+                </p>
+                <button onClick={() => forceLoginAs("admin")} className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-600 transition flex items-center justify-between">
+                  <span>👑 System Admin</span>
+                  <span className="bg-red-500/20 text-red-300 px-1 rounded text-[9px]">Admin</span>
+                </button>
+                <button onClick={() => forceLoginAs("c1")} className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-600 transition flex items-center justify-between">
+                  <span>👦 Rahul (Approved KYC)</span>
+                  <span className="bg-emerald-500/20 text-emerald-300 px-1 rounded text-[9px]">Candidate</span>
+                </button>
+                <button onClick={() => forceLoginAs("c2")} className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-600 transition flex items-center justify-between">
+                  <span>👧 Priya (Pending KYC)</span>
+                  <span className="bg-yellow-500/20 text-yellow-300 px-1 rounded text-[9px]">Candidate</span>
+                </button>
+                <button onClick={() => forceLoginAs("c3")} className="w-full text-left px-3 py-1.5 text-xs hover:bg-blue-600 transition flex items-center justify-between">
+                  <span>👨 Amit (Rejected KYC)</span>
+                  <span className="bg-rose-500/20 text-rose-300 px-1 rounded text-[9px]">Candidate</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // MODULE 1: LANDING PAGE
+    // ==========================================
+    function LandingPage({ setCurrentPage, theme, setTheme, currentUser, handleLogout }) {
+      const [currentSlider, setCurrentSlider] = useState(0);
+      const [faqOpen, setFaqOpen] = useState(null);
+      const [contactSubmitted, setContactSubmitted] = useState(false);
+
+      const sliders = [
+        { title: "Complete Simple Tasks & Earn Daily", desc: "Unlock premium rewards through reviews, audio files, and simple installations.", accent: "from-blue-500 to-indigo-600" },
+        { title: "100% Secure Task Based Platform", desc: "Verify your bank details, submit proof of work, and get daily payouts directly.", accent: "from-indigo-600 to-cyan-500" },
+        { title: "Work From Home Opportunities", desc: "Flexibility at your fingertips. Perform mini digital jobs anywhere, anytime.", accent: "from-cyan-500 to-blue-600" }
+      ];
+
+      useEffect(() => {
+        const timer = setInterval(() => {
+          setCurrentSlider(prev => (prev + 1) % sliders.length);
+        }, 5000);
+        return () => clearInterval(timer);
+      }, []);
+
+      const toggleFaq = (idx) => {
+        setFaqOpen(faqOpen === idx ? null : idx);
+      };
+
+      return (
+        <div className="flex flex-col min-h-screen">
+          {/* Header */}
+          <header className="sticky top-0 z-30 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/40 px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-md">
+                K
+              </div>
+              <div>
+                <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">KRV Management</span>
+                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Workforce Portal</span>
+              </div>
+            </div>
+            
+            <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
+              <a href="#why-choose" className="hover:text-blue-500 transition">Why Us</a>
+              <a href="#how-it-works" className="hover:text-blue-500 transition">How it Works</a>
+              <a href="#categories" className="hover:text-blue-500 transition">Categories</a>
+              <a href="#testimonials" className="hover:text-blue-500 transition">Testimonials</a>
+              <a href="#faq" className="hover:text-blue-500 transition">FAQ</a>
+              <a href="#contact" className="hover:text-blue-500 transition">Contact</a>
+            </nav>
+
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")} 
+                className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:scale-105 transition shadow-sm cursor-pointer"
+              >
+                <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
+              </button>
+              
+              {currentUser ? (
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setCurrentPage(currentUser.role === "admin" ? "admin-dashboard" : "dashboard")}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition cursor-pointer"
+                  >
+                    Go Dashboard
+                  </button>
+                  <button onClick={handleLogout} className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-red-500 cursor-pointer">
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setCurrentPage("login")} className="px-4 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer">
+                    Login
+                  </button>
+                  <button onClick={() => setCurrentPage("signup")} className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md hover:scale-[1.02] active:scale-[0.98] transition cursor-pointer">
+                    Sign Up
+                  </button>
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Hero Slider */}
+          <section className="relative overflow-hidden px-6 py-16 md:py-28 flex flex-col items-center justify-center text-center">
+            <div className="absolute inset-0 bg-blue-600/5 dark:bg-blue-500/10 backdrop-blur-[100px] pointer-events-none rounded-full w-96 h-96 -top-20 -left-20 animate-pulse"></div>
+            
+            <div className="max-w-4xl mx-auto z-10">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500 mb-6 uppercase tracking-wider">
+                💥 Earn Money by Completing Simple Digital Tasks
+              </span>
+              
+              {/* Slides Container */}
+              <div className="relative h-44 md:h-36 overflow-hidden mb-6 flex items-center justify-center">
+                {sliders.map((s, idx) => (
+                  <div 
+                    key={idx}
+                    className={`absolute inset-0 flex flex-col items-center transition-all duration-700 transform ${
+                      idx === currentSlider ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-8 scale-95 pointer-events-none"
+                    }`}
+                  >
+                    <h1 className={`text-4xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-r ${s.accent} bg-clip-text text-transparent mb-4 leading-tight`}>
+                      “{s.title}”
+                    </h1>
+                    <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 max-w-xl">
+                      {s.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Slider Dots */}
+              <div className="flex justify-center gap-2 mb-10">
+                {sliders.map((_, idx) => (
+                  <button 
+                    key={idx} 
+                    onClick={() => setCurrentSlider(idx)} 
+                    className={`w-2.5 h-2.5 rounded-full transition-all cursor-pointer ${idx === currentSlider ? "bg-blue-600 w-6" : "bg-slate-300 dark:bg-slate-700"}`}
+                  />
+                ))}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+                <button onClick={() => setCurrentPage("signup")} className="w-full sm:w-auto px-8 py-4 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg hover:scale-105 transition cursor-pointer flex items-center justify-center gap-2">
+                  <span>Start Earning</span>
+                  <Icon name="arrow-right" className="w-4 h-4" />
+                </button>
+                <button onClick={() => setCurrentPage("login")} className="w-full sm:w-auto px-8 py-4 font-bold text-blue-600 dark:text-blue-400 bg-white/70 dark:bg-slate-900/60 backdrop-blur hover:bg-blue-50/50 dark:hover:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md transition cursor-pointer">
+                  Login Now
+                </button>
+              </div>
+
+              {/* Statistics Counter */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-6 rounded-2xl glass-card text-center max-w-3xl mx-auto">
+                <div>
+                  <h3 className="text-3xl font-extrabold text-blue-600">15,000+</h3>
+                  <p className="text-xs text-slate-400 font-medium uppercase mt-1">Active Candidates</p>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-extrabold text-blue-600">₹2.5M+</h3>
+                  <p className="text-xs text-slate-400 font-medium uppercase mt-1">Total Paid</p>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-extrabold text-blue-600">120K+</h3>
+                  <p className="text-xs text-slate-400 font-medium uppercase mt-1">Tasks Completed</p>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-extrabold text-blue-600">98.7%</h3>
+                  <p className="text-xs text-slate-400 font-medium uppercase mt-1">Review Rate</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Why Choose KRV Management */}
+          <section id="why-choose" className="py-20 px-6 max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-extrabold mb-4">“Why Thousands Choose KRV Management”</h2>
+              <p className="text-slate-400 max-w-xl mx-auto">Join the most secure digital workspace that values your contribution with transparent timelines.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { icon: "shield", title: "Secure Platform", text: "Safe and trusted task-based system verifying all bank withdrawals seamlessly." },
+                { icon: "tasks", title: "Daily Tasks", text: "Get access to regular, high-paying jobs in diverse digital categories." },
+                { icon: "check-circle", title: "Fast Review Process", text: "Quick task approvals within transparent timelines by dedicated audit admin teams." },
+                { icon: "home", title: "Work From Home", text: "100% flexible workspace. Generate revenue directly from your mobile device." },
+                { icon: "wallet", title: "Reliable Support", text: "Internal support ticketing with swift admin dispute resolution mechanisms." },
+                { icon: "profile", title: "Easy Dashboard", text: "An intuitive glassmorphic dashboard visualizing wallet metrics, profile settings, and daily work." }
+              ].map((feat, idx) => (
+                <div key={idx} className="p-8 rounded-2xl glass-card hover:-translate-y-2">
+                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center mb-6">
+                    <Icon name={feat.icon} className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3">{feat.title}</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed">{feat.text}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* How It Works */}
+          <section id="how-it-works" className="py-20 px-6 bg-slate-900/5 dark:bg-slate-950/20">
+            <div className="max-w-7xl mx-auto">
+              <div className="text-center mb-16">
+                <h2 className="text-3xl md:text-4xl font-extrabold mb-4">How It Works</h2>
+                <p className="text-slate-400 max-w-xl mx-auto">Follow five simple, highly transparent steps to secure your daily online earnings.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                {[
+                  { step: "1", title: "Create Account", desc: "Sign up as a candidate within minutes with key details." },
+                  { step: "2", title: "Complete KYC", desc: "Upload verification documents to secure payment pipelines." },
+                  { step: "3", title: "Receive Tasks", desc: "Get assigned custom digital jobs aligned with top categories." },
+                  { step: "4", title: "Submit Proof", desc: "Paste links or upload screenshot proof directly on the portal." },
+                  { step: "5", title: "Get Paid", desc: "Deduct funds directly to your verified bank account." }
+                ].map((s, idx) => (
+                  <div key={idx} className="relative p-6 rounded-2xl glass-card text-center">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center mx-auto mb-4 text-sm">
+                      {s.step}
+                    </div>
+                    <h3 className="text-lg font-bold mb-2">{s.title}</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">{s.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Task Categories Section */}
+          <section id="categories" className="py-20 px-6 max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-extrabold mb-4">Task Categories</h2>
+              <p className="text-slate-400 max-w-xl mx-auto font-medium">Earn money based on specialized digital activities tailored for all experience levels.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+              {[
+                { icon: "tasks", title: "App Reviews", desc: "Install & review applications." },
+                { icon: "check-circle", title: "Google Reviews", desc: "Submit genuine business reviews." },
+                { icon: "support", title: "Voice Recordings", desc: "Record audio voice samples." },
+                { icon: "shield", title: "Video Tasks", desc: "Create short verification videos." },
+                { icon: "earnings", title: "Product Reviews", desc: "Review products & services." }
+              ].map((c, idx) => (
+                <div key={idx} className="p-6 rounded-2xl glass-card text-center hover:bg-blue-600/5">
+                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center mx-auto mb-4">
+                    <Icon name={c.icon} className="w-5 h-5" />
+                  </div>
+                  <h4 className="font-bold text-sm mb-2">{c.title}</h4>
+                  <p className="text-xs text-slate-400">{c.desc}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Dashboard Preview */}
+          <section className="py-20 px-6 bg-slate-950/20 border-y border-slate-200/50 dark:border-slate-800/40 text-center">
+            <div className="max-w-4xl mx-auto">
+              <h2 className="text-3xl font-extrabold mb-6">Designed For Excellence</h2>
+              <p className="text-slate-400 max-w-xl mx-auto mb-10">Get a peek inside the premium member portal. Track wallets, live approvals, and analytics in real time.</p>
+              
+              <div className="rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 glass-card p-2 group hover:scale-[1.01] transition-transform">
+                <img 
+                  src="assets/dashboard_preview.png" 
+                  alt="Candidate Dashboard Preview" 
+                  className="rounded-xl w-full object-cover max-h-[480px]"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Testimonials */}
+          <section id="testimonials" className="py-20 px-6 max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-extrabold mb-4">Candidate Reviews</h2>
+              <p className="text-slate-400 max-w-xl mx-auto">Real feedback from thousands of active freelancers building their income stream.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { name: "Rahul Sharma", text: "Very easy platform to use and payments are smooth. Approvals are regular.", role: "Application Reviewer" },
+                { name: "Priya Patel", text: "I started earning within the first week. The KYC upload process was very simple.", role: "Google Local Guide" },
+                { name: "Amit Verma", text: "The dashboard and task process are very professional. Dedicated support resolved my ticket instantly.", role: "Freelance Transcriber" }
+              ].map((t, idx) => (
+                <div key={idx} className="p-8 rounded-2xl glass-card flex flex-col justify-between">
+                  <p className="text-slate-400 text-sm italic leading-relaxed mb-6">“{t.text}”</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-600/10 text-blue-600 flex items-center justify-center font-bold">
+                      {t.name[0]}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm">{t.name}</h4>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{t.role}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* FAQs */}
+          <section id="faq" className="py-20 px-6 bg-slate-900/5 dark:bg-slate-950/20">
+            <div className="max-w-3xl mx-auto">
+              <div className="text-center mb-16">
+                <h2 className="text-3xl font-extrabold mb-4">Frequently Asked Questions</h2>
+                <p className="text-slate-400">Everything you need to know about starting your task-based digital career.</p>
+              </div>
+
+              <div className="space-y-4">
+                {[
+                  { q: "Is KYC mandatory?", a: "Yes, complete KYC verification (Aadhaar cards + Bank details) is absolutely mandatory before candidates can browse or submit digital tasks to ensure anti-spam guidelines." },
+                  { q: "When are tasks approved?", a: "Submissions are audited and reviewed within 3-7 working days. Once approved, earnings are credited instantly to your portal wallet." },
+                  { q: "How do I receive payments?", a: "Once your wallet balance crosses the minimum withdrawal limit, you can request a direct transfer. Admin processes funds directly to your verified bank IFSC details." },
+                  { q: "Can I work from my mobile device?", a: "Absolutely! The portal is engineered with high-responsiveness and optimized for mobile screens, let you record files and paste review links on-the-go." }
+                ].map((f, idx) => (
+                  <div key={idx} className="rounded-xl glass-card overflow-hidden">
+                    <button 
+                      onClick={() => toggleFaq(idx)}
+                      className="w-full text-left px-6 py-5 font-bold text-sm md:text-base flex items-center justify-between focus:outline-none cursor-pointer"
+                    >
+                      <span>{f.q}</span>
+                      <Icon name="chevron-down" className={`w-4 h-4 transition-transform ${faqOpen === idx ? "rotate-180" : ""}`} />
+                    </button>
+                    {faqOpen === idx && (
+                      <div className="px-6 pb-5 text-sm text-slate-400 border-t border-slate-200/50 dark:border-slate-800/40 pt-4">
+                        {f.a}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Contact Section */}
+          <section id="contact" className="py-20 px-6 max-w-4xl mx-auto">
+            <div className="glass-card rounded-3xl p-8 md:p-12">
+              <div className="text-center mb-10">
+                <h2 className="text-2xl md:text-3xl font-extrabold mb-3">Get in Touch</h2>
+                <p className="text-slate-400 text-sm">Have queries regarding payouts, tasks, or bulk assignments? Reach out to support.</p>
+              </div>
+
+              {contactSubmitted ? (
+                <div className="text-center py-10 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+                  <Icon name="check-circle" className="w-12 h-12 mx-auto mb-3" />
+                  <h3 className="text-lg font-bold">Message Sent Successfully!</h3>
+                  <p className="text-xs mt-1">Our administrator team will contact you back shortly.</p>
+                </div>
+              ) : (
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setContactSubmitted(true);
+                  }}
+                  className="space-y-6"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Full Name</label>
+                      <input required type="text" className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Enter full name" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Email Address</label>
+                      <input required type="email" className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Enter email" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Your Message</label>
+                    <textarea required rows="4" className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Type your query details..."></textarea>
+                  </div>
+                  <button type="submit" className="w-full py-4 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition cursor-pointer">
+                    Send Message
+                  </button>
+                </form>
+              )}
+            </div>
+          </section>
+
+          {/* CTA Banner */}
+          <section className="py-16 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-center text-white relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_var(--tw-gradient-stops))] from-blue-500/20 to-transparent pointer-events-none"></div>
+            <div className="max-w-3xl mx-auto z-10 relative">
+              <h2 className="text-3xl font-extrabold mb-4">“Start Your Online Earning Journey Today”</h2>
+              <p className="text-blue-100 text-sm md:text-base mb-8 max-w-xl mx-auto leading-relaxed">
+                Join our premium community of digital task experts, complete KYC, and secure direct-to-bank daily payouts within 24 hours.
+              </p>
+              <button onClick={() => setCurrentPage("signup")} className="px-8 py-4 font-bold bg-white text-blue-600 hover:bg-blue-50 rounded-xl shadow-xl hover:scale-105 active:scale-95 transition cursor-pointer">
+                Register Now
+              </button>
+            </div>
+          </section>
+
+          {/* Footer */}
+          <footer className="bg-slate-900 border-t border-slate-800 text-slate-400 px-6 py-12">
+            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">K</div>
+                  <span className="text-lg font-bold tracking-tight text-white">KRV Management</span>
+                </div>
+                <p className="text-xs leading-relaxed">
+                  The ultimate workforce ecosystem helping candidates sign up, verify KYC pipelines, complete tasks, and withdraw instant daily rewards.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-white font-bold text-sm mb-4">Quick Links</h4>
+                <ul className="space-y-2 text-xs">
+                  <li><a href="#why-choose" className="hover:text-white transition">About Us</a></li>
+                  <li><a href="#how-it-works" className="hover:text-white transition">How it Works</a></li>
+                  <li><a href="#categories" className="hover:text-white transition">Task Categories</a></li>
+                  <li><a href="#faq" className="hover:text-white transition">FAQs</a></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="text-white font-bold text-sm mb-4">Legal Agreements</h4>
+                <ul className="space-y-2 text-xs">
+                  <li><a href="#" className="hover:text-white transition">Privacy Policy</a></li>
+                  <li><a href="#" className="hover:text-white transition">Terms & Conditions</a></li>
+                  <li><a href="#" className="hover:text-white transition">Refund Policy</a></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="text-white font-bold text-sm mb-4">Contact Info</h4>
+                <ul className="space-y-2 text-xs">
+                  <li className="flex items-center gap-2"><Icon name="mail" className="w-3.5 h-3.5" /> support@krvmanagement.com</li>
+                  <li className="flex items-center gap-2"><Icon name="phone" className="w-3.5 h-3.5" /> +91 98765 43210</li>
+                  <li className="flex items-center gap-2"><Icon name="map-pin" className="w-3.5 h-3.5" /> Bandra West, Mumbai, India</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="max-w-7xl mx-auto pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between text-xs text-slate-500">
+              <p>&copy; 2026 KRV Management Portal. All Rights Reserved.</p>
+              <div className="flex gap-4 mt-4 md:mt-0">
+                <a href="#" className="hover:text-white transition">Facebook</a>
+                <a href="#" className="hover:text-white transition">Instagram</a>
+                <a href="#" className="hover:text-white transition">LinkedIn</a>
+                <a href="#" className="hover:text-white transition">Telegram</a>
+              </div>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // MODULE 2 & 3: AUTHENTICATION
+    // ==========================================
+    function AuthPage({ currentPage, setCurrentPage, handleLogin, users, setUsers, triggerToast, theme, setTheme }) {
+      const [formData, setFormData] = useState({
+        name: "", email: "", mobile: "", city: "", pincode: "", referral: "", password: "", confirmPassword: ""
+      });
+      const [forgotStep, setForgotStep] = useState(1);
+      const [otpInput, setOtpInput] = useState("");
+      const [simulatedOtp, setSimulatedOtp] = useState("");
+
+      const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        
+        if (currentPage === "login") {
+          handleLogin(formData.email, formData.password);
+        } else if (currentPage === "signup") {
+          if (formData.password !== formData.confirmPassword) {
+            triggerToast("Passwords do not match.", "error");
+            return;
+          }
+          if (users.some(u => u.email.toLowerCase() === formData.email.toLowerCase())) {
+            triggerToast("Email already exists.", "error");
+            return;
+          }
+
+          const newUser = {
+            id: "c" + (users.length + 1),
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+            mobile: formData.mobile,
+            city: formData.city,
+            pincode: formData.pincode,
+            referral_code: formData.referral,
+            wallet_balance: 0,
+            earnings_pending: 0,
+            earnings_paid: 0,
+            kyc_status: "Pending",
+            role: "candidate"
+          };
+
+          setUsers([...users, newUser]);
+          triggerToast("Account created successfully! Please Log In.");
+          setCurrentPage("login");
+        }
+      };
+
+      const handleForgotSubmit = (e) => {
+        e.preventDefault();
+        if (forgotStep === 1) {
+          if (!users.some(u => u.email.toLowerCase() === formData.email.toLowerCase())) {
+            triggerToast("Email not found.", "error");
+            return;
+          }
+          const otp = Math.floor(100000 + Math.random() * 900000).toString();
+          setSimulatedOtp(otp);
+          setForgotStep(2);
+          triggerToast(`Simulated OTP sent: ${otp}`, "info");
+        } else if (forgotStep === 2) {
+          if (otpInput === simulatedOtp) {
+            setForgotStep(3);
+            triggerToast("OTP verified! Set new password.");
+          } else {
+            triggerToast("Incorrect OTP.", "error");
+          }
+        } else {
+          setUsers(prev => prev.map(u => {
+            if (u.email.toLowerCase() === formData.email.toLowerCase()) {
+              return { ...u, password: formData.password };
+            }
+            return u;
+          }));
+          triggerToast("Password reset successfully! Log in now.");
+          setCurrentPage("login");
+        }
+      };
+
+      return (
+        <div className="flex flex-col min-h-screen">
+          <header className="px-6 py-4 flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/40 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl">
+            <button onClick={() => setCurrentPage("home")} className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500 hover:text-blue-500 cursor-pointer">
+              <Icon name="chevron-left" className="w-4 h-4" /> Back to Home
+            </button>
+            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow cursor-pointer">
+              <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
+            </button>
+          </header>
+
+          <div className="flex-grow flex items-center justify-center p-6">
+            <div className="w-full max-w-md glass-card rounded-2xl p-8 space-y-6">
+              
+              <div className="text-center">
+                <h2 className="text-2xl font-bold tracking-tight">
+                  {currentPage === "login" && "Login to KRV Management"}
+                  {currentPage === "signup" && "Create Candidate Account"}
+                  {currentPage === "forgot-password" && "Reset Password"}
+                </h2>
+                <p className="text-xs text-slate-400 mt-2">
+                  {currentPage === "login" && "Enter your email and password to access dashboard"}
+                  {currentPage === "signup" && "Start your professional workforce profile today"}
+                  {currentPage === "forgot-password" && "Follow OTP instructions to reset credential"}
+                </p>
+              </div>
+
+              {currentPage === "forgot-password" ? (
+                <form onSubmit={handleForgotSubmit} className="space-y-4">
+                  {forgotStep === 1 && (
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Email Address</label>
+                      <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Enter registered email" />
+                    </div>
+                  )}
+
+                  {forgotStep === 2 && (
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Enter OTP (Sent: {simulatedOtp})</label>
+                      <input required type="text" value={otpInput} onChange={(e) => setOtpInput(e.target.value)} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 text-center tracking-widest text-lg font-bold text-white focus:outline-none focus:border-blue-500" placeholder="000000" maxLength={6} />
+                    </div>
+                  )}
+
+                  {forgotStep === 3 && (
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-2">New Password</label>
+                      <input required type="password" name="password" value={formData.password} onChange={handleChange} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Min 6 characters" minLength={6} />
+                    </div>
+                  )}
+
+                  <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow transition cursor-pointer">
+                    {forgotStep === 1 && "Send OTP"}
+                    {forgotStep === 2 && "Verify OTP"}
+                    {forgotStep === 3 && "Update Password"}
+                  </button>
+                  
+                  <div className="text-center mt-4">
+                    <button type="button" onClick={() => { setCurrentPage("login"); setForgotStep(1); }} className="text-xs text-blue-500 hover:underline">Back to Login</button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {currentPage === "signup" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Full Name</label>
+                        <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Rahul Sharma" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Mobile Number</label>
+                        <input required type="tel" name="mobile" value={formData.mobile} onChange={handleChange} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="9988776655" />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Email Address</label>
+                    <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="rahul@gmail.com" />
+                  </div>
+
+                  {currentPage === "signup" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">City</label>
+                        <input required type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Mumbai" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Pincode</label>
+                        <input required type="text" name="pincode" value={formData.pincode} onChange={handleChange} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="400001" maxLength={6} />
+                      </div>
+                    </div>
+                  )}
+
+                  {currentPage === "signup" && (
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Referred By (Optional)</label>
+                      <input type="text" name="referral" value={formData.referral} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="e.g. KRV500" />
+                    </div>
+                  )}
+
+                  <div className={currentPage === "signup" ? "grid grid-cols-2 gap-4" : "space-y-4"}>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Password</label>
+                      <input required type="password" name="password" value={formData.password} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="••••••••" minLength={6} />
+                    </div>
+                    {currentPage === "signup" && (
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Confirm Password</label>
+                        <input required type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="••••••••" minLength={6} />
+                      </div>
+                    )}
+                  </div>
+
+                  {currentPage === "login" && (
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="flex items-center gap-2 text-slate-400">
+                        <input type="checkbox" className="rounded bg-slate-800 border-slate-700" /> Remember Me
+                      </label>
+                      <button type="button" onClick={() => setCurrentPage("forgot-password")} className="text-blue-500 hover:underline">Forgot Password?</button>
+                    </div>
+                  )}
+
+                  <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow transition cursor-pointer">
+                    {currentPage === "login" ? "Sign In" : "Register Account"}
+                  </button>
+                  
+                  <div className="text-center text-xs text-slate-400 mt-4">
+                    {currentPage === "login" ? (
+                      <p>Don't have an account? <button type="button" onClick={() => setCurrentPage("signup")} className="text-blue-500 hover:underline font-bold">Sign Up</button></p>
+                    ) : (
+                      <p>Already have an account? <button type="button" onClick={() => setCurrentPage("login")} className="text-blue-500 hover:underline font-bold">Log In</button></p>
+                    )}
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // MODULE 4: CANDIDATE PANEL CONTAINER
+    // ==========================================
+    function CandidatePanel({
+      currentPage, setCurrentPage, currentUser, setCurrentUser, users, setUsers, tasks, setTasks,
+      submissions, setSubmissions, kycRecords, setKycRecords, withdrawals, setWithdrawals,
+      tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast
+    }) {
+      const [sidebarOpen, setSidebarOpen] = useState(true);
+      const [notificationDropdown, setNotificationDropdown] = useState(false);
+
+      // Local KYC fetch
+      const myKyc = useMemo(() => kycRecords.find(k => k.user_id === currentUser.id) || null, [kycRecords, currentUser]);
+      const myNotifications = useMemo(() => notifications.filter(n => n.user_id === currentUser.id), [notifications, currentUser]);
+      const mySubmissions = useMemo(() => submissions.filter(s => s.user_id === currentUser.id), [submissions, currentUser]);
+
+      const sidebarItems = [
+        { id: "dashboard", icon: "home", label: "Home" },
+        { id: "tasks", icon: "tasks", label: "Tasks" },
+        { id: "earnings", icon: "earnings", label: "Earnings" },
+        { id: "reports", icon: "reports", label: "Reports" },
+        { id: "kyc", icon: "kyc", label: "KYC Verification", alert: (currentUser.kyc_status !== "Approved") },
+        { id: "profile", icon: "profile", label: "Profile" },
+        { id: "support", icon: "support", label: "Support Tickets" }
+      ];
+
+      return (
+        <div className="min-h-screen flex">
+          {/* Sidebar */}
+          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 flex flex-col justify-between transition-all duration-300 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full md:w-0"
+          } fixed md:relative h-full md:h-auto z-30`}>
+            
+            <div>
+              {/* Sidebar Branding */}
+              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">K</div>
+                  <div>
+                    <span className="text-sm font-bold tracking-tight text-white block">KRV Portal</span>
+                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest">Candidate</span>
+                  </div>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><Icon name="x-circle" className="w-4 h-4" /></button>
+              </div>
+
+              {/* Sidebar Menu */}
+              <nav className="p-4 space-y-1">
+                {sidebarItems.map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name={item.icon} className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.alert && (
+                      <span className={`w-2 h-2 rounded-full ${currentUser.kyc_status === "Rejected" ? "bg-rose-500" : "bg-yellow-500"}`} />
+                    )}
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            {/* Logout button */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/15">
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer">
+                <Icon name="logout" className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </aside>
+
+          {/* Core Content Area */}
+          <div className="flex-grow flex flex-col min-h-screen overflow-x-hidden">
+            {/* Header */}
+            <header className="px-6 py-4 flex items-center justify-between bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/40">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <Icon name="menu" className="w-4 h-4" />
+                </button>
+                <h1 className="text-xl font-bold tracking-tight capitalize">{currentPage} Panel</h1>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {/* Wallet Balance widget */}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold">
+                  <Icon name="wallet" className="w-4 h-4" />
+                  <span>Wallet: ₹{currentUser.wallet_balance}</span>
+                </div>
+
+                {/* Notifications Dropdown */}
+                <div className="relative">
+                  <button 
+                    onClick={() => setNotificationDropdown(!notificationDropdown)}
+                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 relative cursor-pointer"
+                  >
+                    <Icon name="bell" className="w-4 h-4" />
+                    {myNotifications.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900" />}
+                  </button>
+
+                  {notificationDropdown && (
+                    <div className="absolute right-0 mt-3 bg-slate-900 border border-slate-700 text-white rounded-xl shadow-xl w-80 glass-card p-4 z-50">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                        <span className="font-bold text-xs">Recent Alerts</span>
+                        <button onClick={() => setNotifications([])} className="text-[10px] text-blue-400 hover:underline">Clear all</button>
+                      </div>
+                      
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {myNotifications.length === 0 ? (
+                          <p className="text-xs text-center text-slate-500 py-4">No new notifications</p>
+                        ) : (
+                          myNotifications.map(n => (
+                            <div key={n.id} className="text-xs border-b border-slate-800/50 pb-2">
+                              <h4 className="font-bold text-blue-400 flex items-center justify-between">
+                                <span>{n.title}</span>
+                                <span className="text-[9px] text-slate-500 font-normal">{n.date}</span>
+                              </h4>
+                              <p className="text-[11px] text-slate-400 mt-1">{n.message}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
+                </button>
+              </div>
+            </header>
+
+            {/* Candidate Views Router */}
+            <div className="p-6 flex-grow overflow-y-auto">
+              
+              {/* KYC global banner alert if pending/rejected */}
+              {currentUser.kyc_status !== "Approved" && currentPage !== "kyc" && (
+                <div className={`p-4 rounded-xl mb-6 border flex items-center justify-between ${
+                  currentUser.kyc_status === "Rejected" 
+                    ? "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400" 
+                    : "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <Icon name="alert-circle" className="w-5 h-5" />
+                    <div className="text-xs">
+                      <span className="font-bold block">
+                        {currentUser.kyc_status === "Rejected" ? "KYC Verification Rejected!" : "KYC Verification Required"}
+                      </span>
+                      <span>
+                        {currentUser.kyc_status === "Rejected" 
+                          ? "Your KYC documents were rejected by admin. Please update details." 
+                          : "Upload Aadhaar details and Selfie to unlock task catalog submits."}
+                      </span>
+                    </div>
+                  </div>
+                  <button onClick={() => setCurrentPage("kyc")} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer">
+                    Verify KYC
+                  </button>
+                </div>
+              )}
+
+              {currentPage === "dashboard" && (
+                <CandidateOverview 
+                  currentUser={currentUser} 
+                  mySubmissions={mySubmissions} 
+                  setCurrentPage={setCurrentPage} 
+                />
+              )}
+
+              {currentPage === "tasks" && (
+                <CandidateTasks 
+                  currentUser={currentUser} 
+                  tasks={tasks} 
+                  submissions={submissions} 
+                  setSubmissions={setSubmissions} 
+                  triggerToast={triggerToast}
+                  setUsers={setUsers}
+                />
+              )}
+
+              {currentPage === "earnings" && (
+                <CandidateEarnings 
+                  currentUser={currentUser} 
+                  withdrawals={withdrawals} 
+                  setWithdrawals={setWithdrawals} 
+                  myKyc={myKyc}
+                  triggerToast={triggerToast}
+                  setUsers={setUsers}
+                />
+              )}
+
+              {currentPage === "reports" && (
+                <CandidateReports 
+                  currentUser={currentUser} 
+                  mySubmissions={mySubmissions} 
+                  withdrawals={withdrawals}
+                />
+              )}
+
+              {currentPage === "kyc" && (
+                <CandidateKyc 
+                  currentUser={currentUser} 
+                  setCurrentUser={setCurrentUser}
+                  users={users}
+                  setUsers={setUsers}
+                  kycRecords={kycRecords} 
+                  setKycRecords={setKycRecords}
+                  myKyc={myKyc}
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "profile" && (
+                <CandidateProfile 
+                  currentUser={currentUser} 
+                  users={users}
+                  setUsers={setUsers}
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "support" && (
+                <CandidateSupport 
+                  currentUser={currentUser} 
+                  tickets={tickets} 
+                  setTickets={setTickets}
+                  triggerToast={triggerToast}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // CANDIDATE MODULE COMPONENTS
+    // ==========================================
+    
+    // 1. Overview
+    function CandidateOverview({ currentUser, mySubmissions, setCurrentPage }) {
+      const stats = useMemo(() => {
+        const approved = mySubmissions.filter(s => s.review_status === "Approved");
+        return {
+          total: mySubmissions.length,
+          approved: approved.length,
+          pending: mySubmissions.filter(s => s.review_status === "Pending").length,
+          rejected: mySubmissions.filter(s => s.review_status === "Rejected").length,
+          earnings: approved.reduce((sum, s) => sum + s.amount, 0)
+        };
+      }, [mySubmissions]);
+
+      return (
+        <div className="space-y-6">
+          {/* Welcome Banner */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between">
+            <div className="z-10 text-center md:text-left">
+              <h2 className="text-2xl font-bold">“Welcome Back, {currentUser.name}!”</h2>
+              <p className="text-blue-100 text-xs mt-1">Start completing digital tasks and request wallet bank transfers daily.</p>
+              <button onClick={() => setCurrentPage("tasks")} className="mt-4 px-4 py-2 text-xs font-bold bg-white text-blue-600 rounded-lg shadow hover:bg-blue-50 transition cursor-pointer">
+                View Assigned Tasks
+              </button>
+            </div>
+            <div className="w-32 h-32 opacity-25 mt-4 md:mt-0"><Icon name="tasks" className="w-full h-full text-white" /></div>
+          </div>
+
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            {[
+              { label: "Total Tasks", val: stats.total, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20" },
+              { label: "Approved Tasks", val: stats.approved, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
+              { label: "Pending Review", val: stats.pending, color: "text-amber-500", bg: "bg-amber-500/10 border-amber-500/20" },
+              { label: "Rejected Tasks", val: stats.rejected, color: "text-rose-500", bg: "bg-rose-500/10 border-rose-500/20" },
+              { label: "Total Wallet", val: `₹${currentUser.wallet_balance}`, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-600/10 border-blue-600/20" },
+              { label: "Total Earnings", val: `₹${currentUser.earnings_paid + currentUser.wallet_balance}`, color: "text-indigo-500", bg: "bg-indigo-500/10 border-indigo-500/20" }
+            ].map((s, idx) => (
+              <div key={idx} className={`p-4 rounded-xl border glass-card text-center ${s.bg}`}>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</span>
+                <span className={`text-2xl font-bold mt-1 block ${s.color}`}>{s.val}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Recent Activity Table */}
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-lg font-bold mb-4">Latest Submissions</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                    <th className="py-3">Submission ID</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                    <th>Date Submitted</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {mySubmissions.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="py-6 text-center text-slate-500">No submissions uploaded yet. Go to Tasks!</td>
+                    </tr>
+                  ) : (
+                    mySubmissions.slice(-5).reverse().map(sub => (
+                      <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                        <td className="py-3.5 font-semibold text-slate-500">SUB-{sub.id.toUpperCase()}</td>
+                        <td className="font-bold text-emerald-500">₹{sub.amount}</td>
+                        <td>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                            sub.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                            sub.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                            "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                          }`}>
+                            {sub.review_status}
+                          </span>
+                        </td>
+                        <td className="text-slate-400 max-w-xs truncate">{sub.remarks || "No remarks"}</td>
+                        <td className="text-slate-400">{sub.date}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Tasks
+    function CandidateTasks({ currentUser, tasks, submissions, setSubmissions, triggerToast, setUsers }) {
+      const [filterCategory, setFilterCategory] = useState("All");
+      const [submitDrawer, setSubmitDrawer] = useState(null);
+      const [formProof, setFormProof] = useState({ link: "", remarks: "" });
+      const [screenshotFile, setScreenshotFile] = useState(null);
+
+      // Check if user already submitted this task
+      const getTaskSubmission = (taskId) => submissions.find(s => s.task_id === taskId && s.user_id === currentUser.id);
+
+      const filteredTasks = useMemo(() => {
+        if (filterCategory === "All") return tasks;
+        return tasks.filter(t => t.category === filterCategory);
+      }, [tasks, filterCategory]);
+
+      const handleCopyLink = (link) => {
+        navigator.clipboard.writeText(link);
+        triggerToast("Task link copied!");
+      };
+
+      const handleImageMockUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          setScreenshotFile(URL.createObjectURL(file));
+        }
+      };
+
+      const handleSubmission = (e) => {
+        e.preventDefault();
+        
+        if (currentUser.kyc_status !== "Approved") {
+          triggerToast("You must complete and approve KYC verification to submit tasks.", "error");
+          return;
+        }
+
+        const newSub = {
+          id: "s" + (submissions.length + 1),
+          user_id: currentUser.id,
+          task_id: submitDrawer.id,
+          submitted_link: formProof.link,
+          screenshot: screenshotFile || "assets/dashboard_preview.png",
+          video: "",
+          remarks: formProof.remarks,
+          review_status: "Pending",
+          amount: submitDrawer.amount,
+          date: new Date().toISOString().split('T')[0]
+        };
+
+        setSubmissions([...submissions, newSub]);
+        
+        // Update user pending wallet balance
+        setUsers(prev => prev.map(u => {
+          if (u.id === currentUser.id) {
+            return { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount };
+          }
+          return u;
+        }));
+
+        triggerToast("Task proof submitted successfully!");
+        setSubmitDrawer(null);
+        setFormProof({ link: "", remarks: "" });
+        setScreenshotFile(null);
+      };
+
+      return (
+        <div className="space-y-6">
+          {/* Category Filter Bar */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {["All", "Application Review", "Google Review", "Audio Recording", "Video Recording", "Product Review"].map(cat => (
+              <button 
+                key={cat} 
+                onClick={() => setFilterCategory(cat)}
+                className={`px-4 py-2 rounded-full text-xs font-bold shrink-0 cursor-pointer ${
+                  filterCategory === cat ? "bg-blue-600 text-white shadow" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Tasks Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {filteredTasks.map(t => {
+              const sub = getTaskSubmission(t.id);
+              return (
+                <div key={t.id} className="rounded-2xl glass-card p-6 flex flex-col justify-between hover:scale-[1.02]">
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] font-bold uppercase border border-blue-500/20">{t.category}</span>
+                      <span className="text-lg font-extrabold text-emerald-500">₹{t.amount}</span>
+                    </div>
+
+                    <h3 className="text-base font-bold mb-2">{t.title}</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed mb-4">{t.remarks}</p>
+
+                    <div className="flex items-center gap-2 p-2 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 select-all mb-4">
+                      <span className="truncate max-w-xs">{t.links}</span>
+                      <button onClick={() => handleCopyLink(t.links)} className="ml-auto hover:text-blue-500"><Icon name="copy" className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-4 font-semibold uppercase">
+                      <span>Deadline: {t.deadline}</span>
+                      <span>
+                        {sub ? (
+                          <span className={`font-bold ${
+                            sub.review_status === "Approved" ? "text-emerald-500" :
+                            sub.review_status === "Rejected" ? "text-rose-500" :
+                            "text-amber-500"
+                          }`}>{sub.review_status}</span>
+                        ) : "Unsubmitted"}
+                      </span>
+                    </div>
+
+                    {sub ? (
+                      <button disabled className="w-full py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-400 text-center uppercase tracking-wider">
+                        Submitted
+                      </button>
+                    ) : (
+                      <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer">
+                        Submit Task
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Submission Modal Drawer */}
+          {submitDrawer && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 slide-in">
+              <div className="w-full max-w-lg glass-card rounded-2xl p-6 relative">
+                <button onClick={() => setSubmitDrawer(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-5 h-5" /></button>
+                
+                <h3 className="text-lg font-bold mb-2">Submit Proof: {submitDrawer.title}</h3>
+                <p className="text-xs text-slate-400 mb-6">Enter proof link and screenshots confirming task completion.</p>
+
+                <form onSubmit={handleSubmission} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Paste Submitted Link</label>
+                    <input required type="url" value={formProof.link} onChange={(e) => setFormProof({ ...formProof, link: e.target.value })} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="https://store.google.com/review/id" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Screenshot Upload</label>
+                    <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative bg-white/5">
+                      <input type="file" accept="image/*" onChange={handleImageMockUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                      {screenshotFile ? (
+                        <img src={screenshotFile} className="mx-auto max-h-32 rounded object-cover" />
+                      ) : (
+                        <div className="space-y-2">
+                          <Icon name="upload" className="w-6 h-6 mx-auto text-slate-400" />
+                          <span className="block text-xs text-slate-400 font-bold uppercase">Click to select screenshot file</span>
+                          <span className="block text-[10px] text-slate-500">PNG, JPG up to 5MB</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Remarks</label>
+                    <textarea rows="3" value={formProof.remarks} onChange={(e) => setFormProof({ ...formProof, remarks: e.target.value })} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Name or email details used..."></textarea>
+                  </div>
+
+                  <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition uppercase tracking-wider cursor-pointer">
+                    Submit Proof
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // 3. Earnings
+    function CandidateEarnings({ currentUser, withdrawals, setWithdrawals, myKyc, triggerToast, setUsers }) {
+      const [withdrawAmount, setWithdrawAmount] = useState("");
+      
+      const stats = useMemo(() => {
+        const approvedW = withdrawals.filter(w => w.status === "Approved");
+        return {
+          pending: withdrawals.filter(w => w.status === "Pending").reduce((sum, w) => sum + w.amount, 0),
+          paid: approvedW.reduce((sum, w) => sum + w.amount, 0)
+        };
+      }, [withdrawals]);
+
+      const handleWithdrawRequest = (e) => {
+        e.preventDefault();
+        
+        const amt = parseFloat(withdrawAmount);
+        if (isNaN(amt) || amt <= 0) {
+          triggerToast("Invalid withdrawal amount.", "error");
+          return;
+        }
+
+        if (currentUser.kyc_status !== "Approved") {
+          triggerToast("You must complete and approve KYC verification to request withdrawals.", "error");
+          return;
+        }
+
+        if (amt > currentUser.wallet_balance) {
+          triggerToast("Insufficient wallet balance.", "error");
+          return;
+        }
+
+        const newRequest = {
+          id: "w" + (withdrawals.length + 1),
+          user_id: currentUser.id,
+          amount: amt,
+          status: "Pending",
+          date: new Date().toISOString().split('T')[0],
+          bank_details: `${myKyc.bank_name} - ${myKyc.account_number}`
+        };
+
+        setWithdrawals([...withdrawals, newRequest]);
+        
+        // Deduct from wallet balance instantly
+        setUsers(prev => prev.map(u => {
+          if (u.id === currentUser.id) {
+            return { ...u, wallet_balance: u.wallet_balance - amt };
+          }
+          return u;
+        }));
+
+        triggerToast("Withdrawal request submitted successfully!");
+        setWithdrawAmount("");
+      };
+
+      return (
+        <div className="space-y-6">
+          {/* Wallet Balance Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-blue-100">Wallet Balance</span>
+              <h3 className="text-4xl font-extrabold mt-2">₹{currentUser.wallet_balance}</h3>
+              <p className="text-xs text-blue-200 mt-2">Verified earnings ready for bank transfer.</p>
+            </div>
+            
+            <div className="p-6 rounded-2xl glass-card">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Withdrawals</span>
+              <h3 className="text-4xl font-extrabold mt-2 text-amber-500">₹{stats.pending}</h3>
+              <p className="text-xs text-slate-500 mt-2">Awaiting admin fund transfer release.</p>
+            </div>
+
+            <div className="p-6 rounded-2xl glass-card">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Paid Amount</span>
+              <h3 className="text-4xl font-extrabold mt-2 text-emerald-500">₹{stats.paid}</h3>
+              <p className="text-xs text-slate-500 mt-2">Transferred to HDFC verified account.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Request Withdrawal Form */}
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-lg font-bold mb-2">Request Bank Withdrawal</h3>
+              <p className="text-xs text-slate-400 mb-6">Funds are transferred directly into verified KYC bank details.</p>
+
+              {currentUser.kyc_status !== "Approved" ? (
+                <div className="p-6 text-center bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-400">
+                  <Icon name="x-circle" className="w-10 h-10 mx-auto mb-3" />
+                  <h4 className="font-bold text-sm">KYC Approved Status Required</h4>
+                  <p className="text-xs mt-1">Please complete KYC uploads and wait for admin verification before withdraws.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleWithdrawRequest} className="space-y-4">
+                  <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+                    <p className="font-semibold uppercase text-slate-400 text-[10px]">Verified Bank Details</p>
+                    <p className="text-sm font-bold">{myKyc.account_holder}</p>
+                    <p className="text-slate-400">A/c: {myKyc.account_number} ({myKyc.bank_name})</p>
+                    <p className="text-slate-400">IFSC Code: {myKyc.ifsc}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Withdraw Amount</label>
+                    <input required type="number" min="1" max={currentUser.wallet_balance} value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Enter amount to withdraw" />
+                  </div>
+
+                  <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition cursor-pointer">
+                    Submit Withdrawal Request
+                  </button>
+                </form>
+              )}
+            </div>
+
+            {/* Withdrawal History */}
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-lg font-bold mb-4">Transaction History</h3>
+              <div className="overflow-y-auto max-h-80">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                      <th className="py-2.5">Date</th>
+                      <th>Amount</th>
+                      <th>Account</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                    {withdrawals.filter(w => w.user_id === currentUser.id).length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="py-6 text-center text-slate-500">No withdrawal requests found.</td>
+                      </tr>
+                    ) : (
+                      withdrawals.filter(w => w.user_id === currentUser.id).reverse().map(w => (
+                        <tr key={w.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                          <td className="py-3 text-slate-400">{w.date}</td>
+                          <td className="font-bold text-emerald-500">₹{w.amount}</td>
+                          <td className="text-slate-400 max-w-[120px] truncate">{w.bank_details}</td>
+                          <td>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                              w.status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                              w.status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                              "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                            }`}>
+                              {w.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 4. KYC
+    function CandidateKyc({ currentUser, setCurrentUser, users, setUsers, kycRecords, setKycRecords, myKyc, triggerToast }) {
+      const [form, setForm] = useState({
+        holder: myKyc ? myKyc.account_holder : "",
+        accNumber: myKyc ? myKyc.account_number : "",
+        bank: myKyc ? myKyc.bank_name : "",
+        ifsc: myKyc ? myKyc.ifsc : ""
+      });
+
+      const [previews, setPreviews] = useState({ aadhaarFront: null, aadhaarBack: null, selfie: null });
+
+      useEffect(() => {
+        if (myKyc) {
+          setPreviews({
+            aadhaarFront: myKyc.aadhaar_front,
+            aadhaarBack: myKyc.aadhaar_back,
+            selfie: myKyc.selfie
+          });
+        }
+      }, [myKyc]);
+
+      const handleFilePreview = (e, field) => {
+        const file = e.target.files[0];
+        if (file) {
+          setPreviews({ ...previews, [field]: URL.createObjectURL(file) });
+        }
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+
+        if (!previews.aadhaarFront || !previews.aadhaarBack || !previews.selfie) {
+          triggerToast("Please upload all Aadhaar documents and Selfie.", "error");
+          return;
+        }
+
+        const newKyc = {
+          id: myKyc ? myKyc.id : "k" + (kycRecords.length + 1),
+          user_id: currentUser.id,
+          account_holder: form.holder,
+          account_number: form.accNumber,
+          bank_name: form.bank,
+          ifsc: form.ifsc,
+          aadhaar_front: previews.aadhaarFront,
+          aadhaar_back: previews.aadhaarBack,
+          selfie: previews.selfie,
+          status: "Pending"
+        };
+
+        // If myKyc exists, update, else push
+        if (myKyc) {
+          setKycRecords(prev => prev.map(k => k.id === myKyc.id ? newKyc : k));
+        } else {
+          setKycRecords([...kycRecords, newKyc]);
+        }
+
+        // Update candidate general KYC status flag
+        setUsers(prev => prev.map(u => {
+          if (u.id === currentUser.id) {
+            const updated = { ...u, kyc_status: "Pending" };
+            setCurrentUser(updated);
+            return updated;
+          }
+          return u;
+        }));
+
+        triggerToast("KYC details submitted for admin review.");
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="glass-card rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold">Identity KYC Verification</h3>
+                <p className="text-xs text-slate-400">Complete verification details to verify anti-spam pipelines.</p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                currentUser.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                currentUser.kyc_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+              }`}>
+                {currentUser.kyc_status}
+              </span>
+            </div>
+
+            {myKyc && myKyc.rejection_reason && (
+              <div className="p-4 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-400 text-xs mb-6">
+                <span className="font-bold block">Rejection Reason:</span>
+                <span>{myKyc.rejection_reason}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Image Upload Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { field: "aadhaarFront", label: "Aadhaar Card Front" },
+                  { field: "aadhaarBack", label: "Aadhaar Card Back" },
+                  { field: "selfie", label: "Verification Selfie" }
+                ].map(item => (
+                  <div key={item.field} className="space-y-2">
+                    <label className="block text-xs font-bold uppercase text-slate-400">{item.label}</label>
+                    <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative h-36 flex items-center justify-center bg-white/5">
+                      <input disabled={currentUser.kyc_status === "Approved"} type="file" accept="image/*" onChange={(e) => handleFilePreview(e, item.field)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                      {previews[item.field] ? (
+                        <img src={previews[item.field]} className="max-h-full max-w-full rounded object-cover" />
+                      ) : (
+                        <div className="space-y-1">
+                          <Icon name="upload" className="w-5 h-5 mx-auto text-slate-400" />
+                          <span className="block text-[10px] text-slate-400 font-bold uppercase">Upload File</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bank details form */}
+              <div className="border-t border-slate-200/50 dark:border-slate-800/40 pt-6 space-y-4">
+                <h4 className="font-bold text-sm">Direct Bank Account Details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Account Holder Name</label>
+                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.holder} onChange={(e) => setForm({ ...form, holder: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="John Doe" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Account Number</label>
+                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.accNumber} onChange={(e) => setForm({ ...form, accNumber: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="998877665544" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Name</label>
+                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.bank} onChange={(e) => setForm({ ...form, bank: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="e.g. HDFC Bank" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank IFSC Code</label>
+                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.ifsc} onChange={(e) => setForm({ ...form, ifsc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="HDFC0001234" />
+                  </div>
+                </div>
+              </div>
+
+              {currentUser.kyc_status !== "Approved" && (
+                <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition cursor-pointer">
+                  Submit KYC Verification Details
+                </button>
+              )}
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // 5. Reports
+    function CandidateReports({ currentUser, mySubmissions, withdrawals }) {
+      const [filterStatus, setFilterStatus] = useState("All");
+      const [filterType, setFilterType] = useState("All");
+
+      const filteredList = useMemo(() => {
+        return mySubmissions.filter(s => {
+          const matchStatus = filterStatus === "All" || s.review_status === filterStatus;
+          const matchType = filterType === "All" || s.submitted_link.includes(filterType);
+          return matchStatus && matchType;
+        });
+      }, [mySubmissions, filterStatus, filterType]);
+
+      // Simulated Exporters
+      const handleExport = (format) => {
+        let content = "";
+        let filename = `krv_report_${currentUser.name.replace(" ", "_")}_${new Date().toISOString().split('T')[0]}`;
+        
+        if (format === "csv") {
+          content = "Submission ID,Amount,Review Status,Link,Date\n" + 
+            filteredList.map(s => `SUB-${s.id.toUpperCase()},${s.amount},${s.review_status},${s.submitted_link},${s.date}`).join("\n");
+          filename += ".csv";
+        } else if (format === "excel") {
+          content = "Submission ID\tAmount\tReview Status\tLink\tDate\n" + 
+            filteredList.map(s => `SUB-${s.id.toUpperCase()}\t${s.amount}\t${s.review_status}\t${s.submitted_link}\t${s.date}`).join("\n");
+          filename += ".xls";
+        } else {
+          content = "KRV MANAGEMENT WORK REPORT\n=========================\n" + 
+            `Candidate Name: ${currentUser.name}\n` +
+            `Total Approved: ${filteredList.filter(s => s.review_status === "Approved").length} Tasks\n` + 
+            `Total Wallet Bal: ${currentUser.wallet_balance} Rs\n\n` +
+            "SUBMISSIONS LIST:\n-----------------\n" +
+            filteredList.map(s => `[SUB-${s.id.toUpperCase()}] Price: Rs.${s.amount} | Status: ${s.review_status}\nLink: ${s.submitted_link}\nRemarks: ${s.remarks || "N/A"}\n---`).join("\n");
+          filename += ".pdf";
+        }
+
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      return (
+        <div className="space-y-6">
+          {/* Reports Filter Widgets */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 rounded-2xl glass-card">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Review Status</label>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white">
+                <option value="All">All Statuses</option>
+                <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Category</label>
+              <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white">
+                <option value="All">All Categories</option>
+                <option value="google">Google Maps Review</option>
+                <option value="play.google">Playstore Install</option>
+                <option value="drive">Audio Recording</option>
+                <option value="youtube">Video Tasks</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2 flex items-end gap-3 justify-end mt-4 md:mt-0">
+              <button onClick={() => handleExport("csv")} className="px-4 py-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer">
+                <Icon name="download" className="w-4 h-4" /> CSV Export
+              </button>
+              <button onClick={() => handleExport("excel")} className="px-4 py-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer">
+                <Icon name="download" className="w-4 h-4" /> Excel XLS
+              </button>
+              <button onClick={() => handleExport("pdf")} className="px-4 py-2.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 cursor-pointer">
+                <Icon name="download" className="w-4 h-4" /> PDF Report
+              </button>
+            </div>
+          </div>
+
+          {/* Export Table Preview */}
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-base font-bold mb-4">Report Preview: {filteredList.length} Entries</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                    <th className="py-3">Task Title</th>
+                    <th>Sub ID</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {filteredList.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="py-6 text-center text-slate-500">No matching activities found for current filters.</td>
+                    </tr>
+                  ) : (
+                    filteredList.map(s => (
+                      <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                        <td className="py-3.5 font-bold">SUB-{s.id.toUpperCase()}</td>
+                        <td className="text-slate-400">Task-{s.task_id}</td>
+                        <td className="font-bold text-emerald-500">₹{s.amount}</td>
+                        <td>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                            s.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                            s.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                            "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                          }`}>
+                            {s.review_status}
+                          </span>
+                        </td>
+                        <td className="text-slate-400">{s.date}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 6. Profile
+    function CandidateProfile({ currentUser, users, setUsers, triggerToast }) {
+      const [pwd, setPwd] = useState({ old: "", new: "", confirm: "" });
+
+      const handleUpdatePassword = (e) => {
+        e.preventDefault();
+        
+        if (pwd.old !== currentUser.password) {
+          triggerToast("Incorrect current password.", "error");
+          return;
+        }
+
+        if (pwd.new !== pwd.confirm) {
+          triggerToast("Confirm password does not match.", "error");
+          return;
+        }
+
+        setUsers(prev => prev.map(u => {
+          if (u.id === currentUser.id) {
+            return { ...u, password: pwd.new };
+          }
+          return u;
+        }));
+
+        triggerToast("Password updated successfully!");
+        setPwd({ old: "", new: "", confirm: "" });
+      };
+
+      return (
+        <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-bold">Personal Profile Details</h3>
+            <div className="space-y-3 text-xs">
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Worker Name</span>
+                <span className="text-sm font-semibold text-white block mt-1">{currentUser.name}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Email Address</span>
+                <span className="text-sm font-semibold text-white block mt-1">{currentUser.email}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Mobile Number</span>
+                <span className="text-sm font-semibold text-white block mt-1">{currentUser.mobile}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Registered City / Pincode</span>
+                <span className="text-sm font-semibold text-white block mt-1">{currentUser.city || "Mumbai"} / {currentUser.pincode || "400001"}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Referral Code Invites</span>
+                <span className="text-sm font-extrabold text-blue-400 block mt-1">{currentUser.referral_code || "KRV-NONE"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-lg font-bold mb-4">Change Account Password</h3>
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Current Password</label>
+                <input required type="password" value={pwd.old} onChange={(e) => setPwd({ ...pwd, old: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">New Password</label>
+                <input required type="password" value={pwd.new} onChange={(e) => setPwd({ ...pwd, new: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Confirm New Password</label>
+                <input required type="password" value={pwd.confirm} onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+              </div>
+
+              <button type="submit" className="w-full py-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition cursor-pointer">
+                Change Password
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // 7. Support
+    function CandidateSupport({ currentUser, tickets, setTickets, triggerToast }) {
+      const [form, setForm] = useState({ subject: "", category: "Payments", desc: "" });
+      const [showNewTicket, setShowNewTicket] = useState(false);
+
+      const handleRaiseTicket = (e) => {
+        e.preventDefault();
+
+        const newTk = {
+          id: "tk" + (tickets.length + 1),
+          user_id: currentUser.id,
+          subject: form.subject,
+          category: form.category,
+          description: form.desc,
+          status: "Open",
+          replies: []
+        };
+
+        setTickets([...tickets, newTk]);
+        triggerToast("Support ticket raised successfully!");
+        setForm({ subject: "", category: "Payments", desc: "" });
+        setShowNewTicket(false);
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold">Internal Ticket Support</h3>
+            <button 
+              onClick={() => setShowNewTicket(!showNewTicket)}
+              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow cursor-pointer"
+            >
+              {showNewTicket ? "Cancel" : "Raise New Ticket"}
+            </button>
+          </div>
+
+          {showNewTicket && (
+            <div className="glass-card rounded-2xl p-6">
+              <h4 className="font-bold text-base mb-4">Create New Help Request</h4>
+              <form onSubmit={handleRaiseTicket} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Subject</label>
+                    <input required type="text" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Brief issue heading" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Issue Category</label>
+                    <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white">
+                      <option value="Payments">Payments & Wallet</option>
+                      <option value="KYC Support">KYC Upload Issue</option>
+                      <option value="Task Query">Task Submission Query</option>
+                      <option value="Account Query">Account Details Change</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Detailed Description</label>
+                  <textarea required rows="4" value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Describe the problem you are experiencing..."></textarea>
+                </div>
+                <button type="submit" className="w-full py-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition cursor-pointer">
+                  Submit Support Ticket
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Tickets History List */}
+          <div className="space-y-4">
+            {tickets.filter(t => t.user_id === currentUser.id).length === 0 ? (
+              <div className="p-10 text-center glass-card rounded-2xl text-slate-500 text-xs">
+                No support tickets raised yet.
+              </div>
+            ) : (
+              tickets.filter(t => t.user_id === currentUser.id).reverse().map(tk => (
+                <div key={tk.id} className="p-6 rounded-2xl glass-card space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-slate-400">Ticket ID: TK-{tk.id.toUpperCase()}</span>
+                      <h4 className="font-bold text-base mt-0.5">{tk.subject}</h4>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                      tk.status === "Open" ? "bg-blue-500/10 text-blue-500 border-blue-500/20 animate-pulse" : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                    }`}>
+                      {tk.status}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-slate-400 leading-relaxed bg-slate-950/20 p-3 rounded-lg">
+                    <p className="font-bold text-[10px] text-slate-500 uppercase">Description</p>
+                    <p className="mt-1">{tk.description}</p>
+                  </div>
+
+                  {tk.replies.map((rep, idx) => (
+                    <div key={idx} className="pl-4 border-l-2 border-blue-500 py-1 text-xs">
+                      <span className="font-bold text-blue-400">{rep.sender}:</span>
+                      <span className="text-slate-300 ml-2">{rep.message}</span>
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // MODULE 8: ADMIN CONTROL PANEL
+    // ==========================================
+    function AdminPanel({
+      currentPage, setCurrentPage, currentUser, users, setUsers, tasks, setTasks,
+      submissions, setSubmissions, kycRecords, setKycRecords, withdrawals, setWithdrawals,
+      tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, updateWallet
+    }) {
+      const [sidebarOpen, setSidebarOpen] = useState(true);
+
+      const menuItems = [
+        { id: "admin-dashboard", icon: "home", label: "Dashboard" },
+        { id: "admin-candidates", icon: "profile", label: "Candidates" },
+        { id: "admin-tasks", icon: "tasks", label: "Task CRUD" },
+        { id: "admin-reviews", icon: "check-circle", label: "Task Reviews" },
+        { id: "admin-earnings", icon: "earnings", label: "Earnings Control" },
+        { id: "admin-kyc", icon: "kyc", label: "KYC Documents" },
+        { id: "admin-reports", icon: "reports", label: "Reports Export" },
+        { id: "admin-settings", icon: "settings", label: "System Settings" }
+      ];
+
+      return (
+        <div className="min-h-screen flex">
+          {/* Admin Sidebar */}
+          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 flex flex-col justify-between transition-all duration-300 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full md:w-0"
+          } fixed md:relative h-full md:h-auto z-30`}>
+            
+            <div>
+              {/* Sidebar Branding */}
+              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">K</div>
+                  <div>
+                    <span className="text-sm font-bold tracking-tight text-white block">KRV Admin</span>
+                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest">Portal Manager</span>
+                  </div>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><Icon name="x-circle" className="w-4 h-4" /></button>
+              </div>
+
+              {/* Sidebar Menu */}
+              <nav className="p-4 space-y-1">
+                {menuItems.map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name={item.icon} className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </div>
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            {/* Logout button */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/15">
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer">
+                <Icon name="logout" className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </aside>
+
+          {/* Admin Main Window */}
+          <div className="flex-grow flex flex-col min-h-screen overflow-x-hidden">
+            {/* Header */}
+            <header className="px-6 py-4 flex items-center justify-between bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/40">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <Icon name="menu" className="w-4 h-4" />
+                </button>
+                <h1 className="text-xl font-bold tracking-tight capitalize">{currentPage.replace("admin-", "")} Panel</h1>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                  System Administrator
+                </span>
+
+                <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
+                </button>
+              </div>
+            </header>
+
+            {/* Content router */}
+            <div className="p-6 flex-grow overflow-y-auto">
+              
+              {currentPage === "admin-dashboard" && (
+                <AdminOverview 
+                  users={users} 
+                  tasks={tasks} 
+                  submissions={submissions} 
+                  kycRecords={kycRecords} 
+                />
+              )}
+
+              {currentPage === "admin-candidates" && (
+                <AdminCandidates 
+                  users={users} 
+                  setUsers={setUsers} 
+                  kycRecords={kycRecords}
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "admin-tasks" && (
+                <AdminTasks 
+                  tasks={tasks} 
+                  setTasks={setTasks} 
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "admin-reviews" && (
+                <AdminReviews 
+                  submissions={submissions} 
+                  setSubmissions={setSubmissions} 
+                  users={users}
+                  setNotifications={setNotifications}
+                  notifications={notifications}
+                  triggerToast={triggerToast}
+                  updateWallet={updateWallet}
+                />
+              )}
+
+              {currentPage === "admin-earnings" && (
+                <AdminEarnings 
+                  withdrawals={withdrawals} 
+                  setWithdrawals={setWithdrawals} 
+                  users={users}
+                  setUsers={setUsers}
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "admin-kyc" && (
+                <AdminKyc 
+                  kycRecords={kycRecords} 
+                  setKycRecords={setKycRecords} 
+                  users={users}
+                  setUsers={setUsers}
+                  setNotifications={setNotifications}
+                  notifications={notifications}
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "admin-reports" && (
+                <AdminReports 
+                  users={users} 
+                  submissions={submissions} 
+                  withdrawals={withdrawals}
+                  kycRecords={kycRecords}
+                />
+              )}
+
+              {currentPage === "admin-settings" && (
+                <AdminSettings 
+                  triggerToast={triggerToast}
+                />
+              )}
+
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // ADMIN MODULE COMPONENTS
+    // ==========================================
+
+    // 1. Dashboard Overview with Chart.js
+    function AdminOverview({ users, tasks, submissions, kycRecords }) {
+      const chartRef1 = useRef(null);
+      const chartRef2 = useRef(null);
+
+      const stats = useMemo(() => {
+        const candidates = users.filter(u => u.role === "candidate");
+        return {
+          totalUsers: candidates.length,
+          activeUsers: candidates.filter(u => u.kyc_status === "Approved").length,
+          pendingKyc: kycRecords.filter(k => k.status === "Pending").length,
+          totalTasks: tasks.length,
+          pendingSub: submissions.filter(s => s.review_status === "Pending").length,
+          totalPaid: candidates.reduce((sum, u) => sum + u.earnings_paid, 0)
+        };
+      }, [users, tasks, submissions, kycRecords]);
+
+      // Initialize Dynamic Chart.js
+      useEffect(() => {
+        let chart1, chart2;
+
+        if (chartRef1.current) {
+          const ctx = chartRef1.current.getContext('2d');
+          chart1 = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: ['May 20', 'May 21', 'May 22', 'May 23', 'May 24', 'May 25', 'May 26'],
+              datasets: [{
+                label: 'Task Submissions',
+                data: [12, 19, 15, 25, 32, 28, 38],
+                borderColor: '#2563EB',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                tension: 0.4,
+                fill: true
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+
+        if (chartRef2.current) {
+          const ctx = chartRef2.current.getContext('2d');
+          chart2 = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: ['Google Review', 'App Review', 'Audio Rec', 'Video Rec', 'Product Review'],
+              datasets: [{
+                label: 'Volume by Category',
+                data: [42, 35, 28, 18, 30],
+                backgroundColor: ['#2563EB', '#4F46E5', '#06B6D4', '#10B981', '#F59E0B']
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+
+        return () => {
+          if (chart1) chart1.destroy();
+          if (chart2) chart2.destroy();
+        };
+      }, []);
+
+      return (
+        <div className="space-y-6">
+          {/* Admin Stats Rows */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+            {[
+              { label: "Total Candidates", val: stats.totalUsers, color: "text-blue-500" },
+              { label: "Active Verified", val: stats.activeUsers, color: "text-emerald-500" },
+              { label: "Pending KYC", val: stats.pendingKyc, color: "text-amber-500 animate-pulse" },
+              { label: "Active Tasks", val: stats.totalTasks, color: "text-indigo-500" },
+              { label: "Pending Reviews", val: stats.pendingSub, color: "text-rose-500 animate-pulse" },
+              { label: "Total Paid", val: `₹${stats.totalPaid}`, color: "text-emerald-600 dark:text-emerald-400" }
+            ].map((s, idx) => (
+              <div key={idx} className="p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/40 glass-card text-center">
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</span>
+                <span className={`text-2xl font-bold mt-1 block ${s.color}`}>{s.val}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Charts grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-base font-bold mb-4">Daily Task Completion rate</h3>
+              <canvas ref={chartRef1} height="120"></canvas>
+            </div>
+            
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-base font-bold mb-4">Task Categorization Distribution</h3>
+              <canvas ref={chartRef2} height="120"></canvas>
+            </div>
+          </div>
+
+          {/* Quick Logs */}
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-base font-bold mb-4">Latest System Activities</h3>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center py-2 border-b border-slate-800">
+                <span className="text-slate-400">Candidate <b>Rahul Sharma</b> registered and completed KYC details.</span>
+                <span className="text-[10px] font-bold text-emerald-500 uppercase">KYC Approved</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-slate-800">
+                <span className="text-slate-400">Candidate <b>Priya Patel</b> submitted proof for 'Record Voice Prompts'.</span>
+                <span className="text-[10px] font-bold text-amber-500 uppercase">Task Auditing</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-slate-400">Admin generated new Google Maps task 'Review Patel Bhai Maps'.</span>
+                <span className="text-[10px] font-bold text-blue-500 uppercase">Task Created</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Candidate Management
+    function AdminCandidates({ users, setUsers, kycRecords, triggerToast }) {
+      const candidates = useMemo(() => users.filter(u => u.role === "candidate"), [users]);
+
+      const handleBlockUser = (id) => {
+        setUsers(prev => prev.map(u => {
+          if (u.id === id) {
+            const isBlocked = u.kyc_status === "Blocked";
+            const updated = { ...u, kyc_status: isBlocked ? "Pending" : "Blocked" };
+            triggerToast(isBlocked ? "Candidate unblocked!" : "Candidate blocked!", "info");
+            return updated;
+          }
+          return u;
+        }));
+      };
+
+      return (
+        <div className="glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-bold mb-4">Candidates Directory: {candidates.length} Profiles</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                  <th className="py-3">Name</th>
+                  <th>Email ID</th>
+                  <th>Mobile</th>
+                  <th>Location</th>
+                  <th>KYC Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                {candidates.map(c => (
+                  <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                    <td className="py-3.5 font-bold">{c.name}</td>
+                    <td className="text-slate-400">{c.email}</td>
+                    <td className="text-slate-400">{c.mobile}</td>
+                    <td className="text-slate-400">{c.city || "N/A"} - {c.pincode || "N/A"}</td>
+                    <td>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                        c.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                        c.kyc_status === "Blocked" ? "bg-rose-500/25 text-rose-400 border border-rose-500/30" :
+                        "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                      }`}>
+                        {c.kyc_status}
+                      </span>
+                    </td>
+                    <td>
+                      <button onClick={() => handleBlockUser(c.id)} className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded cursor-pointer ${
+                        c.kyc_status === "Blocked" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-600" : "bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-600"
+                      }`}>
+                        {c.kyc_status === "Blocked" ? "Unblock" : "Block Candidate"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // 3. Task Management (CRUD)
+    function AdminTasks({ tasks, setTasks, triggerToast }) {
+      const [showCreate, setShowCreate] = useState(false);
+      const [form, setForm] = useState({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
+
+      const handleCreateTask = (e) => {
+        e.preventDefault();
+        
+        const newTask = {
+          id: "t" + (tasks.length + 1),
+          title: form.title,
+          category: form.category,
+          links: form.links,
+          amount: parseFloat(form.amount) || 0,
+          remarks: form.remarks,
+          deadline: form.deadline,
+          status: "Active"
+        };
+
+        setTasks([...tasks, newTask]);
+        triggerToast("New digital task created successfully!");
+        setForm({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
+        setShowCreate(false);
+      };
+
+      const handleDeleteTask = (id) => {
+        setTasks(prev => prev.filter(t => t.id !== id));
+        triggerToast("Task deleted.", "info");
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold">Total Assigned Tasks: {tasks.length} Active</h3>
+            <button onClick={() => setShowCreate(!showCreate)} className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md cursor-pointer">
+              {showCreate ? "Cancel" : "Create New Task"}
+            </button>
+          </div>
+
+          {showCreate && (
+            <div className="glass-card rounded-2xl p-6">
+              <h4 className="font-bold text-base mb-4">Create Workforce Task</h4>
+              <form onSubmit={handleCreateTask} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Title</label>
+                    <input required type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Price Amount (INR)</label>
+                    <input required type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Category</label>
+                    <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
+                      <option value="Google Review">Google Maps Review</option>
+                      <option value="Application Review">Application Review</option>
+                      <option value="Audio Recording">Audio Recording</option>
+                      <option value="Video Recording">Video Recording</option>
+                      <option value="Product Review">Product Review</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Links</label>
+                    <input required type="url" value={form.links} onChange={(e) => setForm({ ...form, links: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="https://store.url" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Deadline</label>
+                    <input required type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Instruction Remarks</label>
+                  <textarea required rows="3" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Instructions for candidate..."></textarea>
+                </div>
+                <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition cursor-pointer">
+                  Save & Assign Task
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Active Tasks Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {tasks.map(t => (
+              <div key={t.id} className="rounded-2xl glass-card p-6 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[9px] font-bold uppercase border border-blue-500/20">{t.category}</span>
+                    <span className="text-base font-extrabold text-emerald-500">₹{t.amount}</span>
+                  </div>
+                  <h4 className="font-bold text-sm mb-2">{t.title}</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-4">{t.remarks}</p>
+                </div>
+
+                <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-800">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase">Deadline: {t.deadline}</span>
+                  <button onClick={() => handleDeleteTask(t.id)} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer">
+                    <Icon name="trash" className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // 4. Submissions Review System
+    function AdminReviews({ submissions, setSubmissions, users, setNotifications, notifications, triggerToast, updateWallet }) {
+      const [reviewModal, setReviewModal] = useState(null);
+      const [rejectionReason, setRejectionReason] = useState("");
+
+      const pendingSub = useMemo(() => submissions.filter(s => s.review_status === "Pending"), [submissions]);
+
+      const handleApprove = (sub) => {
+        // Update submission review status
+        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Approved" } : s));
+        
+        // Update user wallet balance (transfers pending to approved)
+        updateWallet(sub.user_id, sub.amount);
+
+        // Add Notification
+        const newNotif = {
+          id: "n" + (notifications.length + 1),
+          user_id: sub.user_id,
+          title: "Task Submission Approved!",
+          message: `Your task submission (SUB-${sub.id.toUpperCase()}) was verified successfully. ₹${sub.amount} added to wallet.`,
+          date: new Date().toISOString().split('T')[0]
+        };
+        setNotifications([...notifications, newNotif]);
+
+        triggerToast("Task submission approved!");
+        setReviewModal(null);
+      };
+
+      const handleReject = (sub) => {
+        if (!rejectionReason) {
+          triggerToast("Please provide a rejection reason.", "error");
+          return;
+        }
+
+        // Update submission
+        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Rejected", rejection_reason: rejectionReason } : s));
+        
+        // Deduct from candidate's pending wallet
+        // (Wait! In submit task, we added it to u.earnings_pending, so we should deduct it now)
+        // Set rejection reason
+        // Add Notification
+        const newNotif = {
+          id: "n" + (notifications.length + 1),
+          user_id: sub.user_id,
+          title: "Task Submission Rejected",
+          message: `Your task submission (SUB-${sub.id.toUpperCase()}) was rejected: "${rejectionReason}"`,
+          date: new Date().toISOString().split('T')[0]
+        };
+        setNotifications([...notifications, newNotif]);
+
+        triggerToast("Submission rejected with remark details.");
+        setReviewModal(null);
+        setRejectionReason("");
+      };
+
+      return (
+        <div className="glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-bold mb-4">Pending Proof Reviews: {pendingSub.length} Tasks</h3>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                  <th className="py-3">Worker ID</th>
+                  <th>Task ID</th>
+                  <th>Verification Proof</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                {pendingSub.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-6 text-center text-slate-500">No pending task reviews awaiting auditing.</td>
+                  </tr>
+                ) : (
+                  pendingSub.map(s => (
+                    <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                      <td className="py-3.5 font-bold">USER-{s.user_id.toUpperCase()}</td>
+                      <td className="text-slate-400">TASK-{s.task_id.toUpperCase()}</td>
+                      <td className="text-blue-500 max-w-[200px] truncate select-all">{s.submitted_link}</td>
+                      <td className="font-bold text-emerald-500">₹{s.amount}</td>
+                      <td>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                          {s.review_status}
+                        </span>
+                      </td>
+                      <td>
+                        <button onClick={() => setReviewModal(s)} className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold uppercase cursor-pointer">
+                          Audit Review
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Audit Review Modal */}
+          {reviewModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 slide-in">
+              <div className="w-full max-w-lg glass-card rounded-2xl p-6 relative">
+                <button onClick={() => setReviewModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-5 h-5" /></button>
+                
+                <h3 className="text-lg font-bold mb-4">Audit Task Proof: SUB-{reviewModal.id.toUpperCase()}</h3>
+
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Submitted URL Link</span>
+                    <a href={reviewModal.submitted_link} target="_blank" className="text-blue-500 hover:underline select-all truncate block mt-1">{reviewModal.submitted_link}</a>
+                  </div>
+
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Proof Screenshot</span>
+                    <div className="max-h-40 overflow-hidden border border-slate-700 rounded-lg p-1 bg-slate-950/20">
+                      <img src={reviewModal.screenshot || "assets/dashboard_preview.png"} className="mx-auto max-h-36 rounded object-cover" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Candidate Remarks</span>
+                    <p className="text-slate-300 mt-1 bg-slate-950/20 p-2.5 rounded-lg border border-slate-800">{reviewModal.remarks || "No comments"}</p>
+                  </div>
+
+                  {/* Rejection input box */}
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Rejection Reason (If rejecting)</label>
+                    <input type="text" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Blur image, incorrect link details..." />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
+                    <button onClick={() => handleReject(reviewModal)} className="py-3 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">
+                      Reject Proof
+                    </button>
+                    <button onClick={() => handleApprove(reviewModal)} className="py-3 font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">
+                      Approve Payout
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // 5. Earnings Control & Payout approvals
+    function AdminEarnings({ withdrawals, setWithdrawals, users, setUsers, triggerToast }) {
+      const pendingW = useMemo(() => withdrawals.filter(w => w.status === "Pending"), [withdrawals]);
+
+      const handleReleasePayment = (w) => {
+        // Approve withdrawal
+        setWithdrawals(prev => prev.map(item => item.id === w.id ? { ...item, status: "Approved" } : item));
+        
+        // Update user total earnings paid balance
+        setUsers(prev => prev.map(u => {
+          if (u.id === w.user_id) {
+            return { ...u, earnings_paid: u.earnings_paid + w.amount };
+          }
+          return u;
+        }));
+
+        triggerToast("Withdrawal approved and funds released successfully!");
+      };
+
+      return (
+        <div className="glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-bold mb-4">Pending Wallet Withdrawals: {pendingW.length} Requests</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                  <th className="py-3">Worker ID</th>
+                  <th>Amount (INR)</th>
+                  <th>Bank Account Details</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                {pendingW.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-6 text-center text-slate-500">No pending wallet bank withdrawals found.</td>
+                  </tr>
+                ) : (
+                  pendingW.map(w => (
+                    <tr key={w.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                      <td className="py-3.5 font-bold">USER-{w.user_id.toUpperCase()}</td>
+                      <td className="font-extrabold text-emerald-500">₹{w.amount}</td>
+                      <td className="text-slate-400 font-medium">{w.bank_details}</td>
+                      <td className="text-slate-400">{w.date}</td>
+                      <td>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse">
+                          {w.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button onClick={() => handleReleasePayment(w)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold uppercase cursor-pointer">
+                          Approve Transfer
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // 6. KYC Approvals Manager
+    function AdminKyc({ kycRecords, setKycRecords, users, setUsers, setNotifications, notifications, triggerToast }) {
+      const [rejectModal, setRejectModal] = useState(null);
+      const [rejectReason, setRejectReason] = useState("");
+
+      const pendingKyc = useMemo(() => kycRecords.filter(k => k.status === "Pending"), [kycRecords]);
+
+      const handleApproveKyc = (kyc) => {
+        setKycRecords(prev => prev.map(k => k.id === kyc.id ? { ...k, status: "Approved" } : k));
+        
+        // Update user status
+        setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Approved" } : u));
+
+        // Add Notification
+        const newNotif = {
+          id: "n" + (notifications.length + 1),
+          user_id: kyc.user_id,
+          title: "KYC Verified Successfully!",
+          message: "Congratulations! Your bank details and Aadhaar identity cards are approved. You can now browse tasks.",
+          date: new Date().toISOString().split('T')[0]
+        };
+        setNotifications([...notifications, newNotif]);
+
+        triggerToast("Candidate KYC approved successfully!");
+      };
+
+      const handleRejectKyc = (kyc) => {
+        if (!rejectReason) {
+          triggerToast("Please enter a rejection reason.", "error");
+          return;
+        }
+
+        setKycRecords(prev => prev.map(k => k.id === kyc.id ? { ...k, status: "Rejected", rejection_reason: rejectReason } : k));
+        
+        // Update user
+        setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Rejected" } : u));
+
+        // Add Notification
+        const newNotif = {
+          id: "n" + (notifications.length + 1),
+          user_id: kyc.user_id,
+          title: "KYC Rejected!",
+          message: `Your identity KYC was rejected: "${rejectReason}"`,
+          date: new Date().toISOString().split('T')[0]
+        };
+        setNotifications([...notifications, newNotif]);
+
+        triggerToast("KYC Rejected successfully.");
+        setRejectModal(null);
+        setRejectReason("");
+      };
+
+      return (
+        <div className="glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-bold mb-4">Pending Candidates KYC: {pendingKyc.length} Records</h3>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                  <th className="py-3">Holder Name</th>
+                  <th>Bank Account</th>
+                  <th>IFSC</th>
+                  <th>Aadhaar / Selfie Inspect</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                {pendingKyc.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="py-6 text-center text-slate-500">No pending candidate identity files to verify.</td>
+                  </tr>
+                ) : (
+                  pendingKyc.map(k => (
+                    <tr key={k.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                      <td className="py-3.5 font-bold">{k.account_holder}</td>
+                      <td className="text-slate-400">{k.account_number} ({k.bank_name})</td>
+                      <td className="text-slate-400">{k.ifsc}</td>
+                      <td>
+                        <div className="flex gap-2">
+                          <a href={k.aadhaar_front} target="_blank" className="text-[10px] text-blue-500 underline font-bold uppercase">Front</a>
+                          <a href={k.aadhaar_back} target="_blank" className="text-[10px] text-blue-500 underline font-bold uppercase">Back</a>
+                          <a href={k.selfie} target="_blank" className="text-[10px] text-blue-500 underline font-bold uppercase">Selfie</a>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex gap-2">
+                          <button onClick={() => setRejectModal(k)} className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold uppercase cursor-pointer">
+                            Reject
+                          </button>
+                          <button onClick={() => handleApproveKyc(k)} className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold uppercase cursor-pointer">
+                            Approve
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* KYC Reject Reason input box */}
+          {rejectModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 slide-in">
+              <div className="w-full max-w-md glass-card rounded-2xl p-6 relative">
+                <button onClick={() => setRejectModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-5 h-5" /></button>
+                
+                <h3 className="text-lg font-bold mb-4">Reject KYC: {rejectModal.account_holder}</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Rejection Reason</label>
+                    <input required type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Blur Aadhaar card details, selfie mismatch..." />
+                  </div>
+                  
+                  <button onClick={() => handleRejectKyc(rejectModal)} className="w-full py-3 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">
+                    Reject KYC Verification
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // 7. System Reports Generator
+    function AdminReports({ users, submissions, withdrawals, kycRecords }) {
+      const [filterStatus, setFilterStatus] = useState("All");
+      const [filterRole, setFilterRole] = useState("All");
+
+      const filteredList = useMemo(() => {
+        return submissions.filter(s => {
+          const matchStatus = filterStatus === "All" || s.review_status === filterStatus;
+          const user = users.find(u => u.id === s.user_id);
+          const matchRole = filterRole === "All" || (user && user.city.toLowerCase() === filterRole.toLowerCase());
+          return matchStatus && matchRole;
+        });
+      }, [submissions, users, filterStatus, filterRole]);
+
+      const handleExport = (format) => {
+        let content = "";
+        let filename = `krv_admin_workforce_report_${new Date().toISOString().split('T')[0]}`;
+        
+        if (format === "csv") {
+          content = "Sub ID,Candidate ID,Price,Status,Date\n" + 
+            filteredList.map(s => `SUB-${s.id.toUpperCase()},USER-${s.user_id.toUpperCase()},${s.amount},${s.review_status},${s.date}`).join("\n");
+          filename += ".csv";
+        } else if (format === "excel") {
+          content = "Sub ID\tCandidate ID\tPrice\tStatus\tDate\n" + 
+            filteredList.map(s => `SUB-${s.id.toUpperCase()}\tUSER-${s.user_id.toUpperCase()}\t${s.amount}\t${s.review_status}\t${s.date}`).join("\n");
+          filename += ".xls";
+        } else {
+          content = "KRV ADMIN MASTER AUDIT REPORT\n=============================\n" +
+            `Generated: ${new Date().toLocaleString()}\n` +
+            `Total Filtered Entries: ${filteredList.length} submissions\n\n` +
+            "SUBMISSIONS AUDIT DATA:\n------------------------\n" +
+            filteredList.map(s => `[SUB-${s.id.toUpperCase()}] Candidate: USER-${s.user_id.toUpperCase()} | Price: Rs.${s.amount} | Status: ${s.review_status} | Date: ${s.date}`).join("\n");
+          filename += ".pdf";
+        }
+
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 rounded-2xl glass-card">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Audit Status</label>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
+                <option value="All">All Reviews</option>
+                <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">City Filter</label>
+              <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
+                <option value="All">All Locations</option>
+                <option value="mumbai">Mumbai</option>
+                <option value="ahmedabad">Ahmedabad</option>
+                <option value="delhi">Delhi</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2 flex items-end gap-3 justify-end mt-4 md:mt-0">
+              <button onClick={() => handleExport("csv")} className="px-4 py-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-850 flex items-center gap-2 cursor-pointer">
+                <Icon name="download" className="w-4 h-4" /> CSV Export
+              </button>
+              <button onClick={() => handleExport("excel")} className="px-4 py-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-850 flex items-center gap-2 cursor-pointer">
+                <Icon name="download" className="w-4 h-4" /> Excel XLS
+              </button>
+              <button onClick={() => handleExport("pdf")} className="px-4 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2 cursor-pointer">
+                <Icon name="download" className="w-4 h-4" /> PDF Report
+              </button>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-base font-bold mb-4">Audit Submissions Listing: {filteredList.length} Entries</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                    <th className="py-3">Sub ID</th>
+                    <th>Worker Name</th>
+                    <th>Task ID</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Submitted Link</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {filteredList.map(s => {
+                    const user = users.find(u => u.id === s.user_id);
+                    return (
+                      <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                        <td className="py-3.5 font-bold">SUB-{s.id.toUpperCase()}</td>
+                        <td className="text-slate-400 font-semibold">{user ? user.name : "N/A"}</td>
+                        <td className="text-slate-400">TASK-{s.task_id.toUpperCase()}</td>
+                        <td className="font-extrabold text-emerald-500">₹{s.amount}</td>
+                        <td>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                            s.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                            s.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                            "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                          }`}>
+                            {s.review_status}
+                          </span>
+                        </td>
+                        <td className="text-blue-500 max-w-[150px] truncate select-all">{s.submitted_link}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 8. Settings
+    function AdminSettings({ triggerToast }) {
+      const handleSaveSettings = (e) => {
+        e.preventDefault();
+        triggerToast("Website settings and payment configs updated successfully!");
+      };
+
+      return (
+        <div className="max-w-3xl mx-auto glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-bold mb-4">Website Configuration settings</h3>
+          
+          <form onSubmit={handleSaveSettings} className="space-y-6 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Referral Rate Bonus (INR)</label>
+                <input type="number" defaultValue="50" className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Min Withdrawal Limit (INR)</label>
+                <input type="number" defaultValue="500" className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Support Ticket Auto-Close Timer (Days)</label>
+                <input type="number" defaultValue="7" className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Platform Maintenance Mode</label>
+                <select className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
+                  <option value="no">Active Operational</option>
+                  <option value="yes">Under Maintenance</option>
+                </select>
+              </div>
+            </div>
+            
+            <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg cursor-pointer">
+              Save configurations
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // INJECT INTO DOM
+    // ==========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
