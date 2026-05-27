@@ -3154,6 +3154,10 @@
         const parsed = [];
         rows.forEach((row) => {
           if (!row.trim()) return;
+          
+          let sno = parsed.length + 1;
+          let textStr = row.trim();
+          
           // Split by tab first (spreadsheet format), then fallback to comma (CSV format)
           let cols = row.split("\t");
           if (cols.length < 2) {
@@ -3162,18 +3166,26 @@
           
           if (cols.length >= 2) {
             const snoStr = cols[0].replace(/['"\s]/g, "").trim();
-            const textStr = cols.slice(1).join(",").replace(/^['"]|['"]$/g, "").trim(); // join back remaining cols
-            
-            const sno = parseInt(snoStr) || (parsed.length + 1);
-            if (textStr && textStr.toLowerCase() !== "review" && textStr.toLowerCase() !== "review text") { // Skip headers
-              parsed.push({
-                id: "r" + (parsed.length + 1),
-                sno: sno,
-                text: textStr,
-                assigned_to: null,
-                status: "Unused"
-              });
+            // Check if the first column is numeric to confirm S.No structure
+            const maybeSno = parseInt(snoStr);
+            if (!isNaN(maybeSno)) {
+              sno = maybeSno;
+              textStr = cols.slice(1).join(",").replace(/^['"]|['"]$/g, "").trim();
             }
+          }
+          
+          // Skip headers or empty entries
+          if (textStr && 
+              textStr.toLowerCase() !== "review" && 
+              textStr.toLowerCase() !== "review text" && 
+              textStr.toLowerCase() !== "reviews") {
+            parsed.push({
+              id: "r" + (parsed.length + 1),
+              sno: sno,
+              text: textStr,
+              assigned_to: null,
+              status: "Unused"
+            });
           }
         });
         return parsed;
@@ -3222,10 +3234,7 @@
               };
               
               if (form.category === "Application Review Provide by Brand") {
-                if (importedReviewsList.length > 0) {
-                  // Merge new ones, preserving any matched assigned status if applicable
-                  updatedTask.imported_reviews = importedReviewsList;
-                }
+                updatedTask.imported_reviews = importedReviewsList;
               } else {
                 delete updatedTask.imported_reviews;
               }
