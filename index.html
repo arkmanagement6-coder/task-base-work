@@ -4765,13 +4765,47 @@ CREATE TABLE IF NOT EXISTS krv_notifications (
     date VARCHAR(50)
 );
 
--- Disable Row Level Security for instant anonymous sync
+-- Enable and create explicit read/write/update/delete policies for anonymous access
+CREATE POLICY "Allow anon read" ON krv_users FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anon insert" ON krv_users FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anon update" ON krv_users FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon delete" ON krv_users FOR DELETE TO anon USING (true);
 ALTER TABLE krv_users DISABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anon read" ON krv_tasks FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anon insert" ON krv_tasks FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anon update" ON krv_tasks FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon delete" ON krv_tasks FOR DELETE TO anon USING (true);
 ALTER TABLE krv_tasks DISABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anon read" ON krv_submissions FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anon insert" ON krv_submissions FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anon update" ON krv_submissions FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon delete" ON krv_submissions FOR DELETE TO anon USING (true);
 ALTER TABLE krv_submissions DISABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anon read" ON krv_kyc FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anon insert" ON krv_kyc FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anon update" ON krv_kyc FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon delete" ON krv_kyc FOR DELETE TO anon USING (true);
 ALTER TABLE krv_kyc DISABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anon read" ON krv_withdrawals FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anon insert" ON krv_withdrawals FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anon update" ON krv_withdrawals FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon delete" ON krv_withdrawals FOR DELETE TO anon USING (true);
 ALTER TABLE krv_withdrawals DISABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anon read" ON krv_tickets FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anon insert" ON krv_tickets FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anon update" ON krv_tickets FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon delete" ON krv_tickets FOR DELETE TO anon USING (true);
 ALTER TABLE krv_tickets DISABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow anon read" ON krv_notifications FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow anon insert" ON krv_notifications FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "Allow anon update" ON krv_notifications FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "Allow anon delete" ON krv_notifications FOR DELETE TO anon USING (true);
 ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
 
       return (
