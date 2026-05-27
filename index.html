@@ -356,6 +356,16 @@
         let channel = null;
 
         const verifyIntegrityAndSession = async () => {
+          // Auto-heal stale local storage keys to match pre-baked cloud credentials
+          if (SUPABASE_URL_DEFAULT && localStorage.getItem("krv-supabase-url") !== SUPABASE_URL_DEFAULT) {
+            localStorage.setItem("krv-supabase-url", SUPABASE_URL_DEFAULT);
+            setSupabaseUrl(SUPABASE_URL_DEFAULT);
+          }
+          if (SUPABASE_KEY_DEFAULT && localStorage.getItem("krv-supabase-key") !== SUPABASE_KEY_DEFAULT) {
+            localStorage.setItem("krv-supabase-key", SUPABASE_KEY_DEFAULT);
+            setSupabaseKey(SUPABASE_KEY_DEFAULT);
+          }
+
           // 1. Check if Supabase is connected, and fetch latest records
           const client = getSupabaseClient();
           let verifiedUsers = users;
