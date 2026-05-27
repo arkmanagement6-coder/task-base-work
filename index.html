@@ -4721,7 +4721,8 @@ CREATE TABLE IF NOT EXISTS krv_submissions (
     remarks TEXT,
     review_status VARCHAR(50) DEFAULT 'Pending',
     amount DOUBLE PRECISION DEFAULT 0.0,
-    date VARCHAR(50)
+    date VARCHAR(50),
+    rejection_reason TEXT
 );
 
 CREATE TABLE IF NOT EXISTS krv_kyc (
