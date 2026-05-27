@@ -473,6 +473,24 @@
                       setUsers(prev => prev.some(u => u.id === payload.new.id) ? prev : [...prev, payload.new]);
                     } else if (payload.eventType === 'UPDATE') {
                       setUsers(prev => prev.map(u => u.id === payload.new.id ? payload.new : u));
+                      
+                      // Live synchronization for the active candidate!
+                      const storedSession = localStorage.getItem("krv-current-user-session");
+                      if (storedSession) {
+                        try {
+                          const { user } = JSON.parse(storedSession);
+                          if (user && user.id === payload.new.id) {
+                            setCurrentUser(payload.new);
+                            
+                            // Re-calculate session signature and update localStorage session cache
+                            signSession(payload.new).then(sig => {
+                              localStorage.setItem("krv-current-user-session", JSON.stringify({ user: payload.new, signature: sig }));
+                            });
+                          }
+                        } catch (e) {
+                          console.error("Session sync failed:", e);
+                        }
+                      }
                     }
                   }
                 )
