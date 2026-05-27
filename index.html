@@ -13,6 +13,8 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <!-- Chart.js for Admin Analytics -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Google Fonts: Outfit (headings) & Inter (body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -326,48 +328,195 @@
       // Toast system
       const [toast, setToast] = useState(null);
 
+      // Supabase credentials configuration
+      const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem("krv-supabase-url") || "");
+      const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem("krv-supabase-key") || "");
+
+      const getSupabaseClient = () => {
+        if (supabaseUrl && supabaseKey && window.supabase) {
+          try {
+            return window.supabase.createClient(supabaseUrl, supabaseKey);
+          } catch (e) {
+            console.error("Supabase Client Error: ", e);
+          }
+        }
+        return null;
+      };
+
       // Session and Database Integrity Verification on Mount
       useEffect(() => {
+        let channel = null;
+
         const verifyIntegrityAndSession = async () => {
-          // 1. Verify Users DB Integrity
-          const storedUsers = localStorage.getItem("krv-users");
-          const storedChecksum = localStorage.getItem("krv-users-checksum");
+          // 1. Check if Supabase is connected, and fetch latest records
+          const client = getSupabaseClient();
           let verifiedUsers = users;
 
-          if (storedUsers && storedChecksum) {
+          if (client) {
             try {
-              const parsedUsers = JSON.parse(storedUsers);
-              const expectedChecksum = await signUsersList(parsedUsers);
-              if (storedChecksum === expectedChecksum) {
-                verifiedUsers = parsedUsers;
-              } else {
-                // Tampering detected, restore clean defaults
+              // A. Fetch Users
+              const { data: dbUsers, error: usersErr } = await client.from("krv_users").select("*");
+              if (!usersErr && dbUsers && dbUsers.length > 0) {
+                setUsers(dbUsers);
+                verifiedUsers = dbUsers;
+              }
+              
+              // B. Fetch Tasks
+              const { data: dbTasks, error: tasksErr } = await client.from("krv_tasks").select("*");
+              if (!tasksErr && dbTasks) {
+                setTasks(dbTasks);
+              }
+              
+              // C. Fetch Submissions
+              const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("*");
+              if (!subsErr && dbSubs) {
+                setSubmissions(dbSubs);
+              }
+
+              // D. Fetch KYC
+              const { data: dbKyc, error: kycErr } = await client.from("krv_kyc").select("*");
+              if (!kycErr && dbKyc) {
+                setKycRecords(dbKyc);
+              }
+
+              // E. Fetch Withdrawals
+              const { data: dbWithdrawals, error: wErr } = await client.from("krv_withdrawals").select("*");
+              if (!wErr && dbWithdrawals) {
+                setWithdrawals(dbWithdrawals);
+              }
+
+              // F. Fetch Tickets
+              const { data: dbTickets, error: tErr } = await client.from("krv_tickets").select("*");
+              if (!tErr && dbTickets) {
+                setTickets(dbTickets);
+              }
+
+              // G. Fetch Notifications
+              const { data: dbNotifs, error: nErr } = await client.from("krv_notifications").select("*");
+              if (!nErr && dbNotifs) {
+                setNotifications(dbNotifs);
+              }
+
+              // Setup Real-time Web Socket Channels for Live Sync
+              channel = client.channel('krv-realtime-channel')
+                .on(
+                  'postgres_changes',
+                  { event: '*', schema: 'public', table: 'krv_users' },
+                  (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                      setUsers(prev => prev.some(u => u.id === payload.new.id) ? prev : [...prev, payload.new]);
+                    } else if (payload.eventType === 'UPDATE') {
+                      setUsers(prev => prev.map(u => u.id === payload.new.id ? payload.new : u));
+                    }
+                  }
+                )
+                .on(
+                  'postgres_changes',
+                  { event: '*', schema: 'public', table: 'krv_tasks' },
+                  (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                      setTasks(prev => prev.some(t => t.id === payload.new.id) ? prev : [...prev, payload.new]);
+                    } else if (payload.eventType === 'UPDATE') {
+                      setTasks(prev => prev.map(t => t.id === payload.new.id ? payload.new : t));
+                    }
+                  }
+                )
+                .on(
+                  'postgres_changes',
+                  { event: '*', schema: 'public', table: 'krv_submissions' },
+                  (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                      setSubmissions(prev => prev.some(s => s.id === payload.new.id) ? prev : [...prev, payload.new]);
+                    } else if (payload.eventType === 'UPDATE') {
+                      setSubmissions(prev => prev.map(s => s.id === payload.new.id ? payload.new : s));
+                    }
+                  }
+                )
+                .on(
+                  'postgres_changes',
+                  { event: '*', schema: 'public', table: 'krv_kyc' },
+                  (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                      setKycRecords(prev => prev.some(k => k.id === payload.new.id) ? prev : [...prev, payload.new]);
+                    } else if (payload.eventType === 'UPDATE') {
+                      setKycRecords(prev => prev.map(k => k.id === payload.new.id ? payload.new : k));
+                    }
+                  }
+                )
+                .on(
+                  'postgres_changes',
+                  { event: '*', schema: 'public', table: 'krv_withdrawals' },
+                  (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                      setWithdrawals(prev => prev.some(w => w.id === payload.new.id) ? prev : [...prev, payload.new]);
+                    } else if (payload.eventType === 'UPDATE') {
+                      setWithdrawals(prev => prev.map(w => w.id === payload.new.id ? payload.new : w));
+                    }
+                  }
+                )
+                .on(
+                  'postgres_changes',
+                  { event: '*', schema: 'public', table: 'krv_tickets' },
+                  (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                      setTickets(prev => prev.some(tk => tk.id === payload.new.id) ? prev : [...prev, payload.new]);
+                    } else if (payload.eventType === 'UPDATE') {
+                      setTickets(prev => prev.map(tk => tk.id === payload.new.id ? payload.new : tk));
+                    }
+                  }
+                )
+                .on(
+                  'postgres_changes',
+                  { event: '*', schema: 'public', table: 'krv_notifications' },
+                  (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                      setNotifications(prev => prev.some(n => n.id === payload.new.id) ? prev : [...prev, payload.new]);
+                    }
+                  }
+                )
+                .subscribe();
+
+            } catch (err) {
+              console.error("Supabase live load failed, falling back to LocalStorage:", err);
+            }
+          }
+
+          // 2. Local Integrity Fallback Check
+          const storedUsers = localStorage.getItem("krv-users");
+          const storedChecksum = localStorage.getItem("krv-users-checksum");
+
+          if (!client) {
+            if (storedUsers && storedChecksum) {
+              try {
+                const parsedUsers = JSON.parse(storedUsers);
+                const expectedChecksum = await signUsersList(parsedUsers);
+                if (storedChecksum === expectedChecksum) {
+                  verifiedUsers = parsedUsers;
+                } else {
+                  setUsers(DEFAULT_USERS);
+                  verifiedUsers = DEFAULT_USERS;
+                  const cleanChecksum = await signUsersList(DEFAULT_USERS);
+                  localStorage.setItem("krv-users", JSON.stringify(DEFAULT_USERS));
+                  localStorage.setItem("krv-users-checksum", cleanChecksum);
+                  triggerToast("Security Warning: Local database manipulation detected. Reverting records.", "error");
+                }
+              } catch (e) {
                 setUsers(DEFAULT_USERS);
                 verifiedUsers = DEFAULT_USERS;
                 const cleanChecksum = await signUsersList(DEFAULT_USERS);
                 localStorage.setItem("krv-users", JSON.stringify(DEFAULT_USERS));
                 localStorage.setItem("krv-users-checksum", cleanChecksum);
-                triggerToast("Security Warning: Database manipulation detected. Reverting records.", "error");
               }
-            } catch (e) {
+            } else {
               setUsers(DEFAULT_USERS);
               verifiedUsers = DEFAULT_USERS;
               const cleanChecksum = await signUsersList(DEFAULT_USERS);
               localStorage.setItem("krv-users", JSON.stringify(DEFAULT_USERS));
               localStorage.setItem("krv-users-checksum", cleanChecksum);
             }
-          } else {
-            // First time initialization or migrating to secure database layout
-            setUsers(DEFAULT_USERS);
-            verifiedUsers = DEFAULT_USERS;
-            const cleanChecksum = await signUsersList(DEFAULT_USERS);
-            localStorage.setItem("krv-users", JSON.stringify(DEFAULT_USERS));
-            localStorage.setItem("krv-users-checksum", cleanChecksum);
-            // Clean up any legacy unsigned session keys to keep local storage clean
-            localStorage.removeItem("krv-current-user");
           }
 
-          // 2. Verify Session Integrity
+          // 3. Verify Active Session Integrity
           const storedSession = localStorage.getItem("krv-current-user-session");
           if (storedSession) {
             try {
@@ -375,7 +524,6 @@
               if (user && signature) {
                 const expectedSignature = await signSession(user);
                 if (signature === expectedSignature) {
-                  // Check if user exists with correct role in verified users list
                   const matchedUser = verifiedUsers.find(
                     u => u.id === user.id && u.role === user.role && u.email.toLowerCase() === user.email.toLowerCase()
                   );
@@ -389,7 +537,6 @@
             } catch (e) {
               console.error("Session verification failed", e);
             }
-            // Invalid session or tampered, force logout
             setCurrentUser(null);
             localStorage.removeItem("krv-current-user-session");
             triggerToast("Security Violation: Invalid or tampered session. Logged out.", "error");
@@ -398,14 +545,39 @@
         };
 
         verifyIntegrityAndSession();
-      }, []);
 
-      // Save databases to LocalStorage upon changes with checksum protection
+        return () => {
+          if (channel) {
+            const client = getSupabaseClient();
+            if (client) {
+              client.removeChannel(channel);
+            }
+          }
+        };
+      }, [supabaseUrl, supabaseKey]);
+
+      // Save databases to LocalStorage upon changes with checksum protection and Supabase Cloud sync
       useEffect(() => {
         const saveSecureDb = async () => {
           localStorage.setItem("krv-users", JSON.stringify(users));
           const newChecksum = await signUsersList(users);
           localStorage.setItem("krv-users-checksum", newChecksum);
+
+          // Supabase background cloud sync
+          const client = getSupabaseClient();
+          if (client) {
+            try {
+              if (users && users.length > 0) await client.from("krv_users").upsert(users);
+              if (tasks && tasks.length > 0) await client.from("krv_tasks").upsert(tasks);
+              if (submissions && submissions.length > 0) await client.from("krv_submissions").upsert(submissions);
+              if (kycRecords && kycRecords.length > 0) await client.from("krv_kyc").upsert(kycRecords);
+              if (withdrawals && withdrawals.length > 0) await client.from("krv_withdrawals").upsert(withdrawals);
+              if (tickets && tickets.length > 0) await client.from("krv_tickets").upsert(tickets);
+              if (notifications && notifications.length > 0) await client.from("krv_notifications").upsert(notifications);
+            } catch (err) {
+              console.error("Supabase upsert sync failed: ", err);
+            }
+          }
         };
         saveSecureDb();
 
@@ -585,6 +757,10 @@
                 setTheme={setTheme}
                 triggerToast={triggerToast}
                 updateWallet={updateCandidateWallet}
+                supabaseUrl={supabaseUrl}
+                setSupabaseUrl={setSupabaseUrl}
+                supabaseKey={supabaseKey}
+                setSupabaseKey={setSupabaseKey}
               />
             )}
           </main>
@@ -2743,7 +2919,8 @@
     function AdminPanel({
       currentPage, setCurrentPage, currentUser, users, setUsers, tasks, setTasks,
       submissions, setSubmissions, kycRecords, setKycRecords, withdrawals, setWithdrawals,
-      tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, updateWallet
+      tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, updateWallet,
+      supabaseUrl, setSupabaseUrl, supabaseKey, setSupabaseKey
     }) {
       const [sidebarOpen, setSidebarOpen] = useState(true);
       const [previewImage, setPreviewImage] = useState(null);
@@ -2773,7 +2950,12 @@
                   <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">K</div>
                   <div className="min-w-0">
                     <span className="text-sm font-bold tracking-tight text-white block truncate">KRV Admin</span>
-                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">Portal Manager</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${supabaseUrl && supabaseKey ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}></span>
+                      <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                        {supabaseUrl && supabaseKey ? "Cloud Connected" : "LocalStorage Mode"}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><Icon name="x-circle" className="w-4 h-4" /></button>
@@ -2921,6 +3103,17 @@
               {currentPage === "admin-settings" && (
                 <AdminSettings 
                   triggerToast={triggerToast}
+                  supabaseUrl={supabaseUrl}
+                  setSupabaseUrl={setSupabaseUrl}
+                  supabaseKey={supabaseKey}
+                  setSupabaseKey={setSupabaseKey}
+                  users={users}
+                  tasks={tasks}
+                  submissions={submissions}
+                  kycRecords={kycRecords}
+                  withdrawals={withdrawals}
+                  tickets={tickets}
+                  notifications={notifications}
                 />
               )}
 
@@ -4368,43 +4561,329 @@
     }
 
     // 8. Settings
-    function AdminSettings({ triggerToast }) {
+    function AdminSettings({
+      triggerToast, supabaseUrl, setSupabaseUrl, supabaseKey, setSupabaseKey,
+      users, tasks, submissions, kycRecords, withdrawals, tickets, notifications
+    }) {
+      const [formUrl, setFormUrl] = useState(supabaseUrl);
+      const [formKey, setFormKey] = useState(supabaseKey);
+      const [isSyncing, setIsSyncing] = useState(false);
+      const [referralBonus, setReferralBonus] = useState(() => localStorage.getItem("krv-referral-bonus") || "50");
+      const [minWithdraw, setMinWithdraw] = useState(() => localStorage.getItem("krv-min-withdraw") || "500");
+
       const handleSaveSettings = (e) => {
         e.preventDefault();
-        triggerToast("Website settings and payment configs updated successfully!");
+        
+        localStorage.setItem("krv-supabase-url", formUrl.trim());
+        localStorage.setItem("krv-supabase-key", formKey.trim());
+        localStorage.setItem("krv-referral-bonus", referralBonus);
+        localStorage.setItem("krv-min-withdraw", minWithdraw);
+        
+        setSupabaseUrl(formUrl.trim());
+        setSupabaseKey(formKey.trim());
+        
+        triggerToast("Website settings and database API configurator updated successfully!");
       };
 
+      const handleSyncCloud = async () => {
+        if (!supabaseUrl || !supabaseKey) {
+          triggerToast("Please configure and save your Supabase URL & Anon Key first.", "error");
+          return;
+        }
+
+        setIsSyncing(true);
+        triggerToast("Establishing connection and seeding cloud tables...", "info");
+
+        try {
+          if (!window.supabase) {
+            throw new Error("Supabase JS SDK is not loaded. Check internet connection.");
+          }
+          const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+          // Sync tables sequentially
+          let failed = [];
+
+          const syncTable = async (tableName, data) => {
+            if (!data || data.length === 0) return;
+            const { error } = await client.from(tableName).upsert(data);
+            if (error) {
+              console.error(`Sync failed for ${tableName}:`, error);
+              failed.push(tableName);
+            }
+          };
+
+          await syncTable("krv_users", users);
+          await syncTable("krv_tasks", tasks);
+          await syncTable("krv_submissions", submissions);
+          await syncTable("krv_kyc", kycRecords);
+          await syncTable("krv_withdrawals", withdrawals);
+          await syncTable("krv_tickets", tickets);
+          await syncTable("krv_notifications", notifications);
+
+          if (failed.length === 0) {
+            triggerToast("🎉 Cloud Database fully synced successfully! All devices are now connected.", "success");
+          } else {
+            triggerToast(`Partial sync complete. Tables failed: ${failed.join(", ")}. Ensure SQL setup script was run.`, "error");
+          }
+        } catch (err) {
+          console.error("Cloud seeding error:", err);
+          triggerToast(`Database Sync failed: ${err.message || err}`, "error");
+        } finally {
+          setIsSyncing(false);
+        }
+      };
+
+      const sqlCode = `-- COPY AND RUN THIS SCRIPT IN YOUR SUPABASE SQL EDITOR:
+
+CREATE TABLE IF NOT EXISTS krv_users (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    mobile VARCHAR(50),
+    city VARCHAR(50),
+    pincode VARCHAR(50),
+    referral_code VARCHAR(50),
+    wallet_balance DOUBLE PRECISION DEFAULT 0.0,
+    earnings_pending DOUBLE PRECISION DEFAULT 0.0,
+    earnings_paid DOUBLE PRECISION DEFAULT 0.0,
+    kyc_status VARCHAR(50) DEFAULT 'Not Submitted',
+    role VARCHAR(50) DEFAULT 'candidate'
+);
+
+CREATE TABLE IF NOT EXISTS krv_tasks (
+    id VARCHAR(50) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    links TEXT,
+    amount DOUBLE PRECISION DEFAULT 0.0,
+    remarks TEXT,
+    deadline VARCHAR(50),
+    status VARCHAR(50) DEFAULT 'Active',
+    imported_reviews JSONB DEFAULT '[]'::jsonb
+);
+
+CREATE TABLE IF NOT EXISTS krv_submissions (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    task_id VARCHAR(50) NOT NULL,
+    submitted_link TEXT,
+    screenshot TEXT,
+    video TEXT,
+    remarks TEXT,
+    review_status VARCHAR(50) DEFAULT 'Pending',
+    amount DOUBLE PRECISION DEFAULT 0.0,
+    date VARCHAR(50)
+);
+
+CREATE TABLE IF NOT EXISTS krv_kyc (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) UNIQUE NOT NULL,
+    account_holder VARCHAR(100),
+    account_number VARCHAR(100),
+    bank_name VARCHAR(100),
+    ifsc VARCHAR(50),
+    aadhaar_front TEXT,
+    aadhaar_back TEXT,
+    selfie TEXT,
+    status VARCHAR(50) DEFAULT 'Pending',
+    rejection_reason TEXT
+);
+
+CREATE TABLE IF NOT EXISTS krv_withdrawals (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    amount DOUBLE PRECISION NOT NULL,
+    status VARCHAR(50) DEFAULT 'Pending',
+    date VARCHAR(50),
+    bank_details TEXT
+);
+
+CREATE TABLE IF NOT EXISTS krv_tickets (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    subject VARCHAR(255),
+    category VARCHAR(100),
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'Open',
+    replies JSONB DEFAULT '[]'::jsonb
+);
+
+CREATE TABLE IF NOT EXISTS krv_notifications (
+    id VARCHAR(50) PRIMARY KEY,
+    user_id VARCHAR(50) NOT NULL,
+    title VARCHAR(255),
+    message TEXT,
+    date VARCHAR(50)
+);
+
+-- Disable Row Level Security for instant anonymous sync
+ALTER TABLE krv_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_submissions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_kyc DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_withdrawals DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_tickets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
+
       return (
-        <div className="max-w-3xl mx-auto glass-card rounded-2xl p-6">
-          <h3 className="text-lg font-bold mb-4">Website Configuration settings</h3>
-          
-          <form onSubmit={handleSaveSettings} className="space-y-6 text-xs">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Referral Rate Bonus (INR)</label>
-                <input type="number" defaultValue="50" className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+        <div className="max-w-4xl mx-auto space-y-6 text-xs">
+          {/* Supabase SQL Setup Guide */}
+          <div className="glass-card rounded-2xl p-6 border-blue-500/20 bg-blue-600/5">
+            <h3 className="text-sm font-extrabold text-blue-400 mb-2 flex items-center gap-2">
+              <Icon name="check-circle" className="w-5 h-5 shrink-0 animate-pulse" />
+              <span>Database Sync Tutorial: Connect Supabase Cloud</span>
+            </h3>
+            <p className="text-slate-400 mb-4 leading-relaxed">
+              To activate real-time synchronization, you must set up the database schemas inside your Supabase Project first. Follow these simple steps:
+            </p>
+            
+            <div className="space-y-3 pl-2">
+              <div className="flex gap-3">
+                <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center shrink-0 font-extrabold text-[10px] text-white">1</span>
+                <span className="text-slate-300">Open your **[Supabase Dashboard](https://supabase.com)** and enter your project panel.</span>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Min Withdrawal Limit (INR)</label>
-                <input type="number" defaultValue="500" className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+              <div className="flex gap-3">
+                <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center shrink-0 font-extrabold text-[10px] text-white">2</span>
+                <span className="text-slate-300">Click on the **SQL Editor** tab from the left sidebar of Supabase, then click **New Query**.</span>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Support Ticket Auto-Close Timer (Days)</label>
-                <input type="number" defaultValue="7" className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+              <div className="flex gap-3">
+                <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center shrink-0 font-extrabold text-[10px] text-white">3</span>
+                <span className="text-slate-300">Copy the database table script provided in the terminal box below, paste it inside the query field, and click **Run**.</span>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Platform Maintenance Mode</label>
-                <select className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
-                  <option value="no">Active Operational</option>
-                  <option value="yes">Under Maintenance</option>
-                </select>
+              <div className="flex gap-3">
+                <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center shrink-0 font-extrabold text-[10px] text-white">4</span>
+                <span className="text-slate-300">Copy your project **URL** and **Anon Key** (found in Project Settings -> API), paste them below, click **Save**, and execute **Sync Existing Data**!</span>
               </div>
             </div>
-            
-            <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg cursor-pointer">
-              Save configurations
-            </button>
-          </form>
+
+            {/* SQL Code Box */}
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-between items-center text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                <span>SQL Setup Script</span>
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(sqlCode);
+                    triggerToast("SQL Schema Script copied to clipboard!");
+                  }} 
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded font-bold transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Icon name="copy" className="w-3 h-3" />
+                  <span>Copy SQL Code</span>
+                </button>
+              </div>
+              
+              <textarea 
+                readOnly
+                rows="6" 
+                value={sqlCode} 
+                className="w-full font-mono text-[10px] px-3.5 py-2.5 bg-slate-955 text-slate-400 rounded-lg border border-slate-800 focus:outline-none custom-scroll leading-relaxed"
+              ></textarea>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* General settings */}
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-sm font-extrabold text-white mb-4">Portal Configuration Settings</h3>
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Referral Rate Bonus (INR)</label>
+                  <input type="number" value={referralBonus} onChange={(e) => setReferralBonus(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Min Withdrawal Limit (INR)</label>
+                  <input type="number" value={minWithdraw} onChange={(e) => setMinWithdraw(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Support Ticket Auto-Close Timer (Days)</label>
+                  <input type="number" defaultValue="7" className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Platform Maintenance Mode</label>
+                  <select className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
+                    <option value="no">Active Operational</option>
+                    <option value="yes">Under Maintenance</option>
+                  </select>
+                </div>
+                
+                <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg cursor-pointer transition">
+                  Save General Configs
+                </button>
+              </form>
+            </div>
+
+            {/* Supabase settings */}
+            <div className="glass-card rounded-2xl p-6 flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold text-white mb-4 flex items-center gap-2">
+                  <span>☁️ Supabase Cloud Configurator</span>
+                  <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                    supabaseUrl && supabaseKey ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                  }`}>
+                    {supabaseUrl && supabaseKey ? "Connected" : "Offline"}
+                  </span>
+                </h3>
+                
+                <form onSubmit={handleSaveSettings} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Supabase Project URL</label>
+                    <input 
+                      type="url" 
+                      placeholder="https://yourproject.supabase.co" 
+                      value={formUrl} 
+                      onChange={(e) => setFormUrl(e.target.value)} 
+                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Supabase Anon Public API Key</label>
+                    <input 
+                      type="password" 
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." 
+                      value={formKey} 
+                      onChange={(e) => setFormKey(e.target.value)} 
+                      className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" 
+                    />
+                  </div>
+
+                  <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg cursor-pointer transition">
+                    Save Cloud Credentials
+                  </button>
+                </form>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-slate-800/80 space-y-3">
+                <div>
+                  <span className="block text-[10px] uppercase font-bold text-slate-400 mb-1.5">Synchronize Local Storage to Cloud</span>
+                  <span className="block text-[10px] text-slate-500">
+                    If you already have candidate profiles, task submissions, or reviews saved locally in your current browser, click below to migrate them to your Supabase Postgres Database tables instantly.
+                  </span>
+                </div>
+                
+                <button 
+                  type="button" 
+                  onClick={handleSyncCloud}
+                  disabled={isSyncing}
+                  className={`w-full py-3 text-xs font-bold text-white rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    isSyncing ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
+                >
+                  {isSyncing ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></div>
+                      <span>Syncing Databases...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="upload" className="w-4 h-4" />
+                      <span>Sync Existing Data to Cloud</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
