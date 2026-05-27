@@ -99,6 +99,14 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useMemo } = React;
 
+    // ==========================================
+    // SUPABASE GLOBAL CLOUD CONFIGURATION
+    // ==========================================
+    // Paste your Supabase Project URL and Anon Key here so that all candidates
+    // signing up from their own devices automatically connect to your database.
+    const SUPABASE_URL_DEFAULT = ""; 
+    const SUPABASE_KEY_DEFAULT = ""; 
+
     // Cryptographic Secure One-Way SHA-256 Hash Function
     const sha256 = async (text) => {
       const msgBuffer = new TextEncoder().encode(text);
@@ -329,8 +337,8 @@
       const [toast, setToast] = useState(null);
 
       // Supabase credentials configuration
-      const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem("krv-supabase-url") || "");
-      const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem("krv-supabase-key") || "");
+      const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem("krv-supabase-url") || SUPABASE_URL_DEFAULT);
+      const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem("krv-supabase-key") || SUPABASE_KEY_DEFAULT);
 
       const getSupabaseClient = () => {
         if (supabaseUrl && supabaseKey && window.supabase) {
