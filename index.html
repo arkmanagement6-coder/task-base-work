@@ -367,42 +367,46 @@
               if (!usersErr && dbUsers && dbUsers.length > 0) {
                 setUsers(dbUsers);
                 verifiedUsers = dbUsers;
-              }
-              
-              // B. Fetch Tasks
-              const { data: dbTasks, error: tasksErr } = await client.from("krv_tasks").select("*");
-              if (!tasksErr && dbTasks) {
-                setTasks(dbTasks);
-              }
-              
-              // C. Fetch Submissions
-              const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("*");
-              if (!subsErr && dbSubs) {
-                setSubmissions(dbSubs);
-              }
 
-              // D. Fetch KYC
-              const { data: dbKyc, error: kycErr } = await client.from("krv_kyc").select("*");
-              if (!kycErr && dbKyc) {
-                setKycRecords(dbKyc);
-              }
+                // Safely load other tables from Supabase now that we know it has been initialized/seeded
+                
+                // B. Fetch Tasks
+                const { data: dbTasks, error: tasksErr } = await client.from("krv_tasks").select("*");
+                if (!tasksErr && dbTasks) {
+                  setTasks(dbTasks);
+                }
+                
+                // C. Fetch Submissions
+                const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("*");
+                if (!subsErr && dbSubs) {
+                  setSubmissions(dbSubs);
+                }
 
-              // E. Fetch Withdrawals
-              const { data: dbWithdrawals, error: wErr } = await client.from("krv_withdrawals").select("*");
-              if (!wErr && dbWithdrawals) {
-                setWithdrawals(dbWithdrawals);
-              }
+                // D. Fetch KYC
+                const { data: dbKyc, error: kycErr } = await client.from("krv_kyc").select("*");
+                if (!kycErr && dbKyc) {
+                  setKycRecords(dbKyc);
+                }
 
-              // F. Fetch Tickets
-              const { data: dbTickets, error: tErr } = await client.from("krv_tickets").select("*");
-              if (!tErr && dbTickets) {
-                setTickets(dbTickets);
-              }
+                // E. Fetch Withdrawals
+                const { data: dbWithdrawals, error: wErr } = await client.from("krv_withdrawals").select("*");
+                if (!wErr && dbWithdrawals) {
+                  setWithdrawals(dbWithdrawals);
+                }
 
-              // G. Fetch Notifications
-              const { data: dbNotifs, error: nErr } = await client.from("krv_notifications").select("*");
-              if (!nErr && dbNotifs) {
-                setNotifications(dbNotifs);
+                // F. Fetch Tickets
+                const { data: dbTickets, error: tErr } = await client.from("krv_tickets").select("*");
+                if (!tErr && dbTickets) {
+                  setTickets(dbTickets);
+                }
+
+                // G. Fetch Notifications
+                const { data: dbNotifs, error: nErr } = await client.from("krv_notifications").select("*");
+                if (!nErr && dbNotifs) {
+                  setNotifications(dbNotifs);
+                }
+              } else {
+                console.log("Supabase connected but krv_users is empty or unseeded. Retaining local/default records.");
               }
 
               // Setup Real-time Web Socket Channels for Live Sync
@@ -3122,6 +3126,13 @@
                   withdrawals={withdrawals}
                   tickets={tickets}
                   notifications={notifications}
+                  setUsers={setUsers}
+                  setTasks={setTasks}
+                  setSubmissions={setSubmissions}
+                  setKycRecords={setKycRecords}
+                  setWithdrawals={setWithdrawals}
+                  setTickets={setTickets}
+                  setNotifications={setNotifications}
                 />
               )}
 
@@ -4571,11 +4582,40 @@
     // 8. Settings
     function AdminSettings({
       triggerToast, supabaseUrl, setSupabaseUrl, supabaseKey, setSupabaseKey,
-      users, tasks, submissions, kycRecords, withdrawals, tickets, notifications
+      users, tasks, submissions, kycRecords, withdrawals, tickets, notifications,
+      setUsers, setTasks, setSubmissions, setKycRecords, setWithdrawals, setTickets, setNotifications
     }) {
       const [formUrl, setFormUrl] = useState(supabaseUrl);
       const [formKey, setFormKey] = useState(supabaseKey);
       const [isSyncing, setIsSyncing] = useState(false);
+
+      const handleRestoreDefaults = async () => {
+        if (!window.confirm("Are you sure you want to reset your local database and restore all high-fidelity mock data? This will overwrite your current local records.")) {
+          return;
+        }
+
+        localStorage.removeItem("krv-users");
+        localStorage.removeItem("krv-users-checksum");
+        localStorage.removeItem("krv-tasks");
+        localStorage.removeItem("krv-submissions");
+        localStorage.removeItem("krv-kyc");
+        localStorage.removeItem("krv-withdrawals");
+        localStorage.removeItem("krv-tickets");
+        localStorage.removeItem("krv-notifications");
+
+        setUsers(DEFAULT_USERS);
+        setTasks(DEFAULT_TASKS);
+        setSubmissions(DEFAULT_SUBMISSIONS);
+        setKycRecords(DEFAULT_KYC);
+        setWithdrawals(DEFAULT_WITHDRAWALS);
+        setTickets(DEFAULT_TICKETS);
+        setNotifications(DEFAULT_NOTIFICATIONS);
+
+        const check = await signUsersList(DEFAULT_USERS);
+        localStorage.setItem("krv-users-checksum", check);
+
+        triggerToast("Mock database defaults restored successfully! You can now sync them to Supabase.");
+      };
       const [referralBonus, setReferralBonus] = useState(() => localStorage.getItem("krv-referral-bonus") || "50");
       const [minWithdraw, setMinWithdraw] = useState(() => localStorage.getItem("krv-min-withdraw") || "500");
 
@@ -4889,6 +4929,21 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
                     </>
                   )}
                 </button>
+
+                <div className="mt-4 pt-4 border-t border-slate-800/50">
+                  <span className="block text-[10px] uppercase font-bold text-slate-400 mb-1.5">Emergency Mock Data Restore</span>
+                  <span className="block text-[10px] text-slate-500 mb-2">
+                    If your local storage became blank due to a fresh unseeded Supabase database connection, click below to restore all default premium tasks and mock candidate profiles instantly.
+                  </span>
+                  <button 
+                    type="button" 
+                    onClick={handleRestoreDefaults}
+                    className="w-full py-2.5 text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl shadow transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-700/60"
+                  >
+                    <Icon name="clock" className="w-4 h-4 text-amber-500" />
+                    <span>Restore Default Mock Data</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
