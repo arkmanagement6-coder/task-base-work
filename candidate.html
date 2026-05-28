@@ -748,7 +748,7 @@
 
             <div className="glass-card rounded-2xl p-6">
               <h3 className="text-lg font-bold mb-4 text-white">Task Payout History ({mySubmissions.filter(s => s.review_status === "Approved").length})</h3>
-              <div className="overflow-y-auto max-h-80">
+              <div className="overflow-y-auto overflow-x-auto max-h-80">
                 <table className="w-full text-xs text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
@@ -1336,6 +1336,7 @@
     }
 
     // ==========================================
+// ==========================================
     // MODULE 4: CANDIDATE PANEL
     // ==========================================
     function CandidatePanel({
@@ -1343,7 +1344,7 @@
       submissions, setSubmissions, kycRecords, setKycRecords, withdrawals, setWithdrawals,
       tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, autoAssignTaskReview
     }) {
-      const [sidebarOpen, setSidebarOpen] = useState(true);
+      const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
       const [notificationDropdown, setNotificationDropdown] = useState(false);
       const [previewImage, setPreviewImage] = useState(null);
 
@@ -1364,6 +1365,14 @@
 
       return (
         <div className="min-h-screen flex">
+          {/* Mobile Sidebar Backdrop Overlay */}
+          {sidebarOpen && (
+            <div 
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden cursor-pointer" 
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+
           {/* Sidebar */}
           <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 shrink-0 flex flex-col justify-between transition-all duration-300 ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full md:w-0"
