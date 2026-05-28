@@ -1334,9 +1334,269 @@
         </div>
       );
     }
-    
-    // (Inserted below from index.html)
-    
+
+    // ==========================================
+    // MODULE 4: CANDIDATE PANEL
+    // ==========================================
+    function CandidatePanel({
+      currentPage, setCurrentPage, currentUser, setCurrentUser, users, setUsers, tasks, setTasks,
+      submissions, setSubmissions, kycRecords, setKycRecords, withdrawals, setWithdrawals,
+      tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, autoAssignTaskReview
+    }) {
+      const [sidebarOpen, setSidebarOpen] = useState(true);
+      const [notificationDropdown, setNotificationDropdown] = useState(false);
+      const [previewImage, setPreviewImage] = useState(null);
+
+      // Local KYC fetch
+      const myKyc = useMemo(() => kycRecords.find(k => k.user_id === currentUser.id) || null, [kycRecords, currentUser]);
+      const myNotifications = useMemo(() => notifications.filter(n => n.user_id === currentUser.id), [notifications, currentUser]);
+      const mySubmissions = useMemo(() => submissions.filter(s => s.user_id === currentUser.id), [submissions, currentUser]);
+
+      const sidebarItems = [
+        { id: "dashboard", icon: "home", label: "Home" },
+        { id: "tasks", icon: "tasks", label: "Tasks" },
+        { id: "earnings", icon: "earnings", label: "Earnings" },
+        { id: "reports", icon: "reports", label: "Reports" },
+        { id: "kyc", icon: "kyc", label: "KYC Verification", alert: (currentUser.kyc_status !== "Approved") },
+        { id: "profile", icon: "profile", label: "Profile" },
+        { id: "support", icon: "support", label: "Support Tickets" }
+      ];
+
+      return (
+        <div className="min-h-screen flex">
+          {/* Sidebar */}
+          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 shrink-0 flex flex-col justify-between transition-all duration-300 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full md:w-0"
+          } fixed md:relative h-full md:h-auto z-30`}>
+            
+            <div>
+              {/* Sidebar Branding */}
+              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20 whitespace-nowrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">K</div>
+                  <div className="min-w-0">
+                    <span className="text-sm font-bold tracking-tight text-white block truncate">KRV Portal</span>
+                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">Candidate</span>
+                  </div>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><Icon name="x-circle" className="w-4 h-4" /></button>
+              </div>
+
+              {/* Sidebar Menu */}
+              <nav className="p-4 space-y-1">
+                {sidebarItems.map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    </div>
+                    {item.alert && (
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${currentUser.kyc_status === "Rejected" ? "bg-rose-500" : "bg-yellow-500"}`} />
+                    )}
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            {/* Logout button */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/15">
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer whitespace-nowrap">
+                <Icon name="logout" className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Logout</span>
+              </button>
+            </div>
+          </aside>
+
+          {/* Core Content Area */}
+          <div className="flex-grow flex flex-col min-h-screen overflow-x-hidden">
+            {/* Header */}
+            <header className="px-6 py-4 flex items-center justify-between bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/40">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-350 cursor-pointer">
+                  <Icon name="menu" className="w-4 h-4" />
+                </button>
+                <h1 className="text-xl font-bold tracking-tight capitalize">{currentPage} Panel</h1>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {/* Wallet Balance widget */}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold">
+                  <Icon name="wallet" className="w-4 h-4" />
+                  <span>Wallet: ₹{currentUser.wallet_balance}</span>
+                </div>
+
+                {/* Notifications Dropdown */}
+                <div className="relative">
+                  <button 
+                    onClick={() => setNotificationDropdown(!notificationDropdown)}
+                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 relative cursor-pointer"
+                  >
+                    <Icon name="bell" className="w-4 h-4" />
+                    {myNotifications.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900" />}
+                  </button>
+
+                  {notificationDropdown && (
+                    <div className="absolute right-0 mt-3 bg-slate-900 border border-slate-700 text-white rounded-xl shadow-xl w-80 glass-card p-4 z-50">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                        <span className="font-bold text-xs">Recent Alerts</span>
+                        <button onClick={() => setNotifications([])} className="text-[10px] text-blue-400 hover:underline">Clear all</button>
+                      </div>
+                      
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {myNotifications.length === 0 ? (
+                          <p className="text-xs text-center text-slate-500 py-4">No new notifications</p>
+                        ) : (
+                          myNotifications.map(n => (
+                            <div key={n.id} className="text-xs border-b border-slate-800/50 pb-2">
+                              <h4 className="font-bold text-blue-400 flex items-center justify-between">
+                                <span>{n.title}</span>
+                                <span className="text-[9px] text-slate-500 font-normal">{n.date}</span>
+                              </h4>
+                              <p className="text-[11px] text-slate-400 mt-1">{n.message}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
+                </button>
+
+                <button 
+                  onClick={handleLogout} 
+                  title="Logout Account"
+                  className="px-3.5 py-2.5 rounded-lg bg-rose-600/10 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-500/20 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Icon name="logout" className="w-4 h-4" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </div>
+            </header>
+
+            {/* Candidate Views Router */}
+            <div className="p-6 flex-grow overflow-y-auto">
+              
+              {/* KYC global banner alert if pending/rejected */}
+              {currentUser.kyc_status !== "Approved" && currentPage !== "kyc" && (
+                <div className={`p-4 rounded-xl mb-6 border flex items-center justify-between ${
+                  currentUser.kyc_status === "Rejected" 
+                    ? "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400" 
+                    : "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <Icon name="alert-circle" className="w-5 h-5" />
+                    <div className="text-xs">
+                      <span className="font-bold block">
+                        {currentUser.kyc_status === "Rejected" ? "KYC Verification Rejected!" : "KYC Verification Required"}
+                      </span>
+                      <span>
+                        {currentUser.kyc_status === "Rejected" 
+                          ? "Your KYC documents were rejected by admin. Please update details." 
+                          : "Upload Aadhaar details and Selfie to unlock task catalog submits."}
+                      </span>
+                    </div>
+                  </div>
+                  <button onClick={() => setCurrentPage("kyc")} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer">
+                    Verify KYC
+                  </button>
+                </div>
+              )}
+
+              {currentPage === "dashboard" && (
+                <CandidateOverview 
+                  currentUser={currentUser} 
+                  mySubmissions={mySubmissions} 
+                  setCurrentPage={setCurrentPage} 
+                />
+              )}
+
+              {currentPage === "tasks" && (
+                <CandidateTasks 
+                  currentUser={currentUser} 
+                  tasks={tasks} 
+                  setTasks={setTasks}
+                  submissions={submissions} 
+                  setSubmissions={setSubmissions} 
+                  triggerToast={triggerToast}
+                  setUsers={setUsers}
+                  setCurrentPage={setCurrentPage}
+                  autoAssignTaskReview={autoAssignTaskReview}
+                />
+              )}
+
+              {currentPage === "earnings" && (
+                <CandidateEarnings 
+                  currentUser={currentUser} 
+                  withdrawals={withdrawals} 
+                  setWithdrawals={setWithdrawals} 
+                  myKyc={myKyc}
+                  triggerToast={triggerToast}
+                  setUsers={setUsers}
+                  kycRecords={kycRecords}
+                  setKycRecords={setKycRecords}
+                  submissions={submissions}
+                  tasks={tasks}
+                />
+              )}
+
+              {currentPage === "reports" && (
+                <CandidateReports 
+                  currentUser={currentUser} 
+                  mySubmissions={mySubmissions} 
+                  withdrawals={withdrawals}
+                />
+              )}
+
+              {currentPage === "kyc" && (
+                <CandidateKyc 
+                  currentUser={currentUser} 
+                  setCurrentUser={setCurrentUser}
+                  users={users}
+                  setUsers={setUsers}
+                  kycRecords={kycRecords} 
+                  setKycRecords={setKycRecords}
+                  myKyc={myKyc}
+                  triggerToast={triggerToast}
+                  setPreviewImage={setPreviewImage}
+                />
+              )}
+
+              {currentPage === "profile" && (
+                <CandidateProfile 
+                  currentUser={currentUser} 
+                  users={users}
+                  setUsers={setUsers}
+                  triggerToast={triggerToast}
+                  setCurrentUser={setCurrentUser}
+                />
+              )}
+
+              {currentPage === "support" && (
+                <CandidateSupport 
+                  currentUser={currentUser} 
+                  tickets={tickets} 
+                  setTickets={setTickets}
+                  triggerToast={triggerToast}
+                />
+              )}
+            </div>
+          </div>
+          {previewImage && <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />}
+        </div>
+      );
+    }
+
     // Main Container
     function CandidatePanelContainer() {
       const [theme, setTheme] = useState(() => localStorage.getItem("krv-theme") || "dark");
