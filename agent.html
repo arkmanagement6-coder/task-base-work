@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Dashboard — KRV Management</title>
+  <!-- Tailwind CSS v4 Browser Compiler -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- React & ReactDOM 18 -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel Standalone -->
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style type="text/css">
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+    }
+    :root {
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #dbeafe 100%);
+      --glass-bg: rgba(255, 255, 255, 0.7);
+      --glass-border: rgba(15, 23, 42, 0.06);
+      --glass-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.08);
+      --text-main: #0f172a;
+    }
+    .dark {
+      --bg-gradient: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
+      --glass-bg: rgba(15, 23, 42, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.5);
+      --text-main: #f8fafc;
+    }
+    .app-bg {
+      background: var(--bg-gradient);
+    }
+    .glass-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--glass-shadow);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(37, 99, 235, 0.2);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(37, 99, 235, 0.4);
+    }
+  </style>
+  <script>
+    // Cryptographic Secure Hashing function for session validation
+    const sha256Direct = async (text) => {
+      const msgBuffer = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    // Fast Session Verification & Redirection Guard
+    (async () => {
+      const storedSession = localStorage.getItem("krv-current-user-session");
+      if (!storedSession) {
+        window.location.href = "login.html";
+        return;
+      }
+      try {
+        const { user, signature } = JSON.parse(storedSession);
+        if (!user || !signature || user.role !== "agent") {
+          localStorage.removeItem("krv-current-user-session");
+          window.location.href = "login.html";
+          return;
+        }
+        const expectedSig = await sha256Direct(`${user.id}:${user.email}:${user.role}:KRV-SESSION-SECRET-2026!`);
+        if (signature !== expectedSig) {
+          localStorage.removeItem("krv-current-user-session");
+          window.location.href = "login.html";
+        }
+      } catch (e) {
+        localStorage.removeItem("krv-current-user-session");
+        window.location.href = "login.html";
+      }
+    })();
+  </script>
+</head>
+<body class="app-bg min-h-screen text-[var(--text-main)] transition-colors duration-300">
+  
+  <div id="root"></div>
+
+  <!-- React code with Babel -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    const SUPABASE_URL_DEFAULT = "https://fhrukaegrawsleldnrlw.supabase.co"; 
+    const SUPABASE_KEY_DEFAULT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZocnVrYWVncmF3c2xlbGRucmx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjI0NTksImV4cCI6MjA5NTQzODQ1OX0.5mzjc9ockUTnGhDvY49y6r4M5WNTIBCkyzRdJL0p18E"; 
+
+    // Cryptographic Secure One-Way SHA-256 Hash Function
+    const sha256 = async (text) => {
+      const msgBuffer = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const getSaltedHash = async (email, password) => {
+      const payload = `${email.toLowerCase()}:${password}:KRV-PEPPER-2026-T#9!`;
+      return await sha256(payload);
+    };
+
+    const signSession = async (user) => {
+      if (!user) return "";
+      const payload = `${user.id}:${user.email}:${user.role}`;
+      return await sha256(payload + ":KRV-SESSION-SECRET-2026!");
+    };
+
+    const getSupabaseClient = () => {
+      const url = localStorage.getItem("krv-supabase-url") || SUPABASE_URL_DEFAULT;
+      const key = localStorage.getItem("krv-supabase-key") || SUPABASE_KEY_DEFAULT;
+      if (url && key && window.supabase) {
+        try {
+          return window.supabase.createClient(url, key);
+        } catch (e) {
+          console.error("Supabase Client Error: ", e);
+        }
+      }
+      return null;
+    };
+
+    // Custom SVG Icon Component
+    const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+      const icons = {
+        home: <g><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10" /></g>,
+        tasks: <g><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></g>,
+        earnings: <g><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></g>,
+        reports: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8" /></g>,
+        kyc: <g><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM12 8v4M12 16h.01" /></g>,
+        profile: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /></g>,
+        support: <g><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></g>,
+        logout: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></g>,
+        bell: <g><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /></g>,
+        wallet: <g><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4M4 6v12a2 2 0 0 0 2 2h14v-4M20 12a2 2 0 0 0 0 4h-4a2 2 0 0 0 0-4h4z" /></g>,
+        "check-circle": <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3" /></g>,
+        clock: <g><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></g>,
+        "alert-circle": <g><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></g>,
+        "x-circle": <g><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></g>,
+        copy: <g><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></g>,
+        shield: <g><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></g>,
+        edit: <g><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></g>,
+        "chevron-left": <g><polyline points="15 18 9 12 15 6" /></g>,
+        menu: <g><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></g>,
+        sun: <g><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></g>,
+        moon: <g><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></g>
+      };
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+          {icons[name] || null}
+        </svg>
+      );
+    };
+
+    // Toast Component
+    const Toast = ({ message, type = "success", onClose }) => {
+      useEffect(() => {
+        const timer = setTimeout(onClose, 3500);
+        return () => clearTimeout(timer);
+      }, [onClose]);
+      const colors = {
+        success: "bg-emerald-600 border-emerald-500",
+        error: "bg-rose-600 border-rose-500",
+        info: "bg-blue-600 border-blue-500"
+      };
+      return (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg text-white ${colors[type]}`}>
+          <Icon name={type === "success" ? "check-circle" : type === "error" ? "x-circle" : "alert-circle"} className="w-5 h-5" />
+          <span className="text-sm font-medium">{message}</span>
+          <button onClick={onClose} className="hover:opacity-75"><Icon name="x-circle" className="w-4 h-4" /></button>
+        </div>
+      );
+    };
+
+    // 1. Agent Overview Tab
+    function AgentOverview({ currentUser, myTeam, myTeamSubmissions, setCurrentPage }) {
+      const stats = useMemo(() => {
+        const kycApproved = myTeam.filter(c => c.kyc_status === "Approved").length;
+        const awaitingAuditing = myTeam.filter(c => c.kyc_status === "Pending").length;
+        const totalEarnings = myTeam.reduce((sum, c) => sum + (c.earnings_paid || 0) + (c.wallet_balance || 0), 0);
+        return {
+          teamSize: myTeam.length,
+          kycApproved,
+          awaitingAuditing,
+          totalEarnings
+        };
+      }, [myTeam]);
+
+      return (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Welcome Banner */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between shadow-lg">
+            <div className="z-10 text-center md:text-left space-y-2">
+              <h2 className="text-2xl font-bold">Welcome Back, Agent {currentUser.name}!</h2>
+              <p className="text-blue-100 text-xs max-w-lg">Manage your referred team members, view their digital task progress, and track cumulative team wallet statistics.</p>
+              <div className="pt-2">
+                <button onClick={() => setCurrentPage("my-team")} className="px-4 py-2 text-xs font-bold bg-white text-blue-600 rounded-lg shadow hover:bg-blue-50 transition cursor-pointer">
+                  Manage Referred Team
+                </button>
+              </div>
+            </div>
+            <div className="w-28 h-28 opacity-20 mt-4 md:mt-0 shrink-0">
+              <Icon name="support" className="w-full h-full text-white" />
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {[
+              { label: "Total Referred Team", val: stats.teamSize, color: "text-blue-500", icon: "profile" },
+              { label: "KYC Approved Members", val: stats.kycApproved, color: "text-emerald-500", icon: "check-circle" },
+              { label: "KYC Pending Audit", val: stats.awaitingAuditing, color: "text-amber-500", icon: "clock" },
+              { label: "Cumulative Team Earnings", val: `₹${stats.totalEarnings}`, color: "text-indigo-500", icon: "earnings" }
+            ].map((s, idx) => (
+              <div key={idx} className="p-5 rounded-xl border border-slate-200/50 dark:border-slate-800/40 glass-card">
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</span>
+                <div className="flex items-center justify-between mt-2">
+                  <span className={`text-2xl font-black ${s.color}`}>{s.val}</span>
+                  <Icon name={s.icon} className={`w-5 h-5 ${s.color} opacity-60`} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Recent Candidate Registrations */}
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-base font-bold mb-4 text-white uppercase tracking-wider text-xs">Recent Registration Activities</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                    <th className="py-3">Candidate Name</th>
+                    <th>Email ID</th>
+                    <th>Mobile</th>
+                    <th>City</th>
+                    <th>KYC Verification</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {myTeam.slice(-5).reverse().map(member => (
+                    <tr key={member.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                      <td className="py-3.5 font-bold text-white">{member.name}</td>
+                      <td className="text-slate-400">{member.email}</td>
+                      <td className="text-slate-400">{member.mobile}</td>
+                      <td className="text-slate-400">{member.city || "N/A"}</td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                          member.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                          member.kyc_status === "Blocked" ? "bg-rose-500/15 text-rose-400 border border-rose-500/25" :
+                          "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                        }`}>{member.kyc_status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                  {myTeam.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="py-8 text-center text-slate-500">No candidates registered in your team yet. Share your agent name as referred code during registration!</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 2. My Team Directory Tab
+    function AgentTeam({ myTeam, triggerToast }) {
+      const [filterKyc, setFilterKyc] = useState("All");
+      const [searchQuery, setSearchQuery] = useState("");
+
+      const filteredTeam = useMemo(() => {
+        return myTeam.filter(member => {
+          const matchesKyc = filterKyc === "All" || member.kyc_status === filterKyc;
+          const term = searchQuery.toLowerCase().trim();
+          const matchesSearch = term === "" || 
+            member.name.toLowerCase().includes(term) || 
+            member.email.toLowerCase().includes(term) || 
+            member.mobile.includes(term) ||
+            (member.city && member.city.toLowerCase().includes(term));
+          return matchesKyc && matchesSearch;
+        });
+      }, [myTeam, filterKyc, searchQuery]);
+
+      const handleCopyReferral = () => {
+        navigator.clipboard.writeText(window.location.origin + "/register.html");
+        triggerToast("Registration portal link copied! Guide users to select your name in Referred By field.");
+      };
+
+      return (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Header Action Row */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-white">My Referred Team: {myTeam.length} candidates</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Below is the complete list of candidates onboarded under your referral name.</p>
+            </div>
+            <button onClick={handleCopyReferral} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-2 cursor-pointer transition">
+              <Icon name="copy" className="w-3.5 h-3.5" />
+              <span>Copy Portal Link</span>
+            </button>
+          </div>
+
+          {/* Filtering and Searching Controls */}
+          <div className="glass-card rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+              {["All", "Approved", "Pending", "Rejected", "Blocked"].map(status => (
+                <button key={status} onClick={() => setFilterKyc(status)} className={`px-4 py-1.5 rounded-full text-xs font-bold shrink-0 cursor-pointer transition ${
+                  filterKyc === status ? "bg-blue-600 text-white shadow" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200"
+                }`}>
+                  {status} KYC
+                </button>
+              ))}
+            </div>
+
+            <div className="relative w-full md:max-w-xs shrink-0">
+              <input type="text" placeholder="Search team members..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full px-3 py-2 text-xs rounded-lg border border-slate-250 dark:border-slate-800 bg-white/5 text-white" />
+            </div>
+          </div>
+
+          {/* Team Table */}
+          <div className="glass-card rounded-2xl p-6">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                    <th className="py-3">Candidate Name</th>
+                    <th>Email ID</th>
+                    <th>Mobile</th>
+                    <th>City</th>
+                    <th>Wallet Balance</th>
+                    <th>Total Paid</th>
+                    <th>KYC Verification</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {filteredTeam.map(member => (
+                    <tr key={member.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                      <td className="py-3.5 font-bold text-white">{member.name}</td>
+                      <td className="text-slate-400">{member.email}</td>
+                      <td className="text-slate-400">{member.mobile}</td>
+                      <td className="text-slate-400">{member.city || "N/A"}</td>
+                      <td className="font-extrabold text-blue-500">₹{member.wallet_balance || 0}</td>
+                      <td className="font-bold text-emerald-500">₹{member.earnings_paid || 0}</td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                          member.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                          member.kyc_status === "Blocked" ? "bg-rose-500/15 text-rose-400 border border-rose-500/25" :
+                          "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                        }`}>{member.kyc_status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredTeam.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="py-8 text-center text-slate-500">No candidates match the specified filter or search term.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 3. Team Submissions Auditing Tab
+    function AgentSubmissions({ myTeamSubmissions, users, tasks }) {
+      const getCandidateName = (userId) => {
+        const c = users.find(u => u.id === userId);
+        return c ? c.name : "N/A";
+      };
+
+      const getTaskTitle = (taskId) => {
+        const t = tasks.find(tsk => tsk.id === taskId);
+        return t ? t.title : `Task-${taskId}`;
+      };
+
+      return (
+        <div className="space-y-6 animate-fadeIn">
+          <div>
+            <h3 className="text-lg font-bold text-white">Team Task Submissions: {myTeamSubmissions.length} proofs</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Track the work submissions uploaded by candidates in your team.</p>
+          </div>
+
+          <div className="glass-card rounded-2xl p-6">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                    <th className="py-3">Sub ID</th>
+                    <th>Candidate</th>
+                    <th>Task Name</th>
+                    <th>Amount</th>
+                    <th>Submission Date</th>
+                    <th>Verification Link</th>
+                    <th>Review Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {myTeamSubmissions.map(s => (
+                    <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                      <td className="py-3.5 font-bold text-slate-500">SUB-{s.id.toUpperCase()}</td>
+                      <td className="font-bold text-white">{getCandidateName(s.user_id)}</td>
+                      <td className="text-slate-350 max-w-[150px] truncate" title={getTaskTitle(s.task_id)}>{getTaskTitle(s.task_id)}</td>
+                      <td className="font-extrabold text-emerald-500">₹{s.amount}</td>
+                      <td className="text-slate-400">{s.date}</td>
+                      <td className="text-blue-500 max-w-[150px] truncate">
+                        <a href={s.submitted_link} target="_blank" rel="noopener noreferrer" className="hover:underline">{s.submitted_link}</a>
+                      </td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                          s.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                          s.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                          "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                        }`}>{s.review_status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                  {myTeamSubmissions.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="py-8 text-center text-slate-500">No task submissions uploaded by your team members yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // 4. Agent Profile Editing Tab
+    function AgentProfile({ currentUser, setUsers, triggerToast }) {
+      const [form, setForm] = useState({
+        name: currentUser.name,
+        email: currentUser.email,
+        mobile: currentUser.mobile,
+        city: currentUser.city || "",
+        password: ""
+      });
+
+      const handleUpdateProfile = async (e) => {
+        e.preventDefault();
+        
+        let hashedPassword = currentUser.password;
+        if (form.password.trim() !== "") {
+          hashedPassword = await getSaltedHash(currentUser.email, form.password);
+        }
+
+        setUsers(prev => prev.map(u => {
+          if (u.id === currentUser.id) {
+            return {
+              ...u,
+              mobile: form.mobile,
+              city: form.city,
+              password: hashedPassword
+            };
+          }
+          return u;
+        }));
+
+        triggerToast("Profile details updated successfully!");
+        setForm(prev => ({ ...prev, password: "" }));
+      };
+
+      return (
+        <div className="max-w-xl mx-auto glass-card rounded-2xl p-6 animate-fadeIn">
+          <div>
+            <h3 className="text-lg font-bold text-white">Agent Personal Profile</h3>
+            <p className="text-xs text-slate-400 mt-0.5 font-medium">Update your profile parameters or securely reset your login password.</p>
+          </div>
+
+          <form onSubmit={handleUpdateProfile} className="space-y-4 mt-6">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Agent Name</label>
+              <input disabled type="text" value={form.name} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-800 bg-white/5 text-slate-400 cursor-not-allowed" />
+              <span className="text-[10px] text-slate-500 block mt-1">Agency Name can only be changed by system administration.</span>
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Email Address</label>
+              <input disabled type="email" value={form.email} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-800 bg-white/5 text-slate-400 cursor-not-allowed" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Mobile Number</label>
+              <input required type="tel" pattern="[0-9]{10}" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">City</label>
+              <input required type="text" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Change Password (Leave blank to keep current)</label>
+              <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="Enter new password" />
+            </div>
+
+            <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition cursor-pointer">
+              Save Profile Changes
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // MAIN AGENT DASHBOARD PAGE LAYOUT
+    // ==========================================
+    function AgentPanel({
+      currentPage, setCurrentPage, currentUser, users, setUsers, tasks, submissions, handleLogout, theme, setTheme, triggerToast
+    }) {
+      const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+
+      const myTeam = useMemo(() => {
+        return users.filter(u => u.role === "candidate" && u.referral_code === currentUser.name);
+      }, [users, currentUser]);
+
+      const myTeamSubmissions = useMemo(() => {
+        const teamIds = myTeam.map(c => c.id);
+        return submissions.filter(s => teamIds.includes(s.user_id));
+      }, [submissions, myTeam]);
+
+      const menuItems = [
+        { id: "agent-overview", icon: "home", label: "Overview" },
+        { id: "agent-team", icon: "profile", label: "My Team" },
+        { id: "agent-submissions", icon: "tasks", label: "Team Submissions" },
+        { id: "agent-profile", icon: "support", label: "My Profile" }
+      ];
+
+      return (
+        <div className="min-h-screen flex">
+          {/* Mobile Sidebar Backdrop Overlay */}
+          {sidebarOpen && (
+            <div 
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden cursor-pointer" 
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+
+          {/* Sidebar Drawer */}
+          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 shrink-0 flex flex-col justify-between transition-all duration-300 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full md:w-0"
+          } fixed md:relative h-full md:h-auto z-30`}>
+            
+            <div>
+              {/* Sidebar Branding */}
+              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20 whitespace-nowrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">A</div>
+                  <div className="min-w-0">
+                    <span className="text-sm font-bold tracking-tight text-white block truncate">KRV Agent</span>
+                    <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">Authorized Partner</span>
+                  </div>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><Icon name="x-circle" className="w-4 h-4" /></button>
+              </div>
+
+              {/* Sidebar Menu */}
+              <nav className="p-4 space-y-1">
+                {menuItems.map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => {
+                      setCurrentPage(item.id);
+                      if (window.innerWidth < 768) setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <Icon name={item.icon} className="w-4 h-4 mr-3 shrink-0" />
+                    <span className="whitespace-nowrap">{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            {/* Logout button */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/15">
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer whitespace-nowrap">
+                <Icon name="logout" className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Logout</span>
+              </button>
+            </div>
+          </aside>
+
+          {/* Main Content Window */}
+          <div className="flex-grow flex flex-col min-h-screen overflow-x-hidden">
+            {/* Header */}
+            <header className="px-6 py-4 flex items-center justify-between bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/40">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-350 cursor-pointer">
+                  <Icon name="menu" className="w-4 h-4" />
+                </button>
+                <h1 className="text-xl font-bold tracking-tight capitalize">{currentPage.replace("agent-", "")} Panel</h1>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                  Partner Agent
+                </span>
+
+                <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-350 cursor-pointer">
+                  <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
+                </button>
+
+                <button 
+                  onClick={handleLogout} 
+                  title="Logout Account"
+                  className="px-3.5 py-2.5 rounded-lg bg-rose-600/10 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-500/20 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Icon name="logout" className="w-4 h-4" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </div>
+            </header>
+
+            {/* Sub-tab Content Router */}
+            <div className="p-6 flex-grow overflow-y-auto">
+              
+              {currentPage === "agent-overview" && (
+                <AgentOverview 
+                  currentUser={currentUser} 
+                  myTeam={myTeam}
+                  myTeamSubmissions={myTeamSubmissions}
+                  setCurrentPage={setCurrentPage} 
+                />
+              )}
+
+              {currentPage === "agent-team" && (
+                <AgentTeam 
+                  myTeam={myTeam} 
+                  triggerToast={triggerToast} 
+                />
+              )}
+
+              {currentPage === "agent-submissions" && (
+                <AgentSubmissions 
+                  myTeamSubmissions={myTeamSubmissions} 
+                  users={users}
+                  tasks={tasks}
+                />
+              )}
+
+              {currentPage === "agent-profile" && (
+                <AgentProfile 
+                  currentUser={currentUser} 
+                  setUsers={setUsers} 
+                  triggerToast={triggerToast} 
+                />
+              )}
+
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Main Container App
+    function AgentPanelContainer() {
+      const [theme, setTheme] = useState(() => localStorage.getItem("krv-theme") || "dark");
+      const [currentPage, setCurrentPage] = useState("agent-overview");
+      const [currentUser, setCurrentUser] = useState(null);
+      const [isDbLoading, setIsDbLoading] = useState(true);
+
+      const [users, setUsers] = useState([]);
+      const [tasks, setTasks] = useState([]);
+      const [submissions, setSubmissions] = useState([]);
+      const [toast, setToast] = useState(null);
+
+      const prevUsersRef = useRef([]);
+
+      useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === "dark") {
+          root.classList.add("dark");
+        } else {
+          root.classList.remove("dark");
+        }
+        localStorage.setItem("krv-theme", theme);
+      }, [theme]);
+
+      const triggerToast = (message, type = "success") => {
+        setToast({ message, type });
+      };
+
+      // Bootstrap logic
+      useEffect(() => {
+        let channel = null;
+
+        const verifyIntegrityAndSession = async () => {
+          const client = getSupabaseClient();
+          if (client) {
+            try {
+              const storedSession = localStorage.getItem("krv-current-user-session");
+              if (!storedSession) {
+                window.location.href = "login.html";
+                return;
+              }
+              const { user } = JSON.parse(storedSession);
+
+              // 1. Fetch Users
+              const { data: dbUsers, error: usersErr } = await client.from("krv_users").select("*");
+              if (!usersErr && dbUsers) {
+                setUsers(dbUsers);
+                prevUsersRef.current = dbUsers;
+                const matchedUser = dbUsers.find(u => u.id === user.id);
+                if (matchedUser) {
+                  setCurrentUser(matchedUser);
+                }
+              }
+
+              // 2. Fetch Tasks
+              const { data: dbTasks, error: tasksErr } = await client.from("krv_tasks").select("*");
+              if (!tasksErr && dbTasks) {
+                setTasks(dbTasks.filter(t => t.status !== "Deleted"));
+              }
+
+              // 3. Fetch Submissions
+              const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("*");
+              if (!subsErr && dbSubs) {
+                setSubmissions(dbSubs);
+              }
+
+              // Real-time PostgreSQL changes listener
+              channel = client.channel('krv-agent-realtime')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_users' }, (payload) => {
+                  if (payload.eventType === 'UPDATE') {
+                    setUsers(prev => {
+                      const next = prev.map(u => u.id === payload.new.id ? payload.new : u);
+                      prevUsersRef.current = next;
+                      return next;
+                    });
+                  } else if (payload.eventType === 'INSERT') {
+                    setUsers(prev => {
+                      const next = prev.some(u => u.id === payload.new.id) ? prev : [...prev, payload.new];
+                      prevUsersRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_submissions' }, (payload) => {
+                  if (payload.eventType === 'INSERT') {
+                    setSubmissions(prev => prev.some(s => s.id === payload.new.id) ? prev : [...prev, payload.new]);
+                  } else if (payload.eventType === 'UPDATE') {
+                    setSubmissions(prev => prev.map(s => s.id === payload.new.id ? payload.new : s));
+                  }
+                })
+                .subscribe();
+
+            } catch (err) {
+              console.error("verifyIntegrityAndSession error:", err);
+            }
+          }
+          setIsDbLoading(false);
+        };
+
+        verifyIntegrityAndSession();
+
+        return () => {
+          if (channel) {
+            const client = getSupabaseClient();
+            if (client) client.removeChannel(channel);
+          }
+        };
+      }, []);
+
+      // Synchronize currentUser with users list
+      useEffect(() => {
+        if (currentUser) {
+          const latestUser = users.find(u => u.id === currentUser.id);
+          if (latestUser && JSON.stringify(latestUser) !== JSON.stringify(currentUser)) {
+            setCurrentUser(latestUser);
+            signSession(latestUser).then(sig => {
+              localStorage.setItem("krv-current-user-session", JSON.stringify({ user: latestUser, signature: sig }));
+            });
+          }
+        }
+      }, [users, currentUser]);
+
+      // Background cloud sync for profile modifications
+      useEffect(() => {
+        const saveSecureDb = async () => {
+          const client = getSupabaseClient();
+          if (client && !isDbLoading) {
+            try {
+              const prevUsers = prevUsersRef.current;
+              if (JSON.stringify(prevUsers) !== JSON.stringify(users)) {
+                const changedUsers = users.filter(u => {
+                  const prevU = prevUsers.find(pu => pu.id === u.id);
+                  return !prevU || JSON.stringify(prevU) !== JSON.stringify(u);
+                });
+                if (changedUsers.length > 0) {
+                  const { error } = await client.from("krv_users").upsert(changedUsers);
+                  if (error) {
+                    console.error("Users sync failed:", error);
+                    triggerToast("Sync Error (Users): " + error.message, "error");
+                  }
+                }
+                prevUsersRef.current = users;
+              }
+            } catch (err) {
+              console.error("Supabase sync error:", err);
+            }
+          }
+        };
+        saveSecureDb();
+      }, [users, isDbLoading]);
+
+      const handleLogout = () => {
+        localStorage.removeItem("krv-current-user-session");
+        window.location.href = "login.html";
+      };
+
+      if (isDbLoading || !currentUser) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto"></div>
+              <span className="block text-xs font-bold uppercase tracking-widest text-slate-400 animate-pulse">Loading Partner Workspace...</span>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen">
+          <AgentPanel
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            currentUser={currentUser}
+            users={users}
+            setUsers={setUsers}
+            tasks={tasks}
+            submissions={submissions}
+            handleLogout={handleLogout}
+            theme={theme}
+            setTheme={setTheme}
+            triggerToast={triggerToast}
+          />
+          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        </div>
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<AgentPanelContainer />);
+  </script>
+</body>
+</html>

@@ -135,6 +135,18 @@
       const [showPassword, setShowPassword] = useState(false);
       const [showConfirmPassword, setShowConfirmPassword] = useState(false);
       const [toast, setToast] = useState(null);
+      const [agents, setAgents] = useState([]);
+
+      useEffect(() => {
+        const client = getSupabaseClient();
+        if (client) {
+          client.from("krv_users").select("*").eq("role", "agent").then(({ data, error }) => {
+            if (!error && data) {
+              setAgents(data);
+            }
+          });
+        }
+      }, []);
 
       useEffect(() => {
         // Theme setting
@@ -273,7 +285,12 @@
 
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Referred By (Optional)</label>
-                  <input type="text" name="referral" value={formData.referral} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="e.g. KRV500" />
+                  <select name="referral" value={formData.referral} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-900 focus:outline-none focus:border-blue-500 text-white cursor-pointer">
+                    <option value="">-- Select Agent --</option>
+                    {agents.map(a => (
+                      <option key={a.id} value={a.name}>{a.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

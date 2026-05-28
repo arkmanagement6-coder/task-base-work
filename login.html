@@ -70,6 +70,8 @@
             if (signature === expectedSig) {
               if (user.role === "admin") {
                 window.location.href = "admin.html";
+              } else if (user.role === "agent") {
+                window.location.href = "agent.html";
               } else {
                 window.location.href = "candidate.html";
               }
@@ -228,6 +230,8 @@
           setTimeout(() => {
             if (matchedUser.role === "admin") {
               window.location.href = "admin.html";
+            } else if (matchedUser.role === "agent") {
+              window.location.href = "agent.html";
             } else {
               window.location.href = "candidate.html";
             }
