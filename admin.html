@@ -1029,6 +1029,9 @@
                     <button onClick={() => handleReject(reviewModal)} className="py-3 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">Reject Proof</button>
                     <button onClick={() => handleApprove(reviewModal)} className="py-3 font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">Approve Payout</button>
                   </div>
+                  <button onClick={() => { setReviewModal(null); setRejectionReason(""); }} className="w-full mt-3 py-2.5 text-xs font-bold bg-slate-805 dark:bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-xl border border-slate-750 uppercase tracking-wider cursor-pointer transition">
+                    Cancel & Close Dialog
+                  </button>
                 </div>
               </div>
             </div>
@@ -1230,6 +1233,9 @@
                     <input type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Blur image, selfie mismatch..." />
                   </div>
                   <button onClick={() => handleRejectKyc(rejectModal)} className="w-full py-3.5 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer shadow">Confirm Reject KYC</button>
+                  <button onClick={() => { setRejectModal(null); setRejectReason(""); }} className="w-full mt-3 py-2.5 text-xs font-bold bg-slate-805 dark:bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-xl border border-slate-750 uppercase tracking-wider cursor-pointer transition">
+                    Cancel & Close Dialog
+                  </button>
                 </div>
               </div>
             </div>
