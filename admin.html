@@ -1,0 +1,1967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — KRV Management</title>
+  <!-- Tailwind CSS v4 Browser Compiler -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- React & ReactDOM 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Chart.js for Admin Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style type="text/css">
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+    }
+    :root {
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #dbeafe 100%);
+      --glass-bg: rgba(255, 255, 255, 0.7);
+      --glass-border: rgba(15, 23, 42, 0.06);
+      --glass-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.08);
+      --text-main: #0f172a;
+    }
+    .dark {
+      --bg-gradient: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
+      --glass-bg: rgba(15, 23, 42, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.5);
+      --text-main: #f8fafc;
+    }
+    .app-bg {
+      background: var(--bg-gradient);
+    }
+    .glass-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--glass-shadow);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(37, 99, 235, 0.2);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(37, 99, 235, 0.4);
+    }
+  </style>
+  <script>
+    // Cryptographic Secure Hashing function for session validation
+    const sha256Direct = async (text) => {
+      const msgBuffer = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    // Fast Session Verification & Redirection Guard
+    (async () => {
+      const storedSession = localStorage.getItem("krv-current-user-session");
+      if (!storedSession) {
+        window.location.href = "login.html";
+        return;
+      }
+      try {
+        const { user, signature } = JSON.parse(storedSession);
+        if (!user || !signature || user.role !== "admin") {
+          localStorage.removeItem("krv-current-user-session");
+          window.location.href = "login.html";
+          return;
+        }
+        const expectedSig = await sha256Direct(`${user.id}:${user.email}:${user.role}:KRV-SESSION-SECRET-2026!`);
+        if (signature !== expectedSig) {
+          localStorage.removeItem("krv-current-user-session");
+          window.location.href = "login.html";
+        }
+      } catch (e) {
+        localStorage.removeItem("krv-current-user-session");
+        window.location.href = "login.html";
+      }
+    })();
+  </script>
+</head>
+<body class="app-bg min-h-screen text-[var(--text-main)] transition-colors duration-300">
+  
+  <div id="root"></div>
+
+  <!-- React code with Babel -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    const SUPABASE_URL_DEFAULT = "https://fhrukaegrawsleldnrlw.supabase.co"; 
+    const SUPABASE_KEY_DEFAULT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZocnVrYWVncmF3c2xlbGRucmx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjI0NTksImV4cCI6MjA5NTQzODQ1OX0.5mzjc9ockUTnGhDvY49y6r4M5WNTIBCkyzRdJL0p18E"; 
+
+    // Seed data definitions
+    const DEFAULT_USERS = [
+      { id: "admin", name: "KRV System Admin", email: "admin@krv.com", password: "d521ef4a952f07f31cafa3476ee0cc430a2a375c7eb7356034b24bb0c5a37310", mobile: "9876543210", role: "admin" },
+      { id: "c1", name: "Rahul Sharma", email: "rahul@gmail.com", password: "d029b6414b8d45715252d8c1f4061b2b193dd8070a8b5711c610e4380a9c2f8b", mobile: "9988776655", city: "Mumbai", pincode: "400001", referral_code: "KRV500", wallet_balance: 750, earnings_pending: 120, earnings_paid: 2500, kyc_status: "Approved", role: "candidate" },
+      { id: "c2", name: "Priya Patel", email: "priya@gmail.com", password: "6d0877c1f0b6fce330bfad96b5856d8494191efbb44a3f1b54aae81084b9b27d", mobile: "9876123450", city: "Ahmedabad", pincode: "380001", referral_code: "", wallet_balance: 0, earnings_pending: 250, earnings_paid: 0, kyc_status: "Pending", role: "candidate" },
+      { id: "c3", name: "Amit Verma", email: "amit@gmail.com", password: "778013965465006af1ea60778cd1b5420bf020732605a200357cafdd4b56554b", mobile: "8877665544", city: "Delhi", pincode: "110001", referral_code: "REF99", wallet_balance: 50, earnings_pending: 0, earnings_paid: 300, kyc_status: "Rejected", role: "candidate" }
+    ];
+
+    const DEFAULT_TASKS = [
+      { id: "t1", title: "Install & Review Sakhicare App", category: "Application Review", links: "https://play.google.com/store/apps/details?id=com.sakhicare", amount: 40, remarks: "Install app, open it for 2 minutes, and leave a positive 5-star review on Playstore.", deadline: "2026-06-15", status: "Active" },
+      { id: "t2", title: "Review Patel Bhai Restaurant on Google Maps", category: "Google Review", links: "https://maps.google.com/?q=patel+bhai+restaurant", amount: 25, remarks: "Write a genuine review sharing your thoughts on their quality and fast service. Min 15 words.", deadline: "2026-06-10", status: "Active" },
+      { id: "t3", title: "Record Voice Reading 5 Technical Prompts", category: "Audio Recording", links: "https://krv.com/prompts/read-technical", amount: 60, remarks: "Speak clearly in English, avoid background noises. Submit MP3 or WAV file.", deadline: "2026-06-20", status: "Active" },
+      { id: "t4", title: "Create Video Explaining Hotel Sai Shahu Benefits", category: "Video Recording", links: "https://saishahu.com", amount: 120, remarks: "Record a short 20-30s landscape video reviewing room comfort and service quality.", deadline: "2026-06-25", status: "Active" },
+      { id: "t5", title: "Write Product Review for FitVybe Smartwatch", category: "Product Review", links: "https://fitvybe.com/smartwatch", amount: 50, remarks: "Write a descriptive product critique highlighting steps accuracy, sleep monitor, and battery life.", deadline: "2026-06-12", status: "Active" }
+    ];
+
+    const DEFAULT_SUBMISSIONS = [
+      { id: "s1", user_id: "c1", task_id: "t1", submitted_link: "https://play.google.com/store/review?id=rahul", screenshot: "assets/dashboard_preview.png", video: "", remarks: "Excellent app, reviewed with name Rahul Sharma", review_status: "Approved", amount: 40, date: "2026-05-24" },
+      { id: "s2", user_id: "c1", task_id: "t2", submitted_link: "https://google.maps/review/patelbhai/rahul", screenshot: "assets/dashboard_preview.png", video: "", remarks: "Left a detailed map review with pictures.", review_status: "Pending", amount: 25, date: "2026-05-25" },
+      { id: "s3", user_id: "c2", task_id: "t3", submitted_link: "https://drive.google.com/audio/priya", screenshot: "", video: "assets/dashboard_preview.png", remarks: "Uploaded voice sample correctly.", review_status: "Pending", amount: 60, date: "2026-05-25" },
+      { id: "s4", user_id: "c2", task_id: "t4", submitted_link: "https://youtube.com/watch?v=saishahu", screenshot: "", video: "assets/dashboard_preview.png", remarks: "Sai Shahu video review uploaded.", review_status: "Pending", amount: 120, date: "2026-05-26" },
+      { id: "s5", user_id: "c3", task_id: "t5", submitted_link: "https://amazon.in/review/fitvybe", screenshot: "assets/dashboard_preview.png", video: "", remarks: "Left review on Amazon store.", review_status: "Rejected", amount: 50, rejection_reason: "Screenshot was blurry and could not verify username.", date: "2026-05-23" }
+    ];
+
+    const DEFAULT_KYC = [
+      { id: "k1", user_id: "c1", account_holder: "Rahul Sharma", account_number: "998877665544", bank_name: "HDFC Bank", ifsc: "HDFC0001234", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "assets/krv_logo.png", status: "Approved" },
+      { id: "k2", user_id: "c2", account_holder: "Priya Patel", account_number: "112233445566", bank_name: "SBI Bank", ifsc: "SBIN0007890", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "assets/krv_logo.png", status: "Pending" },
+      { id: "k3", user_id: "c3", account_holder: "Amit Verma", account_number: "554433221100", bank_name: "ICICI Bank", ifsc: "ICIC0009876", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "assets/krv_logo.png", status: "Rejected", rejection_reason: "Selfie did not match Aadhaar picture clear details." }
+    ];
+
+    const DEFAULT_WITHDRAWALS = [
+      { id: "w1", user_id: "c1", amount: 1500, status: "Approved", date: "2026-05-20", bank_details: "HDFC Bank - 998877665544" },
+      { id: "w2", user_id: "c1", amount: 1000, status: "Approved", date: "2026-05-23", bank_details: "HDFC Bank - 998877665544" },
+      { id: "w3", user_id: "c1", amount: 500, status: "Pending", date: "2026-05-26", bank_details: "HDFC Bank - 998877665544" }
+    ];
+
+    const DEFAULT_TICKETS = [
+      { id: "tk1", user_id: "c1", subject: "Payment Delay", category: "Payments", description: "My withdrawal of 500 Rs is still showing pending.", status: "Open", replies: [{ sender: "Rahul", message: "Please check, it has been 3 days." }] },
+      { id: "tk2", user_id: "c3", subject: "Aadhaar Reject Query", category: "KYC Support", description: "Why was my Aadhaar selfie rejected?", status: "Closed", replies: [{ sender: "System", message: "Selfie was blurred. Please reupload a high resolution selfie with proper lighting." }] }
+    ];
+
+    const DEFAULT_NOTIFICATIONS = [
+      { id: "n1", user_id: "c1", title: "KYC Approved", message: "Congratulations! Your KYC documents are verified successfully. You can now access and complete tasks.", date: "2026-05-24" },
+      { id: "n2", user_id: "c1", title: "Task Approved", message: "Your submission for 'Install & Review Sakhicare App' was approved. ₹40 has been added to your wallet.", date: "2026-05-25" },
+      { id: "n3", user_id: "c3", title: "KYC Rejected", message: "Your KYC was rejected due to a blurry selfie image. Please reupload.", date: "2026-05-23" }
+    ];
+
+    // Cryptographic Secure One-Way SHA-256 Hash Function
+    const sha256 = async (text) => {
+      const msgBuffer = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const getSaltedHash = async (email, password) => {
+      const payload = `${email.toLowerCase()}:${password}:KRV-PEPPER-2026-T#9!`;
+      return await sha256(payload);
+    };
+
+    const signSession = async (user) => {
+      if (!user) return "";
+      const payload = `${user.id}:${user.email}:${user.role}`;
+      return await sha256(payload + ":KRV-SESSION-SECRET-2026!");
+    };
+
+    const signUsersList = async (usersList) => {
+      const payload = usersList.map(u => `${u.id}:${u.email}:${u.role}:${u.password}`).join("|");
+      return await sha256(payload + ":KRV-DATABASE-SECRET-2026!");
+    };
+
+    const getSupabaseClient = () => {
+      const url = localStorage.getItem("krv-supabase-url") || SUPABASE_URL_DEFAULT;
+      const key = localStorage.getItem("krv-supabase-key") || SUPABASE_KEY_DEFAULT;
+      if (url && key && window.supabase) {
+        try {
+          return window.supabase.createClient(url, key);
+        } catch (e) {
+          console.error("Supabase Client Error: ", e);
+        }
+      }
+      return null;
+    };
+
+    // Custom SVG Icon Component
+    const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+      const icons = {
+        home: <g><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10" /></g>,
+        tasks: <g><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></g>,
+        earnings: <g><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></g>,
+        reports: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8" /></g>,
+        kyc: <g><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM12 8v4M12 16h.01" /></g>,
+        profile: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /></g>,
+        support: <g><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></g>,
+        logout: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></g>,
+        bell: <g><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /></g>,
+        wallet: <g><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4M4 6v12a2 2 0 0 0 2 2h14v-4M20 12a2 2 0 0 0 0 4h-4a2 2 0 0 0 0-4h4z" /></g>,
+        "check-circle": <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3" /></g>,
+        clock: <g><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></g>,
+        "alert-circle": <g><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></g>,
+        "x-circle": <g><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></g>,
+        plus: <g><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></g>,
+        trash: <g><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></g>,
+        edit: <g><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></g>,
+        copy: <g><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></g>,
+        upload: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></g>,
+        download: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></g>,
+        lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
+        eye: <g><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></g>,
+        "eye-off": <g><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></g>,
+        shield: <g><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></g>,
+        "chevron-down": <g><polyline points="6 9 12 15 18 9" /></g>,
+        "chevron-right": <g><polyline points="9 18 15 12 9 6" /></g>,
+        "chevron-left": <g><polyline points="15 18 9 12 15 6" /></g>,
+        sun: <g><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></g>,
+        moon: <g><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></g>,
+        settings: <g><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></g>,
+        menu: <g><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></g>
+      };
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+          {icons[name] || null}
+        </svg>
+      );
+    };
+
+    // Toast Component
+    const Toast = ({ message, type = "success", onClose }) => {
+      useEffect(() => {
+        const timer = setTimeout(onClose, 3500);
+        return () => clearTimeout(timer);
+      }, [onClose]);
+      const colors = {
+        success: "bg-emerald-600 border-emerald-500",
+        error: "bg-rose-600 border-rose-500",
+        info: "bg-blue-600 border-blue-500"
+      };
+      return (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg text-white ${colors[type]}`}>
+          <Icon name={type === "success" ? "check-circle" : type === "error" ? "x-circle" : "alert-circle"} className="w-5 h-5" />
+          <span className="text-sm font-medium">{message}</span>
+          <button onClick={onClose} className="hover:opacity-75"><Icon name="x-circle" className="w-4 h-4" /></button>
+        </div>
+      );
+    };
+
+    // Image Preview Modal
+    const ImagePreviewModal = ({ image, onClose }) => {
+      if (!image) return null;
+      return (
+        <div onClick={onClose} className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 cursor-zoom-out">
+          <div className="absolute top-4 right-4 z-50">
+            <button onClick={onClose} className="p-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white shadow-lg cursor-pointer">
+              <Icon name="x-circle" className="w-6 h-6" />
+            </button>
+          </div>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl flex flex-col items-center gap-4 cursor-default">
+            <h3 className="text-base md:text-lg font-bold text-white tracking-wide uppercase">{image.title}</h3>
+            <div className="border border-slate-700/50 rounded-2xl overflow-hidden bg-slate-950 max-h-[75vh] max-w-full flex items-center justify-center p-2 shadow-2xl relative">
+              <img src={image.url} alt={image.title} onError={(e) => { e.target.src = "assets/krv_logo.png"; }} className="max-h-[70vh] max-w-full rounded-xl object-contain shadow-inner" />
+            </div>
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Click outside or click (X) to close</span>
+          </div>
+        </div>
+      );
+    };
+
+    // Include Admin Subcomponents
+    // [AdminOverview, AdminCandidates, AdminTasks, AdminReviews, AdminEarnings, AdminKyc, AdminReports, AdminSettings]
+    
+    // (Inserted below from index.html)
+    // 1. Overview
+    function AdminOverview({ users, tasks, submissions, kycRecords }) {
+      const chartRef1 = useRef(null);
+      const chartRef2 = useRef(null);
+
+      const stats = useMemo(() => {
+        const candidates = users.filter(u => u.role === "candidate");
+        return {
+          totalUsers: candidates.length,
+          activeUsers: candidates.filter(u => u.kyc_status === "Approved").length,
+          pendingKyc: kycRecords.filter(k => k.status === "Pending").length,
+          totalTasks: tasks.length,
+          pendingSub: submissions.filter(s => s.review_status === "Pending").length,
+          totalPaid: candidates.reduce((sum, u) => sum + u.earnings_paid, 0)
+        };
+      }, [users, tasks, submissions, kycRecords]);
+
+      useEffect(() => {
+        let chart1, chart2;
+        if (chartRef1.current) {
+          const ctx = chartRef1.current.getContext('2d');
+          chart1 = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: ['May 20', 'May 21', 'May 22', 'May 23', 'May 24', 'May 25', 'May 26'],
+              datasets: [{
+                label: 'Task Submissions',
+                data: [12, 19, 15, 25, 32, 28, 38],
+                borderColor: '#2563EB',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                tension: 0.4,
+                fill: true
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+        if (chartRef2.current) {
+          const ctx = chartRef2.current.getContext('2d');
+          chart2 = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: ['Google Review', 'App Review', 'Audio Rec', 'Video Rec', 'Product Review'],
+              datasets: [{
+                label: 'Volume by Category',
+                data: [42, 35, 28, 18, 30],
+                backgroundColor: ['#2563EB', '#4F46E5', '#06B6D4', '#10B981', '#F59E0B']
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+        return () => {
+          if (chart1) chart1.destroy();
+          if (chart2) chart2.destroy();
+        };
+      }, []);
+
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+            {[
+              { label: "Total Candidates", val: stats.totalUsers, color: "text-blue-500" },
+              { label: "Active Verified", val: stats.activeUsers, color: "text-emerald-500" },
+              { label: "Pending KYC", val: stats.pendingKyc, color: "text-amber-500 animate-pulse" },
+              { label: "Active Tasks", val: stats.totalTasks, color: "text-indigo-500" },
+              { label: "Pending Reviews", val: stats.pendingSub, color: "text-rose-500 animate-pulse" },
+              { label: "Total Paid", val: `₹${stats.totalPaid}`, color: "text-emerald-655 dark:text-emerald-400" }
+            ].map((s, idx) => (
+              <div key={idx} className="p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/40 glass-card text-center">
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</span>
+                <span className={`text-2xl font-bold mt-1 block ${s.color}`}>{s.val}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-base font-bold mb-4 text-white">Daily Task Completion rate</h3>
+              <canvas ref={chartRef1} height="120"></canvas>
+            </div>
+            
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-base font-bold mb-4 text-white">Task Categorization Distribution</h3>
+              <canvas ref={chartRef2} height="120"></canvas>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-base font-bold mb-4 text-white">Latest System Activities</h3>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center py-2 border-b border-slate-800">
+                <span className="text-slate-400">Candidate <b>Rahul Sharma</b> registered and completed KYC details.</span>
+                <span className="text-[10px] font-bold text-emerald-500 uppercase">KYC Approved</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-slate-800">
+                <span className="text-slate-400">Candidate <b>Priya Patel</b> submitted proof for 'Record Voice Prompts'.</span>
+                <span className="text-[10px] font-bold text-amber-500 uppercase">Task Auditing</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-slate-400">Admin generated new Google Maps task 'Review Patel Bhai Maps'.</span>
+                <span className="text-[10px] font-bold text-blue-500 uppercase">Task Created</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // 2. Candidate Management
+    function AdminCandidates({ users, setUsers, kycRecords, triggerToast }) {
+      const candidates = useMemo(() => users.filter(u => u.role === "candidate"), [users]);
+
+      const handleBlockUser = (id) => {
+        setUsers(prev => prev.map(u => {
+          if (u.id === id) {
+            const isBlocked = u.kyc_status === "Blocked";
+            const updated = { ...u, kyc_status: isBlocked ? "Pending" : "Blocked" };
+            triggerToast(isBlocked ? "Candidate unblocked!" : "Candidate blocked!", "info");
+            return updated;
+          }
+          return u;
+        }));
+      };
+
+      return (
+        <div className="glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-bold mb-4 text-white">Candidates Directory: {candidates.length} Profiles</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                  <th className="py-3">Name</th>
+                  <th>Email ID</th>
+                  <th>Mobile</th>
+                  <th>Location</th>
+                  <th>KYC Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                {candidates.map(c => (
+                  <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                    <td className="py-3.5 font-bold text-white">{c.name}</td>
+                    <td className="text-slate-400">{c.email}</td>
+                    <td className="text-slate-400">{c.mobile}</td>
+                    <td className="text-slate-400">{c.city || "N/A"} - {c.pincode || "N/A"}</td>
+                    <td>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                        c.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                        c.kyc_status === "Blocked" ? "bg-rose-500/25 text-rose-400 border border-rose-500/30" :
+                        "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                      }`}>{c.kyc_status}</span>
+                    </td>
+                    <td>
+                      <button onClick={() => handleBlockUser(c.id)} className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded cursor-pointer ${
+                        c.kyc_status === "Blocked" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                      }`}>{c.kyc_status === "Blocked" ? "Unblock" : "Block Candidate"}</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+    // 3. Task Management (CRUD)
+    function AdminTasks({ tasks, setTasks, submissions = [], users = [], triggerToast, setPreviewImage }) {
+      const [showCreate, setShowCreate] = useState(false);
+      const [editingTaskId, setEditingTaskId] = useState(null);
+      const [selectedTask, setSelectedTask] = useState(null);
+      const [form, setForm] = useState({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
+
+      const [pasteReviews, setPasteReviews] = useState("");
+      const [importedReviewsList, setImportedReviewsList] = useState([]);
+      const [expandedTaskReviews, setExpandedTaskReviews] = useState({});
+
+      const toggleForm = () => {
+        if (showCreate) {
+          setForm({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
+          setEditingTaskId(null);
+          setPasteReviews("");
+          setImportedReviewsList([]);
+        }
+        setShowCreate(!showCreate);
+      };
+
+      const toggleTaskReviews = (taskId) => {
+        setExpandedTaskReviews(prev => ({ ...prev, [taskId]: !prev[taskId] }));
+      };
+
+      const parseReviewsText = (text) => {
+        const rows = text.split(/\r?\n/);
+        const parsed = [];
+        rows.forEach((row) => {
+          if (!row.trim()) return;
+          let sno = parsed.length + 1;
+          let textStr = row.trim();
+          let cols = row.split("\t");
+          if (cols.length < 2) {
+            cols = row.split(",");
+          }
+          if (cols.length >= 2) {
+            const snoStr = cols[0].replace(/['"\s]/g, "").trim();
+            const maybeSno = parseInt(snoStr);
+            if (!isNaN(maybeSno)) {
+              sno = maybeSno;
+              textStr = cols.slice(1).join(",").replace(/^['"]|['"]$/g, "").trim();
+            }
+          }
+          if (textStr && textStr.toLowerCase() !== "review" && textStr.toLowerCase() !== "review text" && textStr.toLowerCase() !== "reviews") {
+            parsed.push({
+              id: "r" + (parsed.length + 1),
+              sno: sno,
+              text: textStr,
+              assigned_to: null,
+              status: "Unused"
+            });
+          }
+        });
+        return parsed;
+      };
+
+      const downloadDemoCsv = () => {
+        const csvContent = "S.No,Review Text\n1,This is a wonderful application! Extremely fast and user-friendly.\n2,Outstanding support team and brilliant workflow interface.\n3,Highly recommended for remote candidate task tracking.\n4,Excellent performance, clean layout, and smooth animations.";
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "krv_reviews_demo_format.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        triggerToast("Demo CSV format downloaded successfully!");
+      };
+
+      const handleCsvUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const text = event.target.result;
+            const parsed = parseReviewsText(text);
+            if (parsed.length > 0) {
+              setImportedReviewsList(parsed);
+              triggerToast(`${parsed.length} reviews successfully imported from file!`);
+            } else {
+              triggerToast("Could not parse file. Check format: S.No, Review Text", "error");
+            }
+          };
+          reader.readAsText(file);
+        }
+      };
+
+      const handlePasteImport = (e) => {
+        const val = e.target.value;
+        setPasteReviews(val);
+        const parsed = parseReviewsText(val);
+        setImportedReviewsList(parsed);
+      };
+
+      const handleFormSubmit = (e) => {
+        e.preventDefault();
+        
+        if (editingTaskId) {
+          setTasks(prev => prev.map(t => {
+            if (t.id === editingTaskId) {
+              const updatedTask = {
+                ...t,
+                title: form.title,
+                category: form.category,
+                links: form.links,
+                amount: parseFloat(form.amount) || 0,
+                remarks: form.remarks,
+                deadline: form.deadline
+              };
+              if (form.category === "Application Review Provide by Brand") {
+                updatedTask.imported_reviews = importedReviewsList;
+              } else {
+                delete updatedTask.imported_reviews;
+              }
+              return updatedTask;
+            }
+            return t;
+          }));
+          triggerToast("Workforce task updated successfully!");
+          setEditingTaskId(null);
+        } else {
+          const newTask = {
+            id: "t" + (Math.max(0, ...tasks.map(t => parseInt(t.id.replace("t", "")) || 0)) + 1),
+            title: form.title,
+            category: form.category,
+            links: form.links,
+            amount: parseFloat(form.amount) || 0,
+            remarks: form.remarks,
+            deadline: form.deadline,
+            status: "Active"
+          };
+          if (form.category === "Application Review Provide by Brand") {
+            newTask.imported_reviews = importedReviewsList;
+          }
+          setTasks([...tasks, newTask]);
+          triggerToast("New digital task created successfully!");
+        }
+
+        setForm({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
+        setPasteReviews("");
+        setImportedReviewsList([]);
+        setShowCreate(false);
+      };
+
+      const handleDeleteTask = async (id) => {
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            const { error } = await client.from("krv_tasks").delete().eq("id", id);
+            if (error) {
+              console.error("Direct Supabase task delete failed:", error);
+              triggerToast("Delete Failed: " + error.message, "error");
+            } else {
+              setTasks(prev => prev.filter(t => t.id !== id));
+              triggerToast("Task deleted successfully.", "info");
+            }
+          } catch (err) {
+            console.error("Failed to delete task:", err);
+            triggerToast("Delete Failed: " + err.message, "error");
+          }
+        } else {
+          setTasks(prev => prev.filter(t => t.id !== id));
+          triggerToast("Task deleted locally.", "info");
+        }
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-bold text-white">Total Assigned Tasks: {tasks.length} Active</h3>
+            <button onClick={toggleForm} className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md cursor-pointer">
+              {showCreate ? "Cancel" : "Create New Task"}
+            </button>
+          </div>
+
+          {showCreate && (
+            <div className="glass-card rounded-2xl p-6">
+              <h4 className="font-bold text-base mb-4 text-white">{editingTaskId ? "Edit Workforce Task" : "Create Workforce Task"}</h4>
+              <form onSubmit={handleFormSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Title</label>
+                    <input required type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Price Amount (INR)</label>
+                    <input required type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Category</label>
+                    <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
+                      <option value="Google Review">Google Maps Review</option>
+                      <option value="Application Review">Application Review</option>
+                      <option value="Application Review Provide by Brand">Application Review Provide by Brand</option>
+                      <option value="Audio Recording">Audio Recording</option>
+                      <option value="Video Recording">Video Recording</option>
+                      <option value="Product Review">Product Review</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Links</label>
+                    <input required type="url" value={form.links} onChange={(e) => setForm({ ...form, links: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="https://store.url" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Deadline</label>
+                    <input required type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Instruction Remarks</label>
+                  <textarea required rows="3" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Instructions for candidate..."></textarea>
+                </div>
+
+                {form.category === "Application Review Provide by Brand" && (
+                  <div className="p-5 rounded-xl border border-dashed border-slate-700 bg-white/5 space-y-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                      <div>
+                        <span className="block text-xs font-bold uppercase text-slate-300">Import Review Texts (Excel / CSV Format)</span>
+                        <span className="block text-[10px] text-slate-500 mt-1">Upload a CSV containing "S.No,Review" column values or paste tab-separated spreadsheet data.</span>
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-2.5 text-xs">
+                        <button type="button" onClick={downloadDemoCsv} className="px-3.5 py-1.5 bg-emerald-600/15 hover:bg-emerald-600 border border-emerald-500/20 text-emerald-400 hover:text-white text-[10px] font-bold rounded-lg cursor-pointer transition uppercase tracking-wider flex items-center gap-1.5">
+                          <Icon name="download" className="w-3.5 h-3.5" />
+                          <span>Download Demo CSV</span>
+                        </button>
+                        <label className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold rounded-lg cursor-pointer transition uppercase tracking-wider flex items-center gap-1.5">
+                          <Icon name="upload" className="w-3.5 h-3.5" />
+                          <span>Choose CSV File</span>
+                          <input type="file" accept=".csv,.txt" onChange={handleCsvUpload} className="hidden" />
+                        </label>
+                      </div>
+                    </div>
+                    <textarea rows="3" placeholder="Paste spreadsheet data here..." value={pasteReviews} onChange={handlePasteImport} className="w-full px-3 py-2 text-xs rounded-lg border border-slate-700 bg-slate-900 text-white placeholder-slate-600"></textarea>
+                    {importedReviewsList.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-emerald-500">✅ {importedReviewsList.length} reviews parsed successfully!</span>
+                          <button type="button" onClick={() => { setImportedReviewsList([]); setPasteReviews(""); }} className="text-rose-500 hover:underline">Clear</button>
+                        </div>
+                        <div className="max-h-40 overflow-y-auto border border-slate-800 rounded-lg divide-y divide-slate-800 bg-slate-950/20 px-3 py-1 text-[11px]">
+                          {importedReviewsList.map((r, idx) => (
+                            <div key={idx} className="py-2 flex gap-4 text-slate-400">
+                              <span className="font-bold text-slate-500 shrink-0 w-8">#{r.sno}</span>
+                              <span className="break-words leading-relaxed">{r.text}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition cursor-pointer">
+                  {editingTaskId ? "Save & Update Task" : "Save & Assign Task"}
+                </button>
+              </form>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {tasks.map(t => (
+              <div key={t.id} onClick={() => setSelectedTask(t)} className="rounded-2xl glass-card p-6 flex flex-col justify-between cursor-pointer border border-slate-800/40 hover:border-blue-500/40 hover:shadow-lg transition-all duration-305">
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[9px] font-bold uppercase border border-blue-500/20">{t.category}</span>
+                    <span className="text-lg font-extrabold text-emerald-500">₹{t.amount}</span>
+                  </div>
+                  <h4 className="font-bold text-sm mb-2 text-white">{t.title}</h4>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-4">{t.remarks}</p>
+
+                  {t.category === "Application Review Provide by Brand" && t.imported_reviews && t.imported_reviews.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-slate-850 space-y-2" onClick={(e) => e.stopPropagation()}>
+                      <button type="button" onClick={(e) => { e.stopPropagation(); toggleTaskReviews(t.id); }} className="w-full flex items-center justify-between text-[10px] font-bold uppercase text-blue-400 hover:text-blue-300 transition cursor-pointer">
+                        <span>📊 Reviews Audit Log ({t.imported_reviews.length})</span>
+                        <Icon name={expandedTaskReviews[t.id] ? "chevron-down" : "chevron-right"} className="w-3.5 h-3.5" />
+                      </button>
+
+                      {expandedTaskReviews[t.id] && (
+                        <div className="mt-2 space-y-3">
+                          <div className="grid grid-cols-3 gap-2 text-center text-[9px] uppercase font-extrabold tracking-wider">
+                            <div className="bg-slate-800/40 p-1.5 rounded">
+                              <span className="block text-slate-500">Total</span>
+                              <span className="text-xs font-bold text-white block mt-0.5">{t.imported_reviews.length}</span>
+                            </div>
+                            <div className="bg-slate-800/40 p-1.5 rounded">
+                              <span className="block text-slate-500">Unused</span>
+                              <span className="text-xs font-bold text-amber-500 block mt-0.5">{t.imported_reviews.filter(r => r.status === "Unused").length}</span>
+                            </div>
+                            <div className="bg-slate-800/40 p-1.5 rounded">
+                              <span className="block text-slate-500">Used</span>
+                              <span className="text-xs font-bold text-emerald-500 block mt-0.5">{t.imported_reviews.filter(r => r.status === "Used").length}</span>
+                            </div>
+                          </div>
+
+                          <div className="max-h-40 overflow-y-auto border border-slate-800 rounded-lg divide-y divide-slate-800 bg-slate-950/20 px-2 py-1 text-[10px]">
+                            {t.imported_reviews.map((r, idx) => (
+                              <div key={idx} className="py-2 space-y-1">
+                                <div className="flex justify-between items-center text-[9px] uppercase font-bold tracking-wider">
+                                  <span className="text-slate-500 font-extrabold">S.No {r.sno}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`px-1.5 py-0.5 rounded-full ${r.status === "Used" ? "bg-emerald-500/10 text-emerald-500" : r.status === "Assigned" ? "bg-amber-500/10 text-amber-500" : "bg-slate-800 text-slate-400"}`}>{r.status}</span>
+                                    {r.assigned_to && <span className="text-slate-505">by USER-{r.assigned_to.toUpperCase()}</span>}
+                                  </div>
+                                </div>
+                                <p className="text-slate-400 break-words leading-normal">{r.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-800" onClick={(e) => e.stopPropagation()}>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase">Deadline: {t.deadline}</span>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      setForm({ title: t.title, category: t.category, links: t.links, amount: t.amount.toString(), remarks: t.remarks, deadline: t.deadline });
+                      setEditingTaskId(t.id);
+                      setImportedReviewsList(t.imported_reviews || []);
+                      setPasteReviews("");
+                      setShowCreate(true);
+                      window.scrollTo({ top: 100, behavior: "smooth" });
+                    }} className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg cursor-pointer">
+                      <Icon name="edit" className="w-4 h-4" />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteTask(t.id); }} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg cursor-pointer">
+                      <Icon name="trash" className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {selectedTask && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-6 overflow-y-auto" onClick={() => setSelectedTask(null)}>
+              <div className="w-full max-w-4xl bg-slate-900/90 dark:bg-slate-950/95 border border-slate-800/80 backdrop-blur-xl rounded-2xl p-6 md:p-8 relative my-8 max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setSelectedTask(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-6 h-6" /></button>
+                <div className="border-b border-slate-800/85 pb-5 mb-6">
+                  <div className="flex flex-wrap gap-2 items-center mb-3">
+                    <span className="px-3 py-1 rounded bg-blue-500/10 text-blue-400 text-xs font-bold uppercase border border-blue-500/20">{selectedTask.category}</span>
+                    <span className={`px-3 py-1 rounded text-xs font-bold uppercase ${selectedTask.status === "Active" ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>{selectedTask.status}</span>
+                  </div>
+                  <h2 className="text-xl md:text-2xl font-extrabold text-white leading-tight">{selectedTask.title}</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 bg-slate-955/40 p-4 rounded-xl border border-slate-800/80 text-xs">
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">Price Reward</span>
+                    <span className="text-lg font-extrabold text-emerald-400 mt-1 block">₹{selectedTask.amount}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">Submission Deadline</span>
+                    <span className="text-sm font-semibold text-slate-300 mt-1.5 block">{selectedTask.deadline}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-bold text-slate-500">Target Link</span>
+                    <a href={selectedTask.links} target="_blank" className="text-sm font-semibold text-blue-450 hover:underline flex items-center gap-1 mt-1.5 truncate text-white">{selectedTask.links}</a>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h4 className="text-xs uppercase font-extrabold text-slate-450 tracking-wider mb-2.5">Task Instructions</h4>
+                  <p className="text-sm text-slate-300 leading-relaxed bg-slate-950/20 p-4 rounded-xl border border-slate-800/55">{selectedTask.remarks || "No instructions."}</p>
+                </div>
+
+                {selectedTask.category === "Application Review Provide by Brand" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex flex-col h-[400px] bg-slate-950/20 border border-slate-800 rounded-2xl overflow-hidden text-xs">
+                      <div className="p-4 bg-amber-500/10 border-b border-amber-500/20 flex justify-between items-center shrink-0">
+                        <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">Available / Assigned Reviews</span>
+                        <span className="bg-amber-500/20 text-amber-500 text-[10px] font-bold px-2 py-0.5 rounded-full">{(selectedTask.imported_reviews || []).filter(r => r.status === "Unused" || r.status === "Assigned").length}</span>
+                      </div>
+                      <div className="p-4 overflow-y-auto flex-grow space-y-3">
+                        {(() => {
+                          const items = (selectedTask.imported_reviews || []).filter(r => r.status === "Unused" || r.status === "Assigned");
+                          if (items.length === 0) return <p className="text-xs text-slate-550 text-center py-6">No unused reviews.</p>;
+                          return items.map((r, idx) => (
+                            <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+                              <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold uppercase mb-1">
+                                <span>S.No {r.sno}</span>
+                                <span>{r.status}</span>
+                              </div>
+                              <p className="text-xs text-slate-300">{r.text}</p>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col h-[400px] bg-slate-955/20 border border-slate-800 rounded-2xl overflow-hidden text-xs">
+                      <div className="p-4 bg-emerald-500/10 border-b border-emerald-500/20 flex justify-between items-center shrink-0">
+                        <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Completed / Used Reviews</span>
+                        <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full">{(selectedTask.imported_reviews || []).filter(r => r.status === "Used").length}</span>
+                      </div>
+                      <div className="p-4 overflow-y-auto flex-grow space-y-3">
+                        {(() => {
+                          const items = (selectedTask.imported_reviews || []).filter(r => r.status === "Used");
+                          if (items.length === 0) return <p className="text-xs text-slate-550 text-center py-6">No used reviews.</p>;
+                          return items.map((r, idx) => (
+                            <div key={idx} className="bg-slate-900 border border-emerald-500/15 rounded-xl p-3.5">
+                              <span className="text-[10px] text-emerald-500 font-bold block uppercase mb-1">Used by USER-{r.assigned_to.toUpperCase()}</span>
+                              <p className="text-xs text-slate-300">{r.text}</p>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-wider mb-4">👥 Candidate Submissions & Work Proofs</h4>
+                    {(() => {
+                      const taskSubs = submissions.filter(s => s.task_id === selectedTask.id);
+                      if (taskSubs.length === 0) return <p className="text-xs text-slate-500 p-6 border border-dashed border-slate-800 rounded-xl bg-slate-950/10 text-center">No submissions.</p>;
+                      return (
+                        <div className="overflow-x-auto border border-slate-800/80 rounded-xl bg-slate-950/40 text-xs">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-800 bg-slate-900/30 text-[10px] font-bold uppercase text-slate-400">
+                                <th className="p-3">Candidate</th>
+                                <th className="p-3">Proof Link</th>
+                                <th className="p-3">Proof Image</th>
+                                <th className="p-3 text-center">Status</th>
+                                <th className="p-3 text-right">Date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {taskSubs.map((sub, idx) => {
+                                const candidate = users.find(u => u.id === sub.user_id);
+                                return (
+                                  <tr key={idx} className="border-b border-slate-850 hover:bg-slate-900/10">
+                                    <td className="p-3 font-bold text-white">{candidate?.name || sub.user_id}</td>
+                                    <td className="p-3"><a href={sub.submitted_link} target="_blank" className="text-blue-400 hover:underline">{sub.submitted_link}</a></td>
+                                    <td className="p-3">
+                                      {sub.screenshot ? (
+                                        <button onClick={() => setPreviewImage && setPreviewImage({ title: `Proof: Task SUB-${sub.id.toUpperCase()}`, url: sub.screenshot })} className="px-2 py-1 bg-slate-800 text-slate-300 rounded text-[10px] font-bold">View</button>
+                                      ) : "None"}
+                                    </td>
+                                    <td className="p-3 text-center text-amber-500 font-bold">{sub.review_status}</td>
+                                    <td className="p-3 text-right text-slate-400">{sub.date}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    // 4. Submissions Review System
+    function AdminReviews({ submissions, setSubmissions, users, setNotifications, notifications, triggerToast, updateWallet, setPreviewImage }) {
+      const [reviewModal, setReviewModal] = useState(null);
+      const [rejectionReason, setRejectionReason] = useState("");
+
+      const pendingSub = useMemo(() => submissions.filter(s => s.review_status === "Pending"), [submissions]);
+
+      const handleApprove = (sub) => {
+        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Approved" } : s));
+        updateWallet(sub.user_id, sub.amount);
+
+        const newNotif = {
+          id: "n" + (notifications.length + 1),
+          user_id: sub.user_id,
+          title: "Task Submission Approved!",
+          message: `Your task submission (SUB-${sub.id.toUpperCase()}) was verified successfully. ₹${sub.amount} added to wallet.`,
+          date: new Date().toISOString().split('T')[0]
+        };
+        setNotifications([...notifications, newNotif]);
+        triggerToast("Task submission approved!");
+        setReviewModal(null);
+      };
+
+      const handleReject = (sub) => {
+        if (!rejectionReason) {
+          triggerToast("Please provide a rejection reason.", "error");
+          return;
+        }
+        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Rejected", rejection_reason: rejectionReason } : s));
+        
+        const newNotif = {
+          id: "n" + (notifications.length + 1),
+          user_id: sub.user_id,
+          title: "Task Submission Rejected",
+          message: `Your task submission (SUB-${sub.id.toUpperCase()}) was rejected: "${rejectionReason}"`,
+          date: new Date().toISOString().split('T')[0]
+        };
+        setNotifications([...notifications, newNotif]);
+        triggerToast("Submission rejected with remark details.");
+        setReviewModal(null);
+        setRejectionReason("");
+      };
+
+      return (
+        <div className="glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-bold mb-4 text-white">Pending Proof Reviews: {pendingSub.length} Tasks</h3>
+          <div className="overflow-x-auto text-xs">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                  <th className="py-3">Worker ID</th>
+                  <th>Task ID</th>
+                  <th>Verification Proof</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                {pendingSub.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-6 text-center text-slate-500">No pending reviews.</td>
+                  </tr>
+                ) : (
+                  pendingSub.map(s => (
+                    <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                      <td className="py-3.5 font-bold text-white">USER-{s.user_id.toUpperCase()}</td>
+                      <td className="text-slate-400">TASK-{s.task_id.toUpperCase()}</td>
+                      <td className="text-blue-500 max-w-[200px] truncate">{s.submitted_link}</td>
+                      <td className="font-bold text-emerald-500">₹{s.amount}</td>
+                      <td><span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">{s.review_status}</span></td>
+                      <td><button onClick={() => setReviewModal(s)} className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold uppercase cursor-pointer">Audit Review</button></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {reviewModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+              <div className="w-full max-w-lg glass-card rounded-2xl p-6 relative">
+                <button onClick={() => setReviewModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-5 h-5" /></button>
+                <h3 className="text-lg font-bold mb-4 text-white">Audit Task Proof: SUB-{reviewModal.id.toUpperCase()}</h3>
+
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Submitted URL Link</span>
+                    <a href={reviewModal.submitted_link} target="_blank" className="text-blue-500 hover:underline select-all truncate block mt-1">{reviewModal.submitted_link}</a>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Proof Screenshot</span>
+                    <div className="max-h-40 overflow-hidden border border-slate-700 rounded-lg p-1 bg-slate-950/20 flex items-center justify-center">
+                      <img src={reviewModal.screenshot || "assets/dashboard_preview.png"} alt="Proof" onClick={() => setPreviewImage && setPreviewImage({ title: `Proof: Task SUB-${reviewModal.id.toUpperCase()}`, url: reviewModal.screenshot || "assets/dashboard_preview.png" })} className="mx-auto max-h-36 rounded object-contain cursor-zoom-in" />
+                    </div>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Remarks</span>
+                    <p className="text-slate-350 mt-1 bg-slate-950/20 p-2.5 rounded-lg border border-slate-800">{reviewModal.remarks || "No comments"}</p>
+                  </div>
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Rejection Reason (If rejecting)</label>
+                    <input type="text" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Blur image, incorrect link details..." />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
+                    <button onClick={() => handleReject(reviewModal)} className="py-3 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">Reject Proof</button>
+                    <button onClick={() => handleApprove(reviewModal)} className="py-3 font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">Approve Payout</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    // 5. Earnings Control & Payout approvals
+    function AdminEarnings({ withdrawals, setWithdrawals, users, setUsers, triggerToast }) {
+      const pendingW = useMemo(() => withdrawals.filter(w => w.status === "Pending"), [withdrawals]);
+
+      const handleReleasePayment = (w) => {
+        setWithdrawals(prev => prev.map(item => item.id === w.id ? { ...item, status: "Approved" } : item));
+        setUsers(prev => prev.map(u => u.id === w.user_id ? { ...u, earnings_paid: u.earnings_paid + w.amount } : u));
+        triggerToast("Withdrawal approved and funds released successfully!");
+      };
+
+      return (
+        <div className="glass-card rounded-2xl p-6">
+          <h3 className="text-lg font-bold mb-4 text-white">Pending Wallet Withdrawals: {pendingW.length} Requests</h3>
+          <div className="overflow-x-auto text-xs">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                  <th className="py-3">Worker ID</th>
+                  <th>Amount (INR)</th>
+                  <th>Bank Account Details</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                {pendingW.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-6 text-center text-slate-500">No pending wallet bank withdrawals found.</td>
+                  </tr>
+                ) : (
+                  pendingW.map(w => (
+                    <tr key={w.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                      <td className="py-3.5 font-bold text-white">USER-{w.user_id.toUpperCase()}</td>
+                      <td className="font-extrabold text-emerald-500">₹{w.amount}</td>
+                      <td className="text-slate-400 font-medium">{w.bank_details}</td>
+                      <td className="text-slate-400">{w.date}</td>
+                      <td><span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">{w.status}</span></td>
+                      <td><button onClick={() => handleReleasePayment(w)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold uppercase cursor-pointer">Approve Transfer</button></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+    // 6. KYC Approvals Manager
+    function AdminKyc({ kycRecords, setKycRecords, users, setUsers, setNotifications, notifications, triggerToast, setPreviewImage }) {
+      const [rejectModal, setRejectModal] = useState(null);
+      const [rejectReason, setRejectReason] = useState("");
+      const [filterStatus, setFilterStatus] = useState("Pending");
+
+      const filteredKyc = useMemo(() => kycRecords.filter(k => k.status === filterStatus), [kycRecords, filterStatus]);
+
+      const handleApproveKyc = (kyc) => {
+        setKycRecords(prev => prev.map(k => k.id === kyc.id ? { ...k, status: "Approved" } : k));
+        setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Approved" } : u));
+
+        const newNotif = {
+          id: "n" + (notifications.length + 1),
+          user_id: kyc.user_id,
+          title: "KYC Verified Successfully!",
+          message: "Congratulations! Your bank details and Aadhaar identity cards are approved. You can now browse tasks.",
+          date: new Date().toISOString().split('T')[0]
+        };
+        setNotifications([...notifications, newNotif]);
+        triggerToast("Candidate KYC approved successfully!");
+      };
+
+      const handleRejectKyc = (kyc) => {
+        if (!rejectReason) {
+          triggerToast("Please enter a rejection reason.", "error");
+          return;
+        }
+        setKycRecords(prev => prev.map(k => k.id === kyc.id ? { ...k, status: "Rejected", rejection_reason: rejectReason } : k));
+        setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Rejected" } : u));
+
+        const newNotif = {
+          id: "n" + (notifications.length + 1),
+          user_id: kyc.user_id,
+          title: "KYC Rejected!",
+          message: `Your identity KYC was rejected: "${rejectReason}"`,
+          date: new Date().toISOString().split('T')[0]
+        };
+        setNotifications([...notifications, newNotif]);
+        triggerToast("KYC Rejected successfully.");
+        setRejectModal(null);
+        setRejectReason("");
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {["Pending", "Approved", "Rejected"].map(status => (
+              <button key={status} onClick={() => setFilterStatus(status)} className={`px-4 py-2 rounded-full text-xs font-bold shrink-0 cursor-pointer ${
+                filterStatus === status ? "bg-blue-600 text-white shadow" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200"
+              }`}>
+                {status} KYC ({kycRecords.filter(k => k.status === status).length})
+              </button>
+            ))}
+          </div>
+
+          <h3 className="text-base font-bold text-white">Candidate KYC Documents ({filteredKyc.length})</h3>
+
+          {filteredKyc.length === 0 ? (
+            <p className="p-10 text-center glass-card rounded-2xl text-slate-500 text-xs">No entries.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {filteredKyc.map(k => {
+                const candidate = users.find(u => u.id === k.user_id);
+                return (
+                  <div key={k.id} className="glass-card rounded-2xl p-6 border border-slate-850 space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-600/10 text-blue-500 flex items-center justify-center font-bold">{candidate ? candidate.name[0] : k.account_holder[0]}</div>
+                        <div>
+                          <h4 className="text-sm font-bold text-white">{candidate ? candidate.name : k.account_holder}</h4>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">ID: USER-{k.user_id.toUpperCase()} | {candidate?.email} | Mob: {candidate?.mobile}</span>
+                        </div>
+                      </div>
+                      <div className="text-left md:text-right text-xs">
+                        <span className="text-slate-500 block uppercase text-[9px] font-bold">Location</span>
+                        <span className="font-semibold block text-slate-350 mt-0.5">{candidate?.city || "N/A"} - {candidate?.pincode || "N/A"}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-5 rounded-xl bg-slate-900/40 border border-slate-800 space-y-4 text-xs">
+                        <h5 className="font-bold text-xs text-slate-400 uppercase mb-3">Bank Details</h5>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-slate-500 block text-[9px] font-bold uppercase">Account Holder</span>
+                            <span className="font-semibold text-slate-200 block mt-1">{k.account_holder}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[9px] font-bold uppercase">Account Number</span>
+                            <span className="font-bold text-slate-200 block mt-1">{k.account_number}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[9px] font-bold uppercase">Bank Name</span>
+                            <span className="font-semibold text-slate-200 block mt-1">{k.bank_name}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[9px] font-bold uppercase">IFSC Code</span>
+                            <span className="font-bold text-slate-200 block mt-1">{k.ifsc}</span>
+                          </div>
+                        </div>
+                        {k.rejection_reason && <p className="p-3 bg-rose-500/10 text-rose-400 rounded mt-3">Feedback: {k.rejection_reason}</p>}
+                      </div>
+
+                      <div className="space-y-4">
+                        <h5 className="font-bold text-xs text-slate-400 uppercase">Documents</h5>
+                        <div className="grid grid-cols-3 gap-3">
+                          {[
+                            { label: "Aadhaar Front", img: k.aadhaar_front },
+                            { label: "Aadhaar Back", img: k.aadhaar_back },
+                            { label: "Selfie Image", img: k.selfie }
+                          ].map((doc, idx) => (
+                            <div key={idx} className="space-y-1.5 text-center">
+                              <span className="block text-[10px] text-slate-500 uppercase font-bold">{doc.label}</span>
+                              <button onClick={() => setPreviewImage && setPreviewImage({ title: doc.label, url: doc.img })} className="w-full border border-slate-800 rounded-lg p-1 bg-slate-950/20 aspect-video flex items-center justify-center overflow-hidden hover:scale-105 transition cursor-zoom-in">
+                                <img src={doc.img} alt={doc.label} onError={(e) => { e.target.src = "assets/krv_logo.png"; }} className="max-h-full max-w-full rounded object-cover" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {filterStatus === "Pending" && (
+                      <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                        <button onClick={() => setRejectModal(k)} className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold uppercase cursor-pointer">Reject KYC</button>
+                        <button onClick={() => handleApproveKyc(k)} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase cursor-pointer">Approve KYC</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {rejectModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+              <div className="w-full max-w-md glass-card rounded-2xl p-6 relative">
+                <button onClick={() => setRejectModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-5 h-5" /></button>
+                <h3 className="text-lg font-bold mb-4 text-white">Reject KYC: {rejectModal.account_holder}</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Rejection Reason</label>
+                    <input type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Blur image, selfie mismatch..." />
+                  </div>
+                  <button onClick={() => handleRejectKyc(rejectModal)} className="w-full py-3.5 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer shadow">Confirm Reject KYC</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    // 7. System Reports Generator
+    function AdminReports({ users, submissions, withdrawals, kycRecords, tasks }) {
+      const [filterStatus, setFilterStatus] = useState("All");
+      const [filterCategory, setFilterCategory] = useState("All");
+      const [filterCandidate, setFilterCandidate] = useState("All");
+      const [startDate, setStartDate] = useState("");
+      const [endDate, setEndDate] = useState("");
+
+      const candidates = useMemo(() => users.filter(u => u.role === "candidate"), [users]);
+
+      const filteredList = useMemo(() => {
+        return submissions.filter(s => {
+          const matchStatus = filterStatus === "All" || s.review_status === filterStatus;
+          const task = tasks.find(t => t.id === s.task_id);
+          const matchCategory = filterCategory === "All" || (task && task.category === filterCategory);
+          const matchCandidate = filterCandidate === "All" || s.user_id === filterCandidate;
+          let matchDate = true;
+          if (startDate) matchDate = matchDate && (s.date >= startDate);
+          if (endDate) matchDate = matchDate && (s.date <= endDate);
+          return matchStatus && matchCategory && matchCandidate && matchDate;
+        });
+      }, [submissions, tasks, filterStatus, filterCategory, filterCandidate, startDate, endDate]);
+
+      const handleExport = (format) => {
+        let content = "";
+        let filename = `krv_admin_workforce_report_${new Date().toISOString().split('T')[0]}`;
+        if (format === "csv") {
+          content = "Sub ID,Candidate Name,Task Title,Price,Status,Date\n" + 
+            filteredList.map(s => {
+              const candidate = users.find(u => u.id === s.user_id);
+              const task = tasks.find(t => t.id === s.task_id);
+              return `SUB-${s.id.toUpperCase()},"${candidate ? candidate.name : 'N/A'}","${task ? task.title : 'N/A'}",${s.amount},${s.review_status},${s.date}`;
+            }).join("\n");
+          filename += ".csv";
+        } else if (format === "excel") {
+          content = "Sub ID\tCandidate Name\tTask Title\tPrice\tStatus\tDate\n" + 
+            filteredList.map(s => {
+              const candidate = users.find(u => u.id === s.user_id);
+              const task = tasks.find(t => t.id === s.task_id);
+              return `SUB-${s.id.toUpperCase()}\t${candidate ? candidate.name : 'N/A'}\t${task ? task.title : 'N/A'}\t${s.amount}\t${s.review_status}\t${s.date}`;
+            }).join("\n");
+          filename += ".xls";
+        } else {
+          content = "KRV ADMIN MASTER AUDIT REPORT\n=============================\n" +
+            `Generated: ${new Date().toLocaleString()}\n` +
+            `Total entries: ${filteredList.length}\n\n` +
+            filteredList.map(s => {
+              const candidate = users.find(u => u.id === s.user_id);
+              const task = tasks.find(t => t.id === s.task_id);
+              return `[SUB-${s.id.toUpperCase()}] ${candidate ? candidate.name : 'N/A'} | ${task ? task.title : 'N/A'} | Price: Rs.${s.amount} | Status: ${s.review_status} | Date: ${s.date}`;
+            }).join("\n");
+          filename += ".pdf";
+        }
+
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-5 rounded-2xl glass-card text-xs">
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Audit Status</label>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white">
+                <option value="All">All Statuses</option>
+                <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Task Category</label>
+              <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white">
+                <option value="All">All Categories</option>
+                <option value="Application Review">Application Review</option>
+                <option value="Google Review">Google Review</option>
+                <option value="Audio Recording">Audio Recording</option>
+                <option value="Video Recording">Video Recording</option>
+                <option value="Product Review">Product Review</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Candidate</label>
+              <select value={filterCandidate} onChange={(e) => setFilterCandidate(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white">
+                <option value="All">All Candidates</option>
+                {candidates.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Start Date</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">End Date</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white" />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-xs text-white">
+            <span className="font-semibold text-slate-400">Export options ({filteredList.length} rows):</span>
+            <div className="flex gap-2">
+              <button onClick={() => handleExport("csv")} className="px-4 py-2 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-white"><Icon name="download" className="w-4 h-4" /> CSV Export</button>
+              <button onClick={() => handleExport("excel")} className="px-4 py-2 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-white"><Icon name="download" className="w-4 h-4" /> Excel XLS</button>
+              <button onClick={() => handleExport("pdf")} className="px-4 py-2 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2 cursor-pointer"><Icon name="download" className="w-4 h-4" /> PDF Report</button>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-base font-bold mb-4 text-white">Audit Submissions Listing</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse text-white">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px]">
+                    <th className="py-3">Sub ID</th>
+                    <th>Worker Name</th>
+                    <th>Task ID</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Submitted Link</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {filteredList.map(s => {
+                    const user = users.find(u => u.id === s.user_id);
+                    return (
+                      <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                        <td className="py-3.5 font-bold">SUB-{s.id.toUpperCase()}</td>
+                        <td className="text-slate-400 font-semibold">{user ? user.name : "N/A"}</td>
+                        <td className="text-slate-405">TASK-{s.task_id.toUpperCase()}</td>
+                        <td className="font-extrabold text-emerald-500">₹{s.amount}</td>
+                        <td><span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${s.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-amber-500/10 text-amber-500"}`}>{s.review_status}</span></td>
+                        <td className="text-blue-500 max-w-[150px] truncate">{s.submitted_link}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // 8. Settings
+    function AdminSettings({
+      triggerToast, supabaseUrl, setSupabaseUrl, supabaseKey, setSupabaseKey,
+      users, tasks, submissions, kycRecords, withdrawals, tickets, notifications,
+      setUsers, setTasks, setSubmissions, setKycRecords, setWithdrawals, setTickets, setNotifications
+    }) {
+      const [formUrl, setFormUrl] = useState(supabaseUrl);
+      const [formKey, setFormKey] = useState(supabaseKey);
+      const [isSyncing, setIsSyncing] = useState(false);
+      const [referralBonus, setReferralBonus] = useState(() => localStorage.getItem("krv-referral-bonus") || "50");
+      const [minWithdraw, setMinWithdraw] = useState(() => localStorage.getItem("krv-min-withdraw") || "500");
+
+      const handleRestoreDefaults = async () => {
+        if (!window.confirm("Are you sure you want to restore defaults?")) return;
+        localStorage.removeItem("krv-users");
+        localStorage.removeItem("krv-users-checksum");
+        localStorage.removeItem("krv-tasks");
+        localStorage.removeItem("krv-submissions");
+        localStorage.removeItem("krv-kyc");
+        localStorage.removeItem("krv-withdrawals");
+        localStorage.removeItem("krv-tickets");
+        localStorage.removeItem("krv-notifications");
+
+        setUsers(DEFAULT_USERS);
+        setTasks(DEFAULT_TASKS);
+        setSubmissions(DEFAULT_SUBMISSIONS);
+        setKycRecords(DEFAULT_KYC);
+        setWithdrawals(DEFAULT_WITHDRAWALS);
+        setTickets(DEFAULT_TICKETS);
+        setNotifications(DEFAULT_NOTIFICATIONS);
+
+        const check = await signUsersList(DEFAULT_USERS);
+        localStorage.setItem("krv-users-checksum", check);
+        triggerToast("Mock database defaults restored successfully!");
+      };
+
+      const handleSaveSettings = (e) => {
+        e.preventDefault();
+        localStorage.setItem("krv-supabase-url", formUrl.trim());
+        localStorage.setItem("krv-supabase-key", formKey.trim());
+        localStorage.setItem("krv-referral-bonus", referralBonus);
+        localStorage.setItem("krv-min-withdraw", minWithdraw);
+        
+        setSupabaseUrl(formUrl.trim());
+        setSupabaseKey(formKey.trim());
+        triggerToast("Website settings and cloud credentials saved!");
+      };
+
+      const handleSyncCloud = async () => {
+        if (!supabaseUrl || !supabaseKey) {
+          triggerToast("Please configure your Supabase details first.", "error");
+          return;
+        }
+        setIsSyncing(true);
+        try {
+          const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+          let failed = [];
+          const syncTable = async (tableName, data) => {
+            if (!data || data.length === 0) return;
+            const { error } = await client.from(tableName).upsert(data);
+            if (error) failed.push(tableName);
+          };
+          await syncTable("krv_users", users);
+          await syncTable("krv_tasks", tasks);
+          await syncTable("krv_submissions", submissions);
+          await syncTable("krv_kyc", kycRecords);
+          await syncTable("krv_withdrawals", withdrawals);
+          await syncTable("krv_tickets", tickets);
+          await syncTable("krv_notifications", notifications);
+
+          if (failed.length === 0) triggerToast("Cloud fully synced!", "success");
+          else triggerToast(`Partial sync failed: ${failed.join(", ")}`, "error");
+        } finally {
+          setIsSyncing(false);
+        }
+      };
+
+      const sqlCode = `-- COPY AND RUN THIS SCRIPT IN YOUR SUPABASE SQL EDITOR:
+CREATE TABLE IF NOT EXISTS krv_users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, mobile VARCHAR(50), city VARCHAR(50), pincode VARCHAR(50), referral_code VARCHAR(50), wallet_balance DOUBLE PRECISION DEFAULT 0.0, earnings_pending DOUBLE PRECISION DEFAULT 0.0, earnings_paid DOUBLE PRECISION DEFAULT 0.0, kyc_status VARCHAR(50) DEFAULT 'Not Submitted', role VARCHAR(50) DEFAULT 'candidate');
+CREATE TABLE IF NOT EXISTS krv_tasks (id VARCHAR(50) PRIMARY KEY, title VARCHAR(255) NOT NULL, category VARCHAR(100) NOT NULL, links TEXT, amount DOUBLE PRECISION DEFAULT 0.0, remarks TEXT, deadline VARCHAR(50), status VARCHAR(50) DEFAULT 'Active', imported_reviews JSONB DEFAULT '[]'::jsonb);
+CREATE TABLE IF NOT EXISTS krv_submissions (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) NOT NULL, task_id VARCHAR(50) NOT NULL, submitted_link TEXT, screenshot TEXT, video TEXT, remarks TEXT, review_status VARCHAR(50) DEFAULT 'Pending', amount DOUBLE PRECISION DEFAULT 0.0, date VARCHAR(50), rejection_reason TEXT);
+CREATE TABLE IF NOT EXISTS krv_kyc (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) UNIQUE NOT NULL, account_holder VARCHAR(100), account_number VARCHAR(100), bank_name VARCHAR(100), ifsc VARCHAR(50), aadhaar_front TEXT, aadhaar_back TEXT, selfie TEXT, status VARCHAR(50) DEFAULT 'Pending', rejection_reason TEXT);
+CREATE TABLE IF NOT EXISTS krv_withdrawals (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) NOT NULL, amount DOUBLE PRECISION NOT NULL, status VARCHAR(50) DEFAULT 'Pending', date VARCHAR(50), bank_details TEXT);
+CREATE TABLE IF NOT EXISTS krv_tickets (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) NOT NULL, subject VARCHAR(255), category VARCHAR(100), description TEXT, status VARCHAR(50) DEFAULT 'Open', replies JSONB DEFAULT '[]'::jsonb);
+CREATE TABLE IF NOT EXISTS krv_notifications (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) NOT NULL, title VARCHAR(255), message TEXT, date VARCHAR(50));
+
+-- DISABLE RLS TO ALLOW DIRECT CLIENT READ/WRITE (RECOMMENDED FOR STANDALONE CHANNELS):
+ALTER TABLE krv_users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_submissions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_kyc DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_withdrawals DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_tickets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
+
+      return (
+        <div className="max-w-4xl mx-auto space-y-6 text-xs text-white">
+          <div className="glass-card rounded-2xl p-6 border-blue-500/20 bg-blue-600/5">
+            <h3 className="text-sm font-extrabold text-blue-450 mb-2">Supabase Sync Tutorial</h3>
+            <textarea readOnly rows="4" value={sqlCode} className="w-full font-mono text-[9px] px-3.5 py-2.5 bg-slate-950 text-slate-400 rounded-lg border border-slate-800 leading-normal"></textarea>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-sm font-extrabold mb-4 text-white">General Configs</h3>
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Referral Rate Bonus (INR)</label>
+                  <input type="number" value={referralBonus} onChange={(e) => setReferralBonus(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-700 bg-white/5 text-white" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Min Withdrawal Limit (INR)</label>
+                  <input type="number" value={minWithdraw} onChange={(e) => setMinWithdraw(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-700 bg-white/5 text-white" />
+                </div>
+                <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl">Save General Configs</button>
+              </form>
+            </div>
+
+            <div className="glass-card rounded-2xl p-6 flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold mb-4 text-white">Supabase Credentials</h3>
+                <form onSubmit={handleSaveSettings} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Supabase URL</label>
+                    <input type="url" value={formUrl} onChange={(e) => setFormUrl(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-700 bg-white/5 text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Anon API Key</label>
+                    <input type="password" value={formKey} onChange={(e) => setFormKey(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-700 bg-white/5 text-white" />
+                  </div>
+                  <button type="submit" className="w-full py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl">Save Credentials</button>
+                </form>
+              </div>
+              <div className="mt-6 pt-6 border-t border-slate-800 space-y-3">
+                <button type="button" onClick={handleSyncCloud} disabled={isSyncing} className="w-full py-3 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-700">Sync Data to Cloud</button>
+                <button type="button" onClick={handleRestoreDefaults} className="w-full py-2.5 text-xs font-bold text-slate-350 bg-slate-850 rounded-xl border border-slate-700">Restore Default Mock Data</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // (Inserted below from index.html)
+    
+    // Main Container App
+    function AdminPanelContainer() {
+      const [theme, setTheme] = useState(() => localStorage.getItem("krv-theme") || "dark");
+      const [currentPage, setCurrentPage] = useState("admin-dashboard");
+      const [currentUser, setCurrentUser] = useState(null);
+      const [isDbLoading, setIsDbLoading] = useState(true);
+
+      const [users, setUsers] = useState([]);
+      const [tasks, setTasks] = useState([]);
+      const [submissions, setSubmissions] = useState([]);
+      const [kycRecords, setKycRecords] = useState([]);
+      const [withdrawals, setWithdrawals] = useState([]);
+      const [tickets, setTickets] = useState([]);
+      const [notifications, setNotifications] = useState([]);
+      const [toast, setToast] = useState(null);
+
+      const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem("krv-supabase-url") || SUPABASE_URL_DEFAULT);
+      const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem("krv-supabase-key") || SUPABASE_KEY_DEFAULT);
+
+      const prevUsersRef = useRef([]);
+      const prevTasksRef = useRef([]);
+      const prevSubmissionsRef = useRef([]);
+      const prevKycRecordsRef = useRef([]);
+      const prevWithdrawalsRef = useRef([]);
+      const prevTicketsRef = useRef([]);
+      const prevNotificationsRef = useRef([]);
+
+      useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === "dark") {
+          root.classList.add("dark");
+        } else {
+          root.classList.remove("dark");
+        }
+        localStorage.setItem("krv-theme", theme);
+      }, [theme]);
+
+      const triggerToast = (message, type = "success") => {
+        setToast({ message, type });
+      };
+
+      const updateWallet = (userId, amount) => {
+        setUsers(prev => prev.map(u => {
+          if (u.id === userId) {
+            return {
+              ...u,
+              wallet_balance: u.wallet_balance + amount,
+              earnings_pending: Math.max(0, u.earnings_pending - amount)
+            };
+          }
+          return u;
+        }));
+      };
+
+      // Bootstrap and verification logic
+      useEffect(() => {
+        let channel = null;
+
+        const verifyIntegrityAndSession = async () => {
+          const client = getSupabaseClient();
+          if (client) {
+            try {
+              const storedSession = localStorage.getItem("krv-current-user-session");
+              if (!storedSession) {
+                window.location.href = "login.html";
+                return;
+              }
+              const { user } = JSON.parse(storedSession);
+
+              // 1. Fetch Users
+              const { data: dbUsers, error: usersErr } = await client.from("krv_users").select("*");
+              if (!usersErr && dbUsers) {
+                setUsers(dbUsers);
+                prevUsersRef.current = dbUsers;
+                const matchedUser = dbUsers.find(u => u.id === user.id);
+                if (matchedUser) {
+                  setCurrentUser(matchedUser);
+                }
+              }
+
+              // 2. Fetch Tasks
+              const { data: dbTasks, error: tasksErr } = await client.from("krv_tasks").select("*");
+              if (!tasksErr && dbTasks) {
+                const activeTasks = dbTasks.filter(t => t.status !== "Deleted");
+                setTasks(activeTasks);
+                prevTasksRef.current = activeTasks;
+              }
+
+              // 3. Fetch Submissions
+              const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("*");
+              if (!subsErr && dbSubs) {
+                setSubmissions(dbSubs);
+                prevSubmissionsRef.current = dbSubs;
+              }
+
+              // 4. Fetch KYC
+              const { data: dbKyc, error: kycErr } = await client.from("krv_kyc").select("*");
+              if (!kycErr && dbKyc) {
+                setKycRecords(dbKyc);
+                prevKycRecordsRef.current = dbKyc;
+              }
+
+              // 5. Fetch Withdrawals
+              const { data: dbWithdrawals, error: wErr } = await client.from("krv_withdrawals").select("*");
+              if (!wErr && dbWithdrawals) {
+                setWithdrawals(dbWithdrawals);
+                prevWithdrawalsRef.current = dbWithdrawals;
+              }
+
+              // 6. Fetch Tickets
+              const { data: dbTickets, error: tErr } = await client.from("krv_tickets").select("*");
+              if (!tErr && dbTickets) {
+                setTickets(dbTickets);
+                prevTicketsRef.current = dbTickets;
+              }
+
+              // 7. Fetch Notifications
+              const { data: dbNotifs, error: nErr } = await client.from("krv_notifications").select("*");
+              if (!nErr && dbNotifs) {
+                setNotifications(dbNotifs);
+                prevNotificationsRef.current = dbNotifs;
+              }
+
+              // Set up Real-time Socket Channels
+              channel = client.channel('krv-realtime-channel')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_users' }, (payload) => {
+                  if (payload.eventType === 'UPDATE') {
+                    setUsers(prev => {
+                      const next = prev.map(u => u.id === payload.new.id ? payload.new : u);
+                      prevUsersRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_tasks' }, (payload) => {
+                  if (payload.eventType === 'INSERT') {
+                    setTasks(prev => {
+                      const next = prev.some(t => t.id === payload.new.id) ? prev : [...prev, payload.new];
+                      prevTasksRef.current = next;
+                      return next;
+                    });
+                  } else if (payload.eventType === 'UPDATE') {
+                    setTasks(prev => {
+                      const next = payload.new.status === 'Deleted'
+                        ? prev.filter(t => t.id !== payload.new.id)
+                        : prev.map(t => t.id === payload.new.id ? payload.new : t);
+                      prevTasksRef.current = next;
+                      return next;
+                    });
+                  } else if (payload.eventType === 'DELETE') {
+                    setTasks(prev => {
+                      const next = prev.filter(t => t.id !== payload.old.id);
+                      prevTasksRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_submissions' }, (payload) => {
+                  if (payload.eventType === 'INSERT') {
+                    setSubmissions(prev => {
+                      const next = prev.some(s => s.id === payload.new.id) ? prev : [...prev, payload.new];
+                      prevSubmissionsRef.current = next;
+                      return next;
+                    });
+                  } else if (payload.eventType === 'UPDATE') {
+                    setSubmissions(prev => {
+                      const next = prev.map(s => s.id === payload.new.id ? payload.new : s);
+                      prevSubmissionsRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_kyc' }, (payload) => {
+                  if (payload.eventType === 'UPDATE') {
+                    setKycRecords(prev => {
+                      const next = prev.map(k => k.id === payload.new.id ? payload.new : k);
+                      prevKycRecordsRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_withdrawals' }, (payload) => {
+                  if (payload.eventType === 'INSERT') {
+                    setWithdrawals(prev => {
+                      const next = prev.some(w => w.id === payload.new.id) ? prev : [...prev, payload.new];
+                      prevWithdrawalsRef.current = next;
+                      return next;
+                    });
+                  } else if (payload.eventType === 'UPDATE') {
+                    setWithdrawals(prev => {
+                      const next = prev.map(w => w.id === payload.new.id ? payload.new : w);
+                      prevWithdrawalsRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_tickets' }, (payload) => {
+                  if (payload.eventType === 'UPDATE') {
+                    setTickets(prev => {
+                      const next = prev.map(t => t.id === payload.new.id ? payload.new : t);
+                      prevTicketsRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .subscribe();
+
+            } catch (err) {
+              console.error("verifyIntegrityAndSession error:", err);
+            }
+          }
+          setIsDbLoading(false);
+        };
+
+        verifyIntegrityAndSession();
+
+        return () => {
+          if (channel) {
+            const client = getSupabaseClient();
+            if (client) client.removeChannel(channel);
+          }
+        };
+      }, []);
+
+      // Synchronize currentUser with users list
+      useEffect(() => {
+        if (currentUser) {
+          const latestUser = users.find(u => u.id === currentUser.id);
+          if (latestUser && JSON.stringify(latestUser) !== JSON.stringify(currentUser)) {
+            setCurrentUser(latestUser);
+            signSession(latestUser).then(sig => {
+              localStorage.setItem("krv-current-user-session", JSON.stringify({ user: latestUser, signature: sig }));
+            });
+          }
+        }
+      }, [users, currentUser]);
+
+      // Background cloud sync
+      useEffect(() => {
+        const saveSecureDb = async () => {
+          const client = getSupabaseClient();
+          if (client && !isDbLoading) {
+            try {
+              // Sync Users
+              const prevUsers = prevUsersRef.current;
+              if (JSON.stringify(prevUsers) !== JSON.stringify(users)) {
+                const changedUsers = users.filter(u => {
+                  const prevU = prevUsers.find(pu => pu.id === u.id);
+                  return !prevU || JSON.stringify(prevU) !== JSON.stringify(u);
+                });
+                if (changedUsers.length > 0) {
+                  const { error } = await client.from("krv_users").upsert(changedUsers);
+                  if (error) {
+                    console.error("Users sync failed:", error);
+                    triggerToast("Sync Error (Users): " + error.message, "error");
+                  }
+                }
+                prevUsersRef.current = users;
+              }
+
+              // Sync Tasks
+              const prevTasks = prevTasksRef.current;
+              if (JSON.stringify(prevTasks) !== JSON.stringify(tasks)) {
+                const changedTasks = tasks.filter(t => {
+                  const prevT = prevTasks.find(pt => pt.id === t.id);
+                  return !prevT || JSON.stringify(prevT) !== JSON.stringify(t);
+                });
+                if (changedTasks.length > 0) {
+                  const { error } = await client.from("krv_tasks").upsert(changedTasks);
+                  if (error) {
+                    console.error("Tasks upsert failed:", error);
+                    triggerToast("Sync Error (Tasks): " + error.message, "error");
+                  }
+                }
+
+                // Handle deletions via hard-delete
+                const deletedTasks = prevTasks.filter(pt => !tasks.some(t => t.id === pt.id));
+                if (deletedTasks.length > 0) {
+                  for (const dt of deletedTasks) {
+                    const { error } = await client.from("krv_tasks").delete().eq("id", dt.id);
+                    if (error) {
+                      console.error("Tasks delete failed:", error);
+                      triggerToast("Sync Error (Delete Task): " + error.message, "error");
+                    }
+                  }
+                }
+                prevTasksRef.current = tasks;
+              }
+
+              // Sync Submissions
+              const prevSubs = prevSubmissionsRef.current;
+              if (JSON.stringify(prevSubs) !== JSON.stringify(submissions)) {
+                const changedSubs = submissions.filter(s => {
+                  const prevS = prevSubs.find(ps => ps.id === s.id);
+                  return !prevS || JSON.stringify(prevS) !== JSON.stringify(s);
+                });
+                if (changedSubs.length > 0) {
+                  const { error } = await client.from("krv_submissions").upsert(changedSubs);
+                  if (error) {
+                    console.error("Submissions sync failed:", error);
+                    triggerToast("Sync Error (Submissions): " + error.message, "error");
+                  }
+                }
+                prevSubmissionsRef.current = submissions;
+              }
+
+              // Sync KYC Records
+              const prevKyc = prevKycRecordsRef.current;
+              if (JSON.stringify(prevKyc) !== JSON.stringify(kycRecords)) {
+                const changedKyc = kycRecords.filter(k => {
+                  const prevK = prevKyc.find(pk => pk.id === k.id);
+                  return !prevK || JSON.stringify(prevK) !== JSON.stringify(k);
+                });
+                if (changedKyc.length > 0) {
+                  const { error } = await client.from("krv_kyc").upsert(changedKyc);
+                  if (error) {
+                    console.error("KYC sync failed:", error);
+                    triggerToast("Sync Error (KYC): " + error.message, "error");
+                  }
+                }
+                prevKycRecordsRef.current = kycRecords;
+              }
+
+              // Sync Withdrawals
+              const prevW = prevWithdrawalsRef.current;
+              if (JSON.stringify(prevW) !== JSON.stringify(withdrawals)) {
+                const changedW = withdrawals.filter(w => {
+                  const prevWithdrawal = prevW.find(pw => pw.id === w.id);
+                  return !prevWithdrawal || JSON.stringify(prevWithdrawal) !== JSON.stringify(w);
+                });
+                if (changedW.length > 0) {
+                  const { error } = await client.from("krv_withdrawals").upsert(changedW);
+                  if (error) {
+                    console.error("Withdrawals sync failed:", error);
+                    triggerToast("Sync Error (Withdrawals): " + error.message, "error");
+                  }
+                }
+                prevWithdrawalsRef.current = withdrawals;
+              }
+
+              // Sync Tickets
+              const prevTk = prevTicketsRef.current;
+              if (JSON.stringify(prevTk) !== JSON.stringify(tickets)) {
+                const changedTk = tickets.filter(t => {
+                  const prevT = prevTk.find(pt => pt.id === t.id);
+                  return !prevT || JSON.stringify(prevT) !== JSON.stringify(t);
+                });
+                if (changedTk.length > 0) {
+                  const { error } = await client.from("krv_tickets").upsert(changedTk);
+                  if (error) {
+                    console.error("Tickets sync failed:", error);
+                    triggerToast("Sync Error (Tickets): " + error.message, "error");
+                  }
+                }
+                prevTicketsRef.current = tickets;
+              }
+
+              // Sync Notifications
+              const prevNotifs = prevNotificationsRef.current;
+              if (JSON.stringify(prevNotifs) !== JSON.stringify(notifications)) {
+                const changedN = notifications.filter(n => {
+                  const prevN = prevNotifs.find(pn => pn.id === n.id);
+                  return !prevN || JSON.stringify(prevN) !== JSON.stringify(n);
+                });
+                if (changedN.length > 0) {
+                  const { error } = await client.from("krv_notifications").upsert(changedN);
+                  if (error) {
+                    console.error("Notifications sync failed:", error);
+                    triggerToast("Sync Error (Notifications): " + error.message, "error");
+                  }
+                }
+                prevNotificationsRef.current = notifications;
+              }
+
+            } catch (err) {
+              console.error("Supabase sync error:", err);
+              triggerToast("Sync Exception: " + err.message, "error");
+            }
+          }
+        };
+        saveSecureDb();
+      }, [users, tasks, submissions, kycRecords, withdrawals, tickets, notifications, isDbLoading]);
+
+      const handleLogout = () => {
+        localStorage.removeItem("krv-current-user-session");
+        window.location.href = "login.html";
+      };
+
+      if (isDbLoading || !currentUser) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto"></div>
+              <span className="block text-xs font-bold uppercase tracking-widest text-slate-400 animate-pulse">Loading Admin Console...</span>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <AdminPanel
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          currentUser={currentUser}
+          users={users}
+          setUsers={setUsers}
+          tasks={tasks}
+          setTasks={setTasks}
+          submissions={submissions}
+          setSubmissions={setSubmissions}
+          kycRecords={kycRecords}
+          setKycRecords={setKycRecords}
+          withdrawals={withdrawals}
+          setWithdrawals={setWithdrawals}
+          tickets={tickets}
+          setTickets={setTickets}
+          notifications={notifications}
+          setNotifications={setNotifications}
+          handleLogout={handleLogout}
+          theme={theme}
+          setTheme={setTheme}
+          triggerToast={triggerToast}
+          updateWallet={updateWallet}
+          supabaseUrl={supabaseUrl}
+          setSupabaseUrl={setSupabaseUrl}
+          supabaseKey={supabaseKey}
+          setSupabaseKey={setSupabaseKey}
+        />
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<AdminPanelContainer />);
+  </script>
+</body>
+</html>

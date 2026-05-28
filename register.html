@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register — KRV Management</title>
+  <!-- Tailwind CSS v4 Browser Compiler -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- React & ReactDOM 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style type="text/css">
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+    }
+    :root {
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #dbeafe 100%);
+      --glass-bg: rgba(255, 255, 255, 0.7);
+      --glass-border: rgba(15, 23, 42, 0.06);
+      --glass-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.08);
+      --text-main: #0f172a;
+    }
+    .dark {
+      --bg-gradient: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
+      --glass-bg: rgba(15, 23, 42, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.5);
+      --text-main: #f8fafc;
+    }
+    .app-bg {
+      background: var(--bg-gradient);
+    }
+    .glass-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--glass-shadow);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  </style>
+</head>
+<body class="app-bg min-h-screen text-[var(--text-main)] transition-colors duration-300">
+  
+  <div id="root"></div>
+
+  <!-- React code with Babel -->
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const SUPABASE_URL_DEFAULT = "https://fhrukaegrawsleldnrlw.supabase.co"; 
+    const SUPABASE_KEY_DEFAULT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZocnVrYWVncmF3c2xlbGRucmx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjI0NTksImV4cCI6MjA5NTQzODQ1OX0.5mzjc9ockUTnGhDvY49y6r4M5WNTIBCkyzRdJL0p18E"; 
+
+    // Cryptographic Secure One-Way SHA-256 Hash Function
+    const sha256 = async (text) => {
+      const msgBuffer = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const getSaltedHash = async (email, password) => {
+      const payload = `${email.toLowerCase()}:${password}:KRV-PEPPER-2026-T#9!`;
+      return await sha256(payload);
+    };
+
+    const getSupabaseClient = () => {
+      const url = localStorage.getItem("krv-supabase-url") || SUPABASE_URL_DEFAULT;
+      const key = localStorage.getItem("krv-supabase-key") || SUPABASE_KEY_DEFAULT;
+      if (url && key && window.supabase) {
+        try {
+          return window.supabase.createClient(url, key);
+        } catch (e) {
+          console.error("Supabase Client Error: ", e);
+        }
+      }
+      return null;
+    };
+
+    // Custom SVG Icon Component
+    const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+      const icons = {
+        sun: <g><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></g>,
+        moon: <g><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></g>,
+        eye: <g><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></g>,
+        "eye-off": <g><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></g>,
+        "check-circle": <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3" /></g>,
+        "alert-circle": <g><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></g>,
+        "x-circle": <g><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></g>,
+        "chevron-left": <g><polyline points="15 18 9 12 15 6" /></g>
+      };
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+          {icons[name] || null}
+        </svg>
+      );
+    };
+
+    // Toast Notification Component
+    const Toast = ({ message, type = "success", onClose }) => {
+      useEffect(() => {
+        const timer = setTimeout(onClose, 3500);
+        return () => clearTimeout(timer);
+      }, [onClose]);
+      const colors = {
+        success: "bg-emerald-600 border-emerald-500",
+        error: "bg-rose-600 border-rose-500",
+        info: "bg-blue-600 border-blue-500"
+      };
+      return (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg text-white animate-bounce ${colors[type]}`}>
+          <Icon name={type === "success" ? "check-circle" : type === "error" ? "x-circle" : "alert-circle"} className="w-5 h-5" />
+          <span className="text-sm font-medium">{message}</span>
+          <button onClick={onClose} className="hover:opacity-75"><Icon name="x-circle" className="w-4 h-4" /></button>
+        </div>
+      );
+    };
+
+    function RegisterPage() {
+      const [theme, setTheme] = useState(() => localStorage.getItem("krv-theme") || "dark");
+      const [formData, setFormData] = useState({
+        name: "", email: "", mobile: "", city: "", pincode: "", referral: "", password: "", confirmPassword: ""
+      });
+      const [showPassword, setShowPassword] = useState(false);
+      const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+      const [toast, setToast] = useState(null);
+
+      useEffect(() => {
+        // Theme setting
+        const root = window.document.documentElement;
+        if (theme === "dark") {
+          root.classList.add("dark");
+        } else {
+          root.classList.remove("dark");
+        }
+        localStorage.setItem("krv-theme", theme);
+      }, [theme]);
+
+      const triggerToast = (message, type = "success") => {
+        setToast({ message, type });
+      };
+
+      const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+      };
+
+      const handleRegisterSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (formData.password !== formData.confirmPassword) {
+          triggerToast("Passwords do not match.", "error");
+          return;
+        }
+
+        const client = getSupabaseClient();
+        if (!client) {
+          triggerToast("Supabase client connection error.", "error");
+          return;
+        }
+
+        try {
+          const { data: dbUsers, error } = await client.from("krv_users").select("*");
+          if (error || !dbUsers) {
+            triggerToast("Failed to connect to database.", "error");
+            return;
+          }
+
+          if (dbUsers.some(u => u.email.toLowerCase() === formData.email.toLowerCase())) {
+            triggerToast("Email already exists.", "error");
+            return;
+          }
+
+          const hashedPassword = await getSaltedHash(formData.email, formData.password);
+
+          // ID computation matching max Numerical Suffix
+          const newId = "c" + (Math.max(0, ...dbUsers.map(u => parseInt(u.id.replace("c", "")) || 0)) + 1);
+
+          const newUser = {
+            id: newId,
+            name: formData.name,
+            email: formData.email,
+            password: hashedPassword,
+            mobile: formData.mobile,
+            city: formData.city,
+            pincode: formData.pincode,
+            referral_code: formData.referral,
+            wallet_balance: 0,
+            earnings_pending: 0,
+            earnings_paid: 0,
+            kyc_status: "Not Submitted",
+            role: "candidate"
+          };
+
+          const { error: insertErr } = await client.from("krv_users").insert([newUser]);
+          if (insertErr) {
+            triggerToast("Failed to create account in cloud.", "error");
+            console.error("Cloud insert error:", insertErr);
+          } else {
+            triggerToast("Account created successfully! Redirecting to login...");
+            setTimeout(() => {
+              window.location.href = "login.html";
+            }, 1500);
+          }
+        } catch (err) {
+          console.error("Registration error:", err);
+          triggerToast("An error occurred during registration.", "error");
+        }
+      };
+
+      return (
+        <div className="flex flex-col min-h-screen">
+          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+          
+          <header className="px-6 py-4 flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/40 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl">
+            <a href="index.html" className="flex items-center gap-2 text-xs font-bold uppercase text-slate-500 hover:text-blue-500 cursor-pointer">
+              <Icon name="chevron-left" className="w-4 h-4" /> Back to Home
+            </a>
+            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow cursor-pointer">
+              <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
+            </button>
+          </header>
+
+          <div className="flex-grow flex items-center justify-center p-6">
+            <div className="w-full max-w-md glass-card rounded-2xl p-8 space-y-6">
+              
+              <div className="text-center">
+                <h2 className="text-2xl font-bold tracking-tight text-white">
+                  Create Candidate Account
+                </h2>
+                <p className="text-xs text-slate-400 mt-2">
+                  Start your professional workforce profile today
+                </p>
+              </div>
+
+              <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Full Name</label>
+                    <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Rahul Sharma" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Mobile Number</label>
+                    <input required type="tel" name="mobile" value={formData.mobile} onChange={handleChange} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="9988776655" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Email Address</label>
+                  <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="rahul@gmail.com" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">City</label>
+                    <input required type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Mumbai" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Pincode</label>
+                    <input required type="text" name="pincode" value={formData.pincode} onChange={handleChange} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="400001" maxLength={6} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Referred By (Optional)</label>
+                  <input type="text" name="referral" value={formData.referral} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="e.g. KRV500" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Password</label>
+                    <div className="relative">
+                      <input required type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-3.5 pr-10 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="••••••••" minLength={6} />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                        <Icon name={showPassword ? "eye" : "eye-off"} className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Confirm Password</label>
+                    <div className="relative">
+                      <input required type={showConfirmPassword ? "text" : "password"} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="w-full pl-3.5 pr-10 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="••••••••" minLength={6} />
+                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                        <Icon name={showConfirmPassword ? "eye" : "eye-off"} className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow transition cursor-pointer">
+                  Register Account
+                </button>
+                
+                <div className="text-center text-xs text-slate-400 mt-4">
+                  <p>Already have an account? <a href="login.html" className="text-blue-500 hover:underline font-bold cursor-pointer">Log In</a></p>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<RegisterPage />);
+  </script>
+</body>
+</html>

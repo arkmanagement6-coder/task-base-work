@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Candidate Portal — KRV Management</title>
+  <!-- Tailwind CSS v4 Browser Compiler -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- React & ReactDOM 18 -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style type="text/css">
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+    }
+    :root {
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #dbeafe 100%);
+      --glass-bg: rgba(255, 255, 255, 0.7);
+      --glass-border: rgba(15, 23, 42, 0.06);
+      --glass-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.08);
+      --text-main: #0f172a;
+    }
+    .dark {
+      --bg-gradient: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
+      --glass-bg: rgba(15, 23, 42, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.5);
+      --text-main: #f8fafc;
+    }
+    .app-bg {
+      background: var(--bg-gradient);
+    }
+    .glass-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--glass-shadow);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(37, 99, 235, 0.2);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(37, 99, 235, 0.4);
+    }
+  </style>
+  <script>
+    // Cryptographic Secure Hashing function for session validation
+    const sha256Direct = async (text) => {
+      const msgBuffer = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    // Fast Session Verification & Redirection Guard
+    (async () => {
+      const storedSession = localStorage.getItem("krv-current-user-session");
+      if (!storedSession) {
+        window.location.href = "login.html";
+        return;
+      }
+      try {
+        const { user, signature } = JSON.parse(storedSession);
+        if (!user || !signature || user.role !== "candidate") {
+          localStorage.removeItem("krv-current-user-session");
+          window.location.href = "login.html";
+          return;
+        }
+        const expectedSig = await sha256Direct(`${user.id}:${user.email}:${user.role}:KRV-SESSION-SECRET-2026!`);
+        if (signature !== expectedSig) {
+          localStorage.removeItem("krv-current-user-session");
+          window.location.href = "login.html";
+        }
+      } catch (e) {
+        localStorage.removeItem("krv-current-user-session");
+        window.location.href = "login.html";
+      }
+    })();
+  </script>
+</head>
+<body class="app-bg min-h-screen text-[var(--text-main)] transition-colors duration-300">
+  
+  <div id="root"></div>
+
+  <!-- React code with Babel -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    const SUPABASE_URL_DEFAULT = "https://fhrukaegrawsleldnrlw.supabase.co"; 
+    const SUPABASE_KEY_DEFAULT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZocnVrYWVncmF3c2xlbGRucmx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjI0NTksImV4cCI6MjA5NTQzODQ1OX0.5mzjc9ockUTnGhDvY49y6r4M5WNTIBCkyzRdJL0p18E"; 
+
+    // Cryptographic Secure One-Way SHA-256 Hash Function
+    const sha256 = async (text) => {
+      const msgBuffer = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    };
+
+    const getSaltedHash = async (email, password) => {
+      const payload = `${email.toLowerCase()}:${password}:KRV-PEPPER-2026-T#9!`;
+      return await sha256(payload);
+    };
+
+    const signSession = async (user) => {
+      if (!user) return "";
+      const payload = `${user.id}:${user.email}:${user.role}`;
+      return await sha256(payload + ":KRV-SESSION-SECRET-2026!");
+    };
+
+    const getSupabaseClient = () => {
+      const url = localStorage.getItem("krv-supabase-url") || SUPABASE_URL_DEFAULT;
+      const key = localStorage.getItem("krv-supabase-key") || SUPABASE_KEY_DEFAULT;
+      if (url && key && window.supabase) {
+        try {
+          return window.supabase.createClient(url, key);
+        } catch (e) {
+          console.error("Supabase Client Error: ", e);
+        }
+      }
+      return null;
+    };
+
+    // Custom SVG Icon Component
+    const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+      const icons = {
+        home: <g><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10" /></g>,
+        tasks: <g><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></g>,
+        earnings: <g><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></g>,
+        reports: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8" /></g>,
+        kyc: <g><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM12 8v4M12 16h.01" /></g>,
+        profile: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /></g>,
+        support: <g><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></g>,
+        logout: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></g>,
+        bell: <g><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /></g>,
+        wallet: <g><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4M4 6v12a2 2 0 0 0 2 2h14v-4M20 12a2 2 0 0 0 0 4h-4a2 2 0 0 0 0-4h4z" /></g>,
+        "check-circle": <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3" /></g>,
+        clock: <g><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></g>,
+        "alert-circle": <g><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></g>,
+        "x-circle": <g><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></g>,
+        copy: <g><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></g>,
+        upload: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></g>,
+        download: <g><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></g>,
+        lock: <g><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></g>,
+        eye: <g><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></g>,
+        "eye-off": <g><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></g>,
+        shield: <g><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></g>,
+        edit: <g><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></g>,
+        "chevron-left": <g><polyline points="15 18 9 12 15 6" /></g>,
+        menu: <g><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></g>
+      };
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+          {icons[name] || null}
+        </svg>
+      );
+    };
+
+    // Toast Component
+    const Toast = ({ message, type = "success", onClose }) => {
+      useEffect(() => {
+        const timer = setTimeout(onClose, 3500);
+        return () => clearTimeout(timer);
+      }, [onClose]);
+      const colors = {
+        success: "bg-emerald-600 border-emerald-500",
+        error: "bg-rose-600 border-rose-500",
+        info: "bg-blue-600 border-blue-500"
+      };
+      return (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg text-white ${colors[type]}`}>
+          <Icon name={type === "success" ? "check-circle" : type === "error" ? "x-circle" : "alert-circle"} className="w-5 h-5" />
+          <span className="text-sm font-medium">{message}</span>
+          <button onClick={onClose} className="hover:opacity-75"><Icon name="x-circle" className="w-4 h-4" /></button>
+        </div>
+      );
+    };
+
+    // Image Preview Modal Component
+    const ImagePreviewModal = ({ image, onClose }) => {
+      if (!image) return null;
+      return (
+        <div onClick={onClose} className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-6 cursor-zoom-out">
+          <div className="absolute top-4 right-4 z-50">
+            <button onClick={onClose} className="p-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white shadow-lg cursor-pointer">
+              <Icon name="x-circle" className="w-6 h-6" />
+            </button>
+          </div>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl flex flex-col items-center gap-4 cursor-default">
+            <h3 className="text-base md:text-lg font-bold text-white tracking-wide uppercase">{image.title}</h3>
+            <div className="border border-slate-700/50 rounded-2xl overflow-hidden bg-slate-950 max-h-[75vh] max-w-full flex items-center justify-center p-2 shadow-2xl relative">
+              <img src={image.url} alt={image.title} onError={(e) => { e.target.src = "assets/krv_logo.png"; }} className="max-h-[70vh] max-w-full rounded-xl object-contain shadow-inner" />
+            </div>
+            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Click outside or click (X) to close</span>
+          </div>
+        </div>
+      );
+    };
+
+    // Include subcomponents definition
+    // [CandidateOverview, CandidateTasks, CandidateEarnings, CandidateReports, CandidateKyc, CandidateProfile, CandidateSupport]
+    
+    // (Inserted below from index.html)
+    // 1. Overview
+    function CandidateOverview({ currentUser, mySubmissions, setCurrentPage }) {
+      const stats = useMemo(() => {
+        const approved = mySubmissions.filter(s => s.review_status === "Approved");
+        return {
+          total: mySubmissions.length,
+          approved: approved.length,
+          pending: mySubmissions.filter(s => s.review_status === "Pending").length,
+          rejected: mySubmissions.filter(s => s.review_status === "Rejected").length,
+          earnings: approved.reduce((sum, s) => sum + s.amount, 0)
+        };
+      }, [mySubmissions]);
+
+      return (
+        <div className="space-y-6">
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between">
+            <div className="z-10 text-center md:text-left">
+              <h2 className="text-2xl font-bold">“Welcome Back, {currentUser.name}!”</h2>
+              <p className="text-blue-100 text-xs mt-1">Start completing digital tasks and request wallet bank transfers daily.</p>
+              <button onClick={() => setCurrentPage("tasks")} className="mt-4 px-4 py-2 text-xs font-bold bg-white text-blue-600 rounded-lg shadow hover:bg-blue-50 transition cursor-pointer">
+                View Assigned Tasks
+              </button>
+            </div>
+            <div className="w-32 h-32 opacity-25 mt-4 md:mt-0"><Icon name="tasks" className="w-full h-full text-white" /></div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            {[
+              { label: "Total Tasks", val: stats.total, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20" },
+              { label: "Approved Tasks", val: stats.approved, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
+              { label: "Pending Review", val: stats.pending, color: "text-amber-500", bg: "bg-amber-500/10 border-amber-500/20" },
+              { label: "Rejected Tasks", val: stats.rejected, color: "text-rose-500", bg: "bg-rose-500/10 border-rose-500/20" },
+              { label: "Total Wallet", val: `₹${currentUser.wallet_balance}`, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-600/10 border-blue-600/20" },
+              { label: "Total Earnings", val: `₹${currentUser.earnings_paid + currentUser.wallet_balance}`, color: "text-indigo-500", bg: "bg-indigo-500/10 border-indigo-500/20" }
+            ].map((s, idx) => (
+              <div key={idx} className={`p-4 rounded-xl border glass-card text-center ${s.bg}`}>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</span>
+                <span className={`text-2xl font-bold mt-1 block ${s.color}`}>{s.val}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-lg font-bold mb-4">Latest Submissions</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                    <th className="py-3">Submission ID</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                    <th>Date Submitted</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {mySubmissions.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="py-6 text-center text-slate-500">No submissions uploaded yet. Go to Tasks!</td>
+                    </tr>
+                  ) : (
+                    mySubmissions.slice(-5).reverse().map(sub => (
+                      <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                        <td className="py-3.5 font-semibold text-slate-500">SUB-{sub.id.toUpperCase()}</td>
+                        <td className="font-bold text-emerald-500">₹{sub.amount}</td>
+                        <td>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                            sub.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                            sub.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                            "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                          }`}>
+                            {sub.review_status}
+                          </span>
+                        </td>
+                        <td className="text-slate-400 max-w-xs truncate">{sub.remarks || "No remarks"}</td>
+                        <td className="text-slate-400">{sub.date}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // 2. Tasks
+    function CandidateTasks({ currentUser, tasks, setTasks, submissions, setSubmissions, triggerToast, setUsers, setCurrentPage, autoAssignTaskReview }) {
+      const [filterCategory, setFilterCategory] = useState("All");
+      const [submitDrawer, setSubmitDrawer] = useState(null);
+      const [formProof, setFormProof] = useState({ link: "", remarks: "" });
+      const [screenshotFile, setScreenshotFile] = useState(null);
+
+      useEffect(() => {
+        if (!autoAssignTaskReview) return;
+        tasks.forEach(t => {
+          if (t.category === "Application Review Provide by Brand" && t.imported_reviews && t.imported_reviews.length > 0) {
+            const alreadyAssigned = t.imported_reviews.find(r => r.assigned_to === currentUser.id);
+            if (!alreadyAssigned) {
+              autoAssignTaskReview(t.id, currentUser.id);
+            }
+          }
+        });
+      }, [tasks, currentUser.id, autoAssignTaskReview]);
+
+      const getTaskSubmission = (taskId) => submissions.find(s => s.task_id === taskId && s.user_id === currentUser.id);
+      const filteredTasks = useMemo(() => {
+        if (filterCategory === "All") return tasks;
+        return tasks.filter(t => t.category === filterCategory);
+      }, [tasks, filterCategory]);
+
+      const handleCopyLink = (link) => {
+        navigator.clipboard.writeText(link);
+        triggerToast("Task link copied!");
+      };
+
+      const handleImageMockUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          setScreenshotFile(URL.createObjectURL(file));
+        }
+      };
+
+      const handleSubmission = (e) => {
+        e.preventDefault();
+        
+        if (currentUser.kyc_status !== "Approved") {
+          triggerToast("You must complete and approve KYC verification to submit tasks.", "error");
+          return;
+        }
+
+        const newSub = {
+          id: "s" + (submissions.length + 1),
+          user_id: currentUser.id,
+          task_id: submitDrawer.id,
+          submitted_link: formProof.link,
+          screenshot: screenshotFile || "assets/dashboard_preview.png",
+          video: "",
+          remarks: formProof.remarks,
+          review_status: "Pending",
+          amount: submitDrawer.amount,
+          date: new Date().toISOString().split('T')[0]
+        };
+
+        setSubmissions([...submissions, newSub]);
+        
+        if (submitDrawer.category === "Application Review Provide by Brand" && setTasks) {
+          const client = getSupabaseClient();
+          if (client && submitDrawer.imported_reviews) {
+            const nextReviews = submitDrawer.imported_reviews.map(r => 
+              r.assigned_to === currentUser.id ? { ...r, status: "Used" } : r
+            );
+            client.from("krv_tasks").update({ imported_reviews: nextReviews }).eq("id", submitDrawer.id).then(({ error }) => {
+              if (error) console.error("Failed to mark review as Used in Supabase:", error);
+            });
+            setTasks(prev => prev.map(t => t.id === submitDrawer.id ? { ...t, imported_reviews: nextReviews } : t));
+          }
+        }
+        
+        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount } : u));
+        triggerToast("Task proof submitted successfully!");
+        setSubmitDrawer(null);
+        setFormProof({ link: "", remarks: "" });
+        setScreenshotFile(null);
+      };
+
+      if (currentUser.kyc_status !== "Approved") {
+        return (
+          <div className="max-w-xl mx-auto py-10 text-center space-y-6">
+            <div className="w-20 h-20 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto border border-amber-500/20">
+              <Icon name="lock" className="w-10 h-10" />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-white tracking-tight">Earning Tasks Locked</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                {currentUser.kyc_status === "Pending" ? (
+                  "Your KYC Verification is currently Under Review. Our administration team is auditing your bank account details and Aadhaar cards. Tasks will unlock immediately once approved (usually reviewed within 24 hours)."
+                ) : currentUser.kyc_status === "Rejected" ? (
+                  "Your KYC Verification was Rejected by the administrator. Please navigate to the KYC Verification menu to inspect the rejection reason, update details, and re-submit to restore task access."
+                ) : (
+                  "To secure direct direct-to-bank payments and satisfy platform anti-spam rules, you are required to submit identity files under the KYC Verification panel before unlocking active earning tasks."
+                )}
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800/40 bg-white/40 dark:bg-slate-900/40 backdrop-blur text-xs text-slate-400 space-y-3 max-w-sm mx-auto">
+              <div className="flex items-center justify-between font-bold border-b border-slate-250 dark:border-slate-800 pb-2 mb-1">
+                <span className="uppercase text-[10px] tracking-wider text-slate-400">Verification Steps</span>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                  currentUser.kyc_status === "Pending" ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" :
+                  currentUser.kyc_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                  "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+                }`}>{currentUser.kyc_status || "Not Started"}</span>
+              </div>
+              
+              <div className="flex items-center gap-2.5">
+                <Icon name="check-circle" className="w-4 h-4 text-emerald-500" />
+                <span className="text-left text-[11px]">Submit bank accounts & Aadhaar files</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Icon name="clock" className={`w-4 h-4 ${currentUser.kyc_status === "Pending" ? "text-amber-500" : "text-slate-500"}`} />
+                <span className="text-left text-[11px] text-slate-400">Admin audits details within 24 hours</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Icon name="wallet" className="w-4 h-4 text-slate-500" />
+                <span className="text-left text-[11px] text-slate-400">Unlock full catalog & withdraw funds</span>
+              </div>
+            </div>
+
+            {currentUser.kyc_status !== "Pending" && (
+              <button onClick={() => setCurrentPage("kyc")} className="w-full max-w-xs py-3.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition uppercase tracking-wider cursor-pointer mx-auto">
+                Go to KYC Verification
+              </button>
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-6">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {["All", "Application Review", "Application Review Provide by Brand", "Google Review", "Audio Recording", "Video Recording", "Product Review"].map(cat => (
+              <button key={cat} onClick={() => setFilterCategory(cat)} className={`px-4 py-2 rounded-full text-xs font-bold shrink-0 cursor-pointer ${
+                filterCategory === cat ? "bg-blue-600 text-white shadow animate-pulse" : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200"
+              }`}>
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {filteredTasks.map(t => {
+              const sub = getTaskSubmission(t.id);
+              return (
+                <div key={t.id} className="rounded-2xl glass-card p-6 flex flex-col justify-between hover:scale-[1.02]">
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] font-bold uppercase border border-blue-500/20">{t.category}</span>
+                      <span className="text-lg font-extrabold text-emerald-500">₹{t.amount}</span>
+                    </div>
+
+                    <h3 className="text-base font-bold mb-2 text-white">{t.title}</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed mb-4">{t.remarks}</p>
+
+                    <div className="flex items-center gap-2 p-2 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 select-all mb-4">
+                      <span className="truncate max-w-xs">{t.links}</span>
+                      <button onClick={() => handleCopyLink(t.links)} className="ml-auto hover:text-blue-500"><Icon name="copy" className="w-3.5 h-3.5" /></button>
+                    </div>
+
+                    {t.category === "Application Review Provide by Brand" && (
+                      (() => {
+                        const myReview = t.imported_reviews ? t.imported_reviews.find(r => r.assigned_to === currentUser.id) : null;
+                        if (myReview) {
+                          return (
+                            <div className="p-2.5 rounded bg-slate-150/40 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800/80 text-xs text-slate-650 dark:text-slate-300 mb-4 mt-2">
+                              <span className="block text-[9px] uppercase font-bold text-slate-400 mb-1">Your Assigned Review (S.No {myReview.sno})</span>
+                              <p className="font-semibold text-slate-700 dark:text-slate-200 text-[11px] mb-2 leading-relaxed select-all">{myReview.text}</p>
+                              <button type="button" onClick={() => {
+                                navigator.clipboard.writeText(myReview.text);
+                                triggerToast("Review text copied!");
+                              }} className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 dark:text-blue-400 rounded text-[10px] font-bold uppercase transition cursor-pointer">
+                                <Icon name="copy" className="w-3 h-3 shrink-0" />
+                                <span>Copy Review Text</span>
+                              </button>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="p-2.5 rounded bg-rose-500/5 border border-rose-500/10 text-xs text-rose-500 text-center mb-4 mt-2 font-semibold">
+                              ⚠️ All reviews for this task are assigned or completed!
+                            </div>
+                          );
+                        }
+                      })()
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-4 font-semibold uppercase">
+                      <span>Deadline: {t.deadline}</span>
+                      <span>
+                        {sub ? (
+                          <span className={`font-bold ${
+                            sub.review_status === "Approved" ? "text-emerald-500" :
+                            sub.review_status === "Rejected" ? "text-rose-500" :
+                            "text-amber-500"
+                          }`}>{sub.review_status}</span>
+                        ) : "Unsubmitted"}
+                      </span>
+                    </div>
+
+                    {sub ? (
+                      <button disabled className="w-full py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-405 text-center uppercase tracking-wider">
+                        Submitted
+                      </button>
+                    ) : (
+                      <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer">
+                        Submit Task
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {submitDrawer && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+              <div className="w-full max-w-lg glass-card rounded-2xl p-6 relative">
+                <button onClick={() => setSubmitDrawer(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-5 h-5" /></button>
+                
+                <h3 className="text-lg font-bold mb-2 text-white">Submit Proof: {submitDrawer.title}</h3>
+                <p className="text-xs text-slate-400 mb-6">Enter proof link and screenshots confirming task completion.</p>
+
+                <form onSubmit={handleSubmission} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Paste Submitted Link</label>
+                    <input required type="url" value={formProof.link} onChange={(e) => setFormProof({ ...formProof, link: e.target.value })} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="https://store.google.com/review/id" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Screenshot Upload</label>
+                    <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative bg-white/5">
+                      <input type="file" accept="image/*" onChange={handleImageMockUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                      {screenshotFile ? (
+                        <img src={screenshotFile} className="mx-auto max-h-32 rounded object-cover" />
+                      ) : (
+                        <div className="space-y-2">
+                          <Icon name="upload" className="w-6 h-6 mx-auto text-slate-400" />
+                          <span className="block text-xs text-slate-400 font-bold uppercase">Click to select screenshot file</span>
+                          <span className="block text-[10px] text-slate-500">PNG, JPG up to 5MB</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Remarks</label>
+                    <textarea rows="3" value={formProof.remarks} onChange={(e) => setFormProof({ ...formProof, remarks: e.target.value })} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Name or email details used..."></textarea>
+                  </div>
+
+                  <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition uppercase tracking-wider cursor-pointer">
+                    Submit Proof
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    // 3. Earnings
+    function CandidateEarnings({ currentUser, withdrawals, setWithdrawals, myKyc, triggerToast, setUsers, kycRecords, setKycRecords, submissions, tasks }) {
+      const [isEditingBank, setIsEditingBank] = useState(false);
+      const mySubmissions = useMemo(() => submissions.filter(s => s.user_id === currentUser.id), [submissions, currentUser]);
+      
+      const stats = useMemo(() => {
+        const approvedSub = mySubmissions.filter(s => s.review_status === "Approved");
+        const pendingSub = mySubmissions.filter(s => s.review_status === "Pending");
+        return {
+          approvedEarnings: approvedSub.reduce((sum, s) => sum + s.amount, 0),
+          pendingEarnings: pendingSub.reduce((sum, s) => sum + s.amount, 0),
+          approvedCount: approvedSub.length,
+          pendingCount: pendingSub.length
+        };
+      }, [mySubmissions]);
+
+      const [bankForm, setBankForm] = useState({
+        holder: myKyc ? myKyc.account_holder : "",
+        accNumber: myKyc ? myKyc.account_number : "",
+        bank: myKyc ? myKyc.bank_name : "",
+        ifsc: myKyc ? myKyc.ifsc : ""
+      });
+
+      useEffect(() => {
+        if (myKyc) {
+          setBankForm({
+            holder: myKyc.account_holder,
+            accNumber: myKyc.account_number,
+            bank: myKyc.bank_name,
+            ifsc: myKyc.ifsc
+          });
+        }
+      }, [myKyc]);
+
+      const handleSaveBank = (e) => {
+        e.preventDefault();
+        if (!bankForm.holder || !bankForm.accNumber || !bankForm.bank || !bankForm.ifsc) {
+          triggerToast("All bank details are required.", "error");
+          return;
+        }
+
+        const newKyc = {
+          id: myKyc ? myKyc.id : "k" + (kycRecords.length + 1),
+          user_id: currentUser.id,
+          account_holder: bankForm.holder,
+          account_number: bankForm.accNumber,
+          bank_name: bankForm.bank,
+          ifsc: bankForm.ifsc,
+          aadhaar_front: myKyc ? myKyc.aadhaar_front : "assets/dashboard_preview.png",
+          aadhaar_back: myKyc ? myKyc.aadhaar_back : "assets/dashboard_preview.png",
+          selfie: myKyc ? myKyc.selfie : "assets/krv_logo.png",
+          status: "Pending"
+        };
+
+        if (myKyc) {
+          setKycRecords(prev => prev.map(k => k.id === myKyc.id ? newKyc : k));
+        } else {
+          setKycRecords([...kycRecords, newKyc]);
+        }
+
+        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, kyc_status: "Pending" } : u));
+        triggerToast("Bank details saved & submitted for audit!");
+        setIsEditingBank(false);
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-blue-100">Wallet Balance</span>
+              <h3 className="text-4xl font-extrabold mt-2">₹{currentUser.wallet_balance}</h3>
+              <p className="text-xs text-blue-200 mt-2">Verified earnings ready for direct deposit.</p>
+            </div>
+            
+            <div className="p-6 rounded-2xl glass-card">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Approved Task Earnings</span>
+              <h3 className="text-4xl font-extrabold mt-2 text-emerald-500">₹{stats.approvedEarnings}</h3>
+              <p className="text-xs text-slate-500 mt-2">Payouts cleared from {stats.approvedCount} completed tasks.</p>
+            </div>
+
+            <div className="p-6 rounded-2xl glass-card">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Pending Auditing</span>
+              <h3 className="text-4xl font-extrabold mt-2 text-amber-500">₹{stats.pendingEarnings}</h3>
+              <p className="text-xs text-slate-500 mt-2">Awaiting review for {stats.pendingCount} submissions.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Direct Bank Account</h3>
+                  <p className="text-xs text-slate-400">KYC verification bank transfer details.</p>
+                </div>
+                {!isEditingBank && (
+                  <button onClick={() => setIsEditingBank(true)} className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer">
+                    <Icon name="edit" className="w-3.5 h-3.5" />
+                    <span>Edit Details</span>
+                  </button>
+                )}
+              </div>
+
+              {isEditingBank ? (
+                <form onSubmit={handleSaveBank} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Account Holder Name</label>
+                    <input required type="text" value={bankForm.holder} onChange={(e) => setBankForm({ ...bankForm, holder: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="John Doe" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Account Number</label>
+                    <input required type="text" value={bankForm.accNumber} onChange={(e) => setBankForm({ ...bankForm, accNumber: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="998877665544" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Name</label>
+                      <input required type="text" value={bankForm.bank} onChange={(e) => setBankForm({ ...bankForm, bank: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="HDFC Bank" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">IFSC Code</label>
+                      <input required type="text" value={bankForm.ifsc} onChange={(e) => setBankForm({ ...bankForm, ifsc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="HDFC0001234" />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button type="button" onClick={() => setIsEditingBank(false)} className="w-1/2 py-2.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer">
+                      Cancel
+                    </button>
+                    <button type="submit" className="w-1/2 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow transition cursor-pointer">
+                      Save & Verify
+                    </button>
+                  </div>
+                </form>
+              ) : myKyc ? (
+                <div className="space-y-4">
+                  <div className="p-5 rounded-xl bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/60 space-y-3.5 text-xs">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Account Holder Name</span>
+                      <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{myKyc.account_holder}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank Account Number</span>
+                      <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{myKyc.account_number}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank Name</span>
+                        <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{myKyc.bank_name}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank IFSC Code</span>
+                        <span className="text-sm font-bold block mt-1 text-slate-900 dark:text-white">{myKyc.ifsc}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 rounded-xl border border-blue-500/25 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs flex items-center gap-2.5">
+                    <Icon name="shield" className="w-4 h-4 shrink-0 text-blue-500" />
+                    <span>Direct deposits are released to this bank account instantly upon task approvals.</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 text-center bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-500">
+                  <Icon name="alert-circle" className="w-10 h-10 mx-auto mb-3" />
+                  <h4 className="font-bold text-sm">No Bank Account Details Found</h4>
+                  <p className="text-xs mt-1 mb-4">Please submit your KYC or add bank details here to enable task payouts.</p>
+                  <button type="button" onClick={() => setIsEditingBank(true)} className="px-5 py-2.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-bold transition shadow hover:bg-amber-600 cursor-pointer">
+                    Add Bank Details Now
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="glass-card rounded-2xl p-6">
+              <h3 className="text-lg font-bold mb-4 text-white">Task Payout History ({mySubmissions.filter(s => s.review_status === "Approved").length})</h3>
+              <div className="overflow-y-auto max-h-80">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                      <th className="py-2.5">Date</th>
+                      <th>Task Description</th>
+                      <th>Amount</th>
+                      <th>Payout Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                    {mySubmissions.filter(s => s.review_status === "Approved").length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="py-8 text-center text-slate-500">No approved task payouts logged yet.</td>
+                      </tr>
+                    ) : (
+                      mySubmissions.filter(s => s.review_status === "Approved").reverse().map(s => {
+                        const taskDetail = tasks.find(t => t.id === s.task_id);
+                        return (
+                          <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/15">
+                            <td className="py-3 text-slate-400">{s.date}</td>
+                            <td className="font-semibold max-w-[150px] truncate text-white" title={taskDetail ? taskDetail.title : `Task-${s.task_id}`}>{taskDetail ? taskDetail.title : `Task-${s.task_id}`}</td>
+                            <td className="font-bold text-emerald-500">₹{s.amount}</td>
+                            <td>
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                Released
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // 4. KYC
+    function CandidateKyc({ currentUser, setCurrentUser, users, setUsers, kycRecords, setKycRecords, myKyc, triggerToast, setPreviewImage }) {
+      const [form, setForm] = useState({
+        holder: myKyc ? myKyc.account_holder : "",
+        accNumber: myKyc ? myKyc.account_number : "",
+        bank: myKyc ? myKyc.bank_name : "",
+        ifsc: myKyc ? myKyc.ifsc : ""
+      });
+
+      const [previews, setPreviews] = useState({ aadhaarFront: null, aadhaarBack: null, selfie: null });
+
+      useEffect(() => {
+        if (myKyc) {
+          setPreviews({
+            aadhaarFront: myKyc.aadhaar_front,
+            aadhaarBack: myKyc.aadhaar_back,
+            selfie: myKyc.selfie
+          });
+        }
+      }, [myKyc]);
+
+      const handleFilePreview = (e, field) => {
+        const file = e.target.files[0];
+        if (file) {
+          setPreviews({ ...previews, [field]: URL.createObjectURL(file) });
+        }
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!previews.aadhaarFront || !previews.aadhaarBack || !previews.selfie) {
+          triggerToast("Please upload all Aadhaar documents and Selfie.", "error");
+          return;
+        }
+
+        const newKyc = {
+          id: myKyc ? myKyc.id : "k" + (kycRecords.length + 1),
+          user_id: currentUser.id,
+          account_holder: form.holder,
+          account_number: form.accNumber,
+          bank_name: form.bank,
+          ifsc: form.ifsc,
+          aadhaar_front: previews.aadhaarFront,
+          aadhaar_back: previews.aadhaarBack,
+          selfie: previews.selfie,
+          status: "Pending"
+        };
+
+        if (myKyc) {
+          setKycRecords(prev => prev.map(k => k.id === myKyc.id ? newKyc : k));
+        } else {
+          setKycRecords([...kycRecords, newKyc]);
+        }
+
+        setUsers(prev => prev.map(u => {
+          if (u.id === currentUser.id) {
+            const updated = { ...u, kyc_status: "Pending" };
+            setCurrentUser(updated);
+            return updated;
+          }
+          return u;
+        }));
+
+        triggerToast("KYC details submitted for admin review.");
+      };
+
+      if ((currentUser.kyc_status === "Pending" || currentUser.kyc_status === "Approved") && myKyc) {
+        return (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="glass-card rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-6 border-b border-slate-200/50 dark:border-slate-800/40 pb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Identity KYC Verification</h3>
+                  <p className="text-xs text-slate-400">
+                    {currentUser.kyc_status === "Pending" ? "Your submitted KYC profile details are currently under review." : "Your identity KYC verification profile has been verified successfully."}
+                  </p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                  currentUser.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                  "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                }`}>{currentUser.kyc_status}</span>
+              </div>
+
+              <div className="space-y-6">
+                <h4 className="font-bold text-sm text-slate-300">Submitted Documents</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    { label: "Aadhaar Card Front", img: previews.aadhaarFront },
+                    { label: "Aadhaar Card Back", img: previews.aadhaarBack },
+                    { label: "Verification Selfie", img: previews.selfie }
+                  ].map((doc, idx) => (
+                    <div key={idx} className="space-y-2">
+                      <span className="block text-xs font-bold uppercase text-slate-400">{doc.label}</span>
+                      <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-2 bg-slate-900/40 aspect-video flex items-center justify-center overflow-hidden">
+                        <img src={doc.img} alt={doc.label} onClick={() => setPreviewImage && setPreviewImage({ title: doc.label, url: doc.img })} onError={(e) => { e.target.src = "assets/krv_logo.png"; }} className="max-h-full max-w-full rounded object-cover cursor-zoom-in hover:scale-105 transition" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t border-slate-200/50 dark:border-slate-800/40 pt-6 space-y-4">
+                  <h4 className="font-bold text-sm text-slate-300">Direct Bank Account Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-xl bg-slate-100/50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/60">
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Account Holder Name</span>
+                      <span className="text-sm font-bold block mt-1 text-white">{form.holder}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank Account Number</span>
+                      <span className="text-sm font-bold block mt-1 text-white">{form.accNumber}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank Name</span>
+                      <span className="text-sm font-bold block mt-1 text-white">{form.bank}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase">Bank IFSC Code</span>
+                      <span className="text-sm font-bold block mt-1 text-white">{form.ifsc}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {currentUser.kyc_status === "Pending" && (
+                  <div className="p-4 rounded-xl border border-blue-500/25 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs flex items-center gap-3">
+                    <Icon name="clock" className="w-5 h-5 animate-pulse text-amber-500" />
+                    <span>Our admin team is currently auditing these files. Tasks will unlock instantly once approved.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="glass-card rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-white">Identity KYC Verification</h3>
+                <p className="text-xs text-slate-400">Complete verification details to verify anti-spam pipelines.</p>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                currentUser.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                currentUser.kyc_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+              }`}>{currentUser.kyc_status}</span>
+            </div>
+
+            {myKyc && myKyc.rejection_reason && (
+              <div className="p-4 rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-400 text-xs mb-6">
+                <span className="font-bold block">Rejection Reason:</span>
+                <span>{myKyc.rejection_reason}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { field: "aadhaarFront", label: "Aadhaar Card Front" },
+                  { field: "aadhaarBack", label: "Aadhaar Card Back" },
+                  { field: "selfie", label: "Verification Selfie" }
+                ].map(item => (
+                  <div key={item.field} className="space-y-2">
+                    <label className="block text-xs font-bold uppercase text-slate-400">{item.label}</label>
+                    <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative h-36 flex items-center justify-center bg-white/5">
+                      <input disabled={currentUser.kyc_status === "Approved"} type="file" accept="image/*" onChange={(e) => handleFilePreview(e, item.field)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                      {previews[item.field] ? (
+                        <img src={previews[item.field]} onError={(e) => { e.target.src = "assets/krv_logo.png"; }} className="max-h-full max-w-full rounded object-cover" />
+                      ) : (
+                        <div className="space-y-1">
+                          <Icon name="upload" className="w-5 h-5 mx-auto text-slate-400" />
+                          <span className="block text-[10px] text-slate-400 font-bold uppercase">Upload File</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-slate-200/50 dark:border-slate-800/40 pt-6 space-y-4">
+                <h4 className="font-bold text-sm text-white">Direct Bank Account Details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Account Holder Name</label>
+                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.holder} onChange={(e) => setForm({ ...form, holder: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="John Doe" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Account Number</label>
+                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.accNumber} onChange={(e) => setForm({ ...form, accNumber: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="998877665544" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Name</label>
+                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.bank} onChange={(e) => setForm({ ...form, bank: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="e.g. HDFC Bank" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank IFSC Code</label>
+                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.ifsc} onChange={(e) => setForm({ ...form, ifsc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="HDFC0001234" />
+                  </div>
+                </div>
+              </div>
+
+              {currentUser.kyc_status !== "Approved" && (
+                <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition cursor-pointer">
+                  Submit KYC Verification Details
+                </button>
+              )}
+            </form>
+          </div>
+        </div>
+      );
+    }
+    // 5. Reports
+    function CandidateReports({ currentUser, mySubmissions, withdrawals }) {
+      const [filterStatus, setFilterStatus] = useState("All");
+      const [filterType, setFilterType] = useState("All");
+
+      const filteredList = useMemo(() => {
+        return mySubmissions.filter(s => {
+          const matchStatus = filterStatus === "All" || s.review_status === filterStatus;
+          const matchType = filterType === "All" || s.submitted_link.includes(filterType);
+          return matchStatus && matchType;
+        });
+      }, [mySubmissions, filterStatus, filterType]);
+
+      const handleExport = (format) => {
+        let content = "";
+        let filename = `krv_report_${currentUser.name.replace(" ", "_")}_${new Date().toISOString().split('T')[0]}`;
+        
+        if (format === "csv") {
+          content = "Submission ID,Amount,Review Status,Link,Date\n" + 
+            filteredList.map(s => `SUB-${s.id.toUpperCase()},${s.amount},${s.review_status},${s.submitted_link},${s.date}`).join("\n");
+          filename += ".csv";
+        } else if (format === "excel") {
+          content = "Submission ID\tAmount\tReview Status\tLink\tDate\n" + 
+            filteredList.map(s => `SUB-${s.id.toUpperCase()}\t${s.amount}\t${s.review_status}\t${s.submitted_link}\t${s.date}`).join("\n");
+          filename += ".xls";
+        } else {
+          content = "KRV MANAGEMENT WORK REPORT\n=========================\n" + 
+            `Candidate Name: ${currentUser.name}\n` +
+            `Total Approved: ${filteredList.filter(s => s.review_status === "Approved").length} Tasks\n` + 
+            `Total Wallet Bal: ${currentUser.wallet_balance} Rs\n\n` +
+            "SUBMISSIONS LIST:\n-----------------\n" +
+            filteredList.map(s => `[SUB-${s.id.toUpperCase()}] Price: Rs.${s.amount} | Status: ${s.review_status}\nLink: ${s.submitted_link}\nRemarks: ${s.remarks || "N/A"}\n---`).join("\n");
+          filename += ".pdf";
+        }
+
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 rounded-2xl glass-card">
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Review Status</label>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white">
+                <option value="All">All Statuses</option>
+                <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Category</label>
+              <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white">
+                <option value="All">All Categories</option>
+                <option value="google">Google Maps Review</option>
+                <option value="play.google">Playstore Install</option>
+                <option value="drive">Audio Recording</option>
+                <option value="youtube">Video Tasks</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2 flex items-end gap-3 justify-end mt-4 md:mt-0">
+              <button onClick={() => handleExport("csv")} className="px-4 py-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-white">
+                <Icon name="download" className="w-4 h-4 text-white" /> CSV Export
+              </button>
+              <button onClick={() => handleExport("excel")} className="px-4 py-2.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-white">
+                <Icon name="download" className="w-4 h-4 text-white" /> Excel XLS
+              </button>
+              <button onClick={() => handleExport("pdf")} className="px-4 py-2.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 cursor-pointer">
+                <Icon name="download" className="w-4 h-4 text-white" /> PDF Report
+              </button>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-base font-bold mb-4 text-white">Report Preview: {filteredList.length} Entries</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                    <th className="py-3">Task Title</th>
+                    <th>Sub ID</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {filteredList.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="py-6 text-center text-slate-500">No matching activities found for current filters.</td>
+                    </tr>
+                  ) : (
+                    filteredList.map(s => (
+                      <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                        <td className="py-3.5 font-bold text-white">SUB-{s.id.toUpperCase()}</td>
+                        <td className="text-slate-400">Task-{s.task_id}</td>
+                        <td className="font-bold text-emerald-500">₹{s.amount}</td>
+                        <td>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                            s.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                            s.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                            "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                          }`}>
+                            {s.review_status}
+                          </span>
+                        </td>
+                        <td className="text-slate-400">{s.date}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // 6. Profile
+    function CandidateProfile({ currentUser, users, setUsers, triggerToast, setCurrentUser }) {
+      const [pwd, setPwd] = useState({ old: "", new: "", confirm: "" });
+      const [showOld, setShowOld] = useState(false);
+      const [showNew, setShowNew] = useState(false);
+      const [showConfirm, setShowConfirm] = useState(false);
+
+      const handleUpdatePassword = async (e) => {
+        e.preventDefault();
+        const hashedOld = await getSaltedHash(currentUser.email, pwd.old);
+        if (hashedOld !== currentUser.password) {
+          triggerToast("Incorrect current password.", "error");
+          return;
+        }
+
+        if (pwd.new !== pwd.confirm) {
+          triggerToast("Confirm password does not match.", "error");
+          return;
+        }
+
+        const hashedNew = await getSaltedHash(currentUser.email, pwd.new);
+        const client = getSupabaseClient();
+        if (client) {
+          const { error } = await client.from("krv_users").update({ password: hashedNew }).eq("id", currentUser.id);
+          if (error) {
+            triggerToast("Failed to update password in database.", "error");
+            return;
+          }
+        }
+        setUsers(prev => prev.map(u => {
+          if (u.id === currentUser.id) {
+            const updated = { ...u, password: hashedNew };
+            if (setCurrentUser) {
+              setCurrentUser(updated);
+              signSession(updated).then(signature => {
+                localStorage.setItem("krv-current-user-session", JSON.stringify({ user: updated, signature }));
+              });
+            }
+            return updated;
+          }
+          return u;
+        }));
+
+        triggerToast("Password updated successfully!");
+        setPwd({ old: "", new: "", confirm: "" });
+      };
+
+      return (
+        <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-bold text-white">Personal Profile Details</h3>
+            <div className="space-y-3 text-xs">
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Worker Name</span>
+                <span className="text-sm font-semibold text-white block mt-1">{currentUser.name}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Email Address</span>
+                <span className="text-sm font-semibold text-white block mt-1">{currentUser.email}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Mobile Number</span>
+                <span className="text-sm font-semibold text-white block mt-1">{currentUser.mobile}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Registered City / Pincode</span>
+                <span className="text-sm font-semibold text-white block mt-1">{currentUser.city || "Mumbai"} / {currentUser.pincode || "400001"}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Referral Code Invites</span>
+                <span className="text-sm font-extrabold text-blue-400 block mt-1">{currentUser.referral_code || "KRV-NONE"}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-lg font-bold mb-4 text-white">Change Account Password</h3>
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Current Password</label>
+                <div className="relative">
+                  <input required type={showOld ? "text" : "password"} value={pwd.old} onChange={(e) => setPwd({ ...pwd, old: e.target.value })} className="w-full pl-3 pr-10 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+                  <button type="button" onClick={() => setShowOld(!showOld)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <Icon name={showOld ? "eye" : "eye-off"} className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">New Password</label>
+                <div className="relative">
+                  <input required type={showNew ? "text" : "password"} value={pwd.new} onChange={(e) => setPwd({ ...pwd, new: e.target.value })} className="w-full pl-3 pr-10 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+                  <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <Icon name={showNew ? "eye" : "eye-off"} className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Confirm New Password</label>
+                <div className="relative">
+                  <input required type={showConfirm ? "text" : "password"} value={pwd.confirm} onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} className="w-full pl-3 pr-10 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" />
+                  <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                    <Icon name={showConfirm ? "eye" : "eye-off"} className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" className="w-full py-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition cursor-pointer">
+                Change Password
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+    // 7. Support
+    function CandidateSupport({ currentUser, tickets, setTickets, triggerToast }) {
+      const [form, setForm] = useState({ subject: "", category: "Payments", desc: "" });
+      const [showNewTicket, setShowNewTicket] = useState(false);
+
+      const handleRaiseTicket = (e) => {
+        e.preventDefault();
+        const newTk = {
+          id: "tk" + (tickets.length + 1),
+          user_id: currentUser.id,
+          subject: form.subject,
+          category: form.category,
+          description: form.desc,
+          status: "Open",
+          replies: []
+        };
+        setTickets([...tickets, newTk]);
+        triggerToast("Support ticket raised successfully!");
+        setForm({ subject: "", category: "Payments", desc: "" });
+        setShowNewTicket(false);
+      };
+
+      return (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white">Internal Ticket Support</h3>
+            <button onClick={() => setShowNewTicket(!showNewTicket)} className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow cursor-pointer">
+              {showNewTicket ? "Cancel" : "Raise New Ticket"}
+            </button>
+          </div>
+
+          {showNewTicket && (
+            <div className="glass-card rounded-2xl p-6">
+              <h4 className="font-bold text-base mb-4 text-white">Create New Help Request</h4>
+              <form onSubmit={handleRaiseTicket} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Subject</label>
+                    <input required type="text" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Brief issue heading" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Issue Category</label>
+                    <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white">
+                      <option value="Payments">Payments & Wallet</option>
+                      <option value="KYC Support">KYC Upload Issue</option>
+                      <option value="Task Query">Task Submission Query</option>
+                      <option value="Account Query">Account Details Change</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Detailed Description</label>
+                  <textarea required rows="4" value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Describe the problem..."></textarea>
+                </div>
+                <button type="submit" className="w-full py-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition cursor-pointer">
+                  Submit Support Ticket
+                </button>
+              </form>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {tickets.filter(t => t.user_id === currentUser.id).length === 0 ? (
+              <div className="p-10 text-center glass-card rounded-2xl text-slate-500 text-xs">No support tickets raised yet.</div>
+            ) : (
+              tickets.filter(t => t.user_id === currentUser.id).reverse().map(tk => (
+                <div key={tk.id} className="p-6 rounded-2xl glass-card space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-slate-400">Ticket ID: TK-{tk.id.toUpperCase()}</span>
+                      <h4 className="font-bold text-base mt-0.5 text-white">{tk.subject}</h4>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                      tk.status === "Open" ? "bg-blue-500/10 text-blue-500 border-blue-500/20 animate-pulse" : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                    }`}>{tk.status}</span>
+                  </div>
+
+                  <div className="text-xs text-slate-400 leading-relaxed bg-slate-950/20 p-3 rounded-lg">
+                    <p className="font-bold text-[10px] text-slate-500 uppercase">Description</p>
+                    <p className="mt-1">{tk.description}</p>
+                  </div>
+
+                  {tk.replies.map((rep, idx) => (
+                    <div key={idx} className="pl-4 border-l-2 border-blue-500 py-1 text-xs">
+                      <span className="font-bold text-blue-400">{rep.sender}:</span>
+                      <span className="text-slate-300 ml-2">{rep.message}</span>
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    // (Inserted below from index.html)
+    
+    // Main Container
+    function CandidatePanelContainer() {
+      const [theme, setTheme] = useState(() => localStorage.getItem("krv-theme") || "dark");
+      const [currentPage, setCurrentPage] = useState("dashboard");
+      const [currentUser, setCurrentUser] = useState(null);
+      const [isDbLoading, setIsDbLoading] = useState(true);
+
+      const [users, setUsers] = useState([]);
+      const [tasks, setTasks] = useState([]);
+      const [submissions, setSubmissions] = useState([]);
+      const [kycRecords, setKycRecords] = useState([]);
+      const [withdrawals, setWithdrawals] = useState([]);
+      const [tickets, setTickets] = useState([]);
+      const [notifications, setNotifications] = useState([]);
+      const [toast, setToast] = useState(null);
+
+      const prevUsersRef = useRef([]);
+      const prevTasksRef = useRef([]);
+      const prevSubmissionsRef = useRef([]);
+      const prevKycRecordsRef = useRef([]);
+      const prevWithdrawalsRef = useRef([]);
+      const prevTicketsRef = useRef([]);
+      const prevNotificationsRef = useRef([]);
+
+      useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === "dark") {
+          root.classList.add("dark");
+        } else {
+          root.classList.remove("dark");
+        }
+        localStorage.setItem("krv-theme", theme);
+      }, [theme]);
+
+      const triggerToast = (message, type = "success") => {
+        setToast({ message, type });
+      };
+
+      // Bootstrap and verification logic
+      useEffect(() => {
+        let channel = null;
+
+        const verifyIntegrityAndSession = async () => {
+          const client = getSupabaseClient();
+          if (client) {
+            try {
+              const storedSession = localStorage.getItem("krv-current-user-session");
+              if (!storedSession) {
+                window.location.href = "login.html";
+                return;
+              }
+              const { user } = JSON.parse(storedSession);
+
+              // 1. Fetch Users
+              const { data: dbUsers, error: usersErr } = await client.from("krv_users").select("*");
+              if (!usersErr && dbUsers) {
+                setUsers(dbUsers);
+                prevUsersRef.current = dbUsers;
+                const matchedUser = dbUsers.find(u => u.id === user.id);
+                if (matchedUser) {
+                  setCurrentUser(matchedUser);
+                }
+              }
+
+              // 2. Fetch Tasks
+              const { data: dbTasks, error: tasksErr } = await client.from("krv_tasks").select("*");
+              if (!tasksErr && dbTasks) {
+                const activeTasks = dbTasks.filter(t => t.status !== "Deleted");
+                setTasks(activeTasks);
+                prevTasksRef.current = activeTasks;
+              }
+
+              // 3. Fetch Submissions
+              const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("*");
+              if (!subsErr && dbSubs) {
+                setSubmissions(dbSubs);
+                prevSubmissionsRef.current = dbSubs;
+              }
+
+              // 4. Fetch KYC
+              const { data: dbKyc, error: kycErr } = await client.from("krv_kyc").select("*");
+              if (!kycErr && dbKyc) {
+                setKycRecords(dbKyc);
+                prevKycRecordsRef.current = dbKyc;
+              }
+
+              // 5. Fetch Withdrawals
+              const { data: dbWithdrawals, error: wErr } = await client.from("krv_withdrawals").select("*");
+              if (!wErr && dbWithdrawals) {
+                setWithdrawals(dbWithdrawals);
+                prevWithdrawalsRef.current = dbWithdrawals;
+              }
+
+              // 6. Fetch Tickets
+              const { data: dbTickets, error: tErr } = await client.from("krv_tickets").select("*");
+              if (!tErr && dbTickets) {
+                setTickets(dbTickets);
+                prevTicketsRef.current = dbTickets;
+              }
+
+              // 7. Fetch Notifications
+              const { data: dbNotifs, error: nErr } = await client.from("krv_notifications").select("*");
+              if (!nErr && dbNotifs) {
+                setNotifications(dbNotifs);
+                prevNotificationsRef.current = dbNotifs;
+              }
+
+              // Set up Real-time Socket Channels
+              channel = client.channel('krv-realtime-channel')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_users' }, (payload) => {
+                  if (payload.eventType === 'UPDATE') {
+                    setUsers(prev => {
+                      const next = prev.map(u => u.id === payload.new.id ? payload.new : u);
+                      prevUsersRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_tasks' }, (payload) => {
+                  if (payload.eventType === 'INSERT') {
+                    setTasks(prev => {
+                      const next = prev.some(t => t.id === payload.new.id) ? prev : [...prev, payload.new];
+                      prevTasksRef.current = next;
+                      return next;
+                    });
+                  } else if (payload.eventType === 'UPDATE') {
+                    setTasks(prev => {
+                      const next = payload.new.status === 'Deleted'
+                        ? prev.filter(t => t.id !== payload.new.id)
+                        : prev.map(t => t.id === payload.new.id ? payload.new : t);
+                      prevTasksRef.current = next;
+                      return next;
+                    });
+                  } else if (payload.eventType === 'DELETE') {
+                    setTasks(prev => {
+                      const next = prev.filter(t => t.id !== payload.old.id);
+                      prevTasksRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_submissions' }, (payload) => {
+                  if (payload.eventType === 'INSERT') {
+                    setSubmissions(prev => {
+                      const next = prev.some(s => s.id === payload.new.id) ? prev : [...prev, payload.new];
+                      prevSubmissionsRef.current = next;
+                      return next;
+                    });
+                  } else if (payload.eventType === 'UPDATE') {
+                    setSubmissions(prev => {
+                      const next = prev.map(s => s.id === payload.new.id ? payload.new : s);
+                      prevSubmissionsRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_kyc' }, (payload) => {
+                  if (payload.eventType === 'UPDATE') {
+                    setKycRecords(prev => {
+                      const next = prev.map(k => k.id === payload.new.id ? payload.new : k);
+                      prevKycRecordsRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_withdrawals' }, (payload) => {
+                  if (payload.eventType === 'INSERT') {
+                    setWithdrawals(prev => {
+                      const next = prev.some(w => w.id === payload.new.id) ? prev : [...prev, payload.new];
+                      prevWithdrawalsRef.current = next;
+                      return next;
+                    });
+                  } else if (payload.eventType === 'UPDATE') {
+                    setWithdrawals(prev => {
+                      const next = prev.map(w => w.id === payload.new.id ? payload.new : w);
+                      prevWithdrawalsRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_tickets' }, (payload) => {
+                  if (payload.eventType === 'UPDATE') {
+                    setTickets(prev => {
+                      const next = prev.map(t => t.id === payload.new.id ? payload.new : t);
+                      prevTicketsRef.current = next;
+                      return next;
+                    });
+                  }
+                })
+                .subscribe();
+
+            } catch (err) {
+              console.error("verifyIntegrityAndSession error:", err);
+            }
+          }
+          setIsDbLoading(false);
+        };
+
+        verifyIntegrityAndSession();
+
+        return () => {
+          if (channel) {
+            const client = getSupabaseClient();
+            if (client) client.removeChannel(channel);
+          }
+        };
+      }, []);
+
+      // Synchronize currentUser with users list
+      useEffect(() => {
+        if (currentUser) {
+          const latestUser = users.find(u => u.id === currentUser.id);
+          if (latestUser && JSON.stringify(latestUser) !== JSON.stringify(currentUser)) {
+            setCurrentUser(latestUser);
+            signSession(latestUser).then(sig => {
+              localStorage.setItem("krv-current-user-session", JSON.stringify({ user: latestUser, signature: sig }));
+            });
+          }
+        }
+      }, [users, currentUser]);
+
+      // Background cloud sync
+      useEffect(() => {
+        const saveSecureDb = async () => {
+          const client = getSupabaseClient();
+          if (client && !isDbLoading) {
+            try {
+              // Sync Users
+              const prevUsers = prevUsersRef.current;
+              if (JSON.stringify(prevUsers) !== JSON.stringify(users)) {
+                const changedUsers = users.filter(u => {
+                  const prevU = prevUsers.find(pu => pu.id === u.id);
+                  return !prevU || JSON.stringify(prevU) !== JSON.stringify(u);
+                });
+                if (changedUsers.length > 0) {
+                  const { error } = await client.from("krv_users").upsert(changedUsers);
+                  if (error) {
+                    console.error("Users sync failed:", error);
+                    triggerToast("Sync Error (Users): " + error.message, "error");
+                  }
+                }
+                prevUsersRef.current = users;
+              }
+
+              // Sync Submissions
+              const prevSubs = prevSubmissionsRef.current;
+              if (JSON.stringify(prevSubs) !== JSON.stringify(submissions)) {
+                const changedSubs = submissions.filter(s => {
+                  const prevS = prevSubs.find(ps => ps.id === s.id);
+                  return !prevS || JSON.stringify(prevS) !== JSON.stringify(s);
+                });
+                if (changedSubs.length > 0) {
+                  const { error } = await client.from("krv_submissions").upsert(changedSubs);
+                  if (error) {
+                    console.error("Submissions sync failed:", error);
+                    triggerToast("Sync Error (Submissions): " + error.message, "error");
+                  }
+                }
+                prevSubmissionsRef.current = submissions;
+              }
+
+              // Sync KYC Records
+              const prevKyc = prevKycRecordsRef.current;
+              if (JSON.stringify(prevKyc) !== JSON.stringify(kycRecords)) {
+                const changedKyc = kycRecords.filter(k => {
+                  const prevK = prevKyc.find(pk => pk.id === k.id);
+                  return !prevK || JSON.stringify(prevK) !== JSON.stringify(k);
+                });
+                if (changedKyc.length > 0) {
+                  const { error } = await client.from("krv_kyc").upsert(changedKyc);
+                  if (error) {
+                    console.error("KYC sync failed:", error);
+                    triggerToast("Sync Error (KYC): " + error.message, "error");
+                  }
+                }
+                prevKycRecordsRef.current = kycRecords;
+              }
+
+              // Sync Withdrawals
+              const prevW = prevWithdrawalsRef.current;
+              if (JSON.stringify(prevW) !== JSON.stringify(withdrawals)) {
+                const changedW = withdrawals.filter(w => {
+                  const prevWithdrawal = prevW.find(pw => pw.id === w.id);
+                  return !prevWithdrawal || JSON.stringify(prevWithdrawal) !== JSON.stringify(w);
+                });
+                if (changedW.length > 0) {
+                  const { error } = await client.from("krv_withdrawals").upsert(changedW);
+                  if (error) {
+                    console.error("Withdrawals sync failed:", error);
+                    triggerToast("Sync Error (Withdrawals): " + error.message, "error");
+                  }
+                }
+                prevWithdrawalsRef.current = withdrawals;
+              }
+
+              // Sync Tickets
+              const prevTk = prevTicketsRef.current;
+              if (JSON.stringify(prevTk) !== JSON.stringify(tickets)) {
+                const changedTk = tickets.filter(t => {
+                  const prevT = prevTk.find(pt => pt.id === t.id);
+                  return !prevT || JSON.stringify(prevT) !== JSON.stringify(t);
+                });
+                if (changedTk.length > 0) {
+                  const { error } = await client.from("krv_tickets").upsert(changedTk);
+                  if (error) {
+                    console.error("Tickets sync failed:", error);
+                    triggerToast("Sync Error (Tickets): " + error.message, "error");
+                  }
+                }
+                prevTicketsRef.current = tickets;
+              }
+
+            } catch (err) {
+              console.error("Supabase sync error:", err);
+              triggerToast("Sync Exception: " + err.message, "error");
+            }
+          }
+        };
+        saveSecureDb();
+      }, [users, submissions, kycRecords, withdrawals, tickets, isDbLoading]);
+
+      // Atomic Review Auto-assignment helper
+      const autoAssignTaskReview = async (taskId, userId) => {
+        const client = getSupabaseClient();
+        if (!client) return;
+        try {
+          const { data: latestTask, error: fetchErr } = await client.from("krv_tasks").select("*").eq("id", taskId).single();
+          if (fetchErr || !latestTask) return;
+          const reviews = latestTask.imported_reviews || [];
+          const alreadyAssigned = reviews.find(r => r.assigned_to === userId);
+          if (alreadyAssigned) {
+            setTasks(prev => prev.map(t => t.id === taskId ? latestTask : t));
+            return;
+          }
+          const firstUnused = reviews.find(r => r.status === "Unused" && !r.assigned_to);
+          if (firstUnused) {
+            const nextReviews = reviews.map(r => r.id === firstUnused.id ? { ...r, assigned_to: userId, status: "Assigned" } : r);
+            const { error: updateErr } = await client.from("krv_tasks").update({ imported_reviews: nextReviews }).eq("id", taskId);
+            if (updateErr) return;
+            setTasks(prev => prev.map(t => t.id === taskId ? { ...t, imported_reviews: nextReviews } : t));
+          }
+        } catch (err) {
+          console.error("autoAssignTaskReview critical error:", err);
+        }
+      };
+
+      const handleLogout = () => {
+        localStorage.removeItem("krv-current-user-session");
+        window.location.href = "login.html";
+      };
+
+      if (isDbLoading || !currentUser) {
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto"></div>
+              <span className="block text-xs font-bold uppercase tracking-widest text-slate-400 animate-pulse">Loading Candidate Portal...</span>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <CandidatePanel
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          currentUser={currentUser}
+          setCurrentUser={setCurrentUser}
+          users={users}
+          setUsers={setUsers}
+          tasks={tasks}
+          setTasks={setTasks}
+          submissions={submissions}
+          setSubmissions={setSubmissions}
+          kycRecords={kycRecords}
+          setKycRecords={setKycRecords}
+          withdrawals={withdrawals}
+          setWithdrawals={setWithdrawals}
+          tickets={tickets}
+          setTickets={setTickets}
+          notifications={notifications}
+          setNotifications={setNotifications}
+          handleLogout={handleLogout}
+          theme={theme}
+          setTheme={setTheme}
+          triggerToast={triggerToast}
+          autoAssignTaskReview={autoAssignTaskReview}
+        />
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<CandidatePanelContainer />);
+  </script>
+</body>
+</html>
