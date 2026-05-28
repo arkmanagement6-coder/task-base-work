@@ -1525,9 +1525,225 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
         </div>
       );
     }
-    
-    // (Inserted below from index.html)
-    
+
+    // ==========================================
+    // MODULE 8: ADMIN CONTROL PANEL
+    // ==========================================
+    function AdminPanel({
+      currentPage, setCurrentPage, currentUser, users, setUsers, tasks, setTasks,
+      submissions, setSubmissions, kycRecords, setKycRecords, withdrawals, setWithdrawals,
+      tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, updateWallet,
+      supabaseUrl, setSupabaseUrl, supabaseKey, setSupabaseKey
+    }) {
+      const [sidebarOpen, setSidebarOpen] = useState(true);
+      const [previewImage, setPreviewImage] = useState(null);
+
+      const menuItems = [
+        { id: "admin-dashboard", icon: "home", label: "Dashboard" },
+        { id: "admin-candidates", icon: "profile", label: "Candidates" },
+        { id: "admin-tasks", icon: "tasks", label: "Task CRUD" },
+        { id: "admin-reviews", icon: "check-circle", label: "Task Reviews" },
+        { id: "admin-earnings", icon: "earnings", label: "Earnings Control" },
+        { id: "admin-kyc", icon: "kyc", label: "KYC Documents" },
+        { id: "admin-reports", icon: "reports", label: "Reports Export" },
+        { id: "admin-settings", icon: "settings", label: "System Settings" }
+      ];
+
+      return (
+        <div className="min-h-screen flex">
+          {/* Admin Sidebar */}
+          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 shrink-0 flex flex-col justify-between transition-all duration-300 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full md:w-0"
+          } fixed md:relative h-full md:h-auto z-30`}>
+            
+            <div>
+              {/* Sidebar Branding */}
+              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20 whitespace-nowrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">K</div>
+                  <div className="min-w-0">
+                    <span className="text-sm font-bold tracking-tight text-white block truncate">KRV Admin</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${supabaseUrl && supabaseKey ? "bg-emerald-500 animate-pulse" : "bg-emerald-500"}`}></span>
+                      <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                        {supabaseUrl && supabaseKey ? "Cloud Connected" : "LocalStorage Mode"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><Icon name="x-circle" className="w-4 h-4" /></button>
+              </div>
+
+              {/* Sidebar Menu */}
+              <nav className="p-4 space-y-1">
+                {menuItems.map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    </div>
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            {/* Logout button */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/15">
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer whitespace-nowrap">
+                <Icon name="logout" className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">Logout</span>
+              </button>
+            </div>
+          </aside>
+
+          {/* Admin Main Window */}
+          <div className="flex-grow flex flex-col min-h-screen overflow-x-hidden">
+            {/* Header */}
+            <header className="px-6 py-4 flex items-center justify-between bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/40">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-350 cursor-pointer">
+                  <Icon name="menu" className="w-4 h-4" />
+                </button>
+                <h1 className="text-xl font-bold tracking-tight capitalize">{currentPage.replace("admin-", "")} Panel</h1>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                  System Administrator
+                </span>
+
+                <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
+                </button>
+
+                <button 
+                  onClick={handleLogout} 
+                  title="Logout Account"
+                  className="px-3.5 py-2.5 rounded-lg bg-rose-600/10 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-500/20 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Icon name="logout" className="w-4 h-4" />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </div>
+            </header>
+
+            {/* Content router */}
+            <div className="p-6 flex-grow overflow-y-auto">
+              
+              {currentPage === "admin-dashboard" && (
+                <AdminOverview 
+                  users={users} 
+                  tasks={tasks} 
+                  submissions={submissions} 
+                  kycRecords={kycRecords} 
+                />
+              )}
+
+              {currentPage === "admin-candidates" && (
+                <AdminCandidates 
+                  users={users} 
+                  setUsers={setUsers} 
+                  kycRecords={kycRecords}
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "admin-tasks" && (
+                <AdminTasks 
+                  tasks={tasks} 
+                  setTasks={setTasks} 
+                  submissions={submissions}
+                  users={users}
+                  triggerToast={triggerToast}
+                  setPreviewImage={setPreviewImage}
+                />
+              )}
+
+              {currentPage === "admin-reviews" && (
+                <AdminReviews 
+                  submissions={submissions} 
+                  setSubmissions={setSubmissions} 
+                  users={users}
+                  setNotifications={setNotifications}
+                  notifications={notifications}
+                  triggerToast={triggerToast}
+                  updateWallet={updateWallet}
+                  setPreviewImage={setPreviewImage}
+                />
+              )}
+
+              {currentPage === "admin-earnings" && (
+                <AdminEarnings 
+                  withdrawals={withdrawals} 
+                  setWithdrawals={setWithdrawals} 
+                  users={users}
+                  setUsers={setUsers}
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "admin-kyc" && (
+                <AdminKyc 
+                  kycRecords={kycRecords} 
+                  setKycRecords={setKycRecords} 
+                  users={users}
+                  setUsers={setUsers}
+                  setNotifications={setNotifications}
+                  notifications={notifications}
+                  triggerToast={triggerToast}
+                  setPreviewImage={setPreviewImage}
+                />
+              )}
+
+              {currentPage === "admin-reports" && (
+                <AdminReports 
+                  users={users} 
+                  submissions={submissions} 
+                  withdrawals={withdrawals}
+                  kycRecords={kycRecords}
+                  tasks={tasks}
+                />
+              )}
+
+              {currentPage === "admin-settings" && (
+                <AdminSettings 
+                  triggerToast={triggerToast}
+                  supabaseUrl={supabaseUrl}
+                  setSupabaseUrl={setSupabaseUrl}
+                  supabaseKey={supabaseKey}
+                  setSupabaseKey={setSupabaseKey}
+                  users={users}
+                  tasks={tasks}
+                  submissions={submissions}
+                  kycRecords={kycRecords}
+                  withdrawals={withdrawals}
+                  tickets={tickets}
+                  notifications={notifications}
+                  setUsers={setUsers}
+                  setTasks={setTasks}
+                  setSubmissions={setSubmissions}
+                  setKycRecords={setKycRecords}
+                  setWithdrawals={setWithdrawals}
+                  setTickets={setTickets}
+                  setNotifications={setNotifications}
+                />
+              )}
+
+            </div>
+          </div>
+          {previewImage && <ImagePreviewModal image={previewImage} onClose={() => setPreviewImage(null)} />}
+        </div>
+      );
+    }
+
     // Main Container App
     function AdminPanelContainer() {
       const [theme, setTheme] = useState(() => localStorage.getItem("krv-theme") || "dark");
