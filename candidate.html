@@ -1337,11 +1337,38 @@
                   </div>
 
                   {tk.replies.map((rep, idx) => (
-                    <div key={idx} className="pl-4 border-l-2 border-blue-500 py-1 text-xs">
+                    <div key={idx} className="pl-4 border-l-2 border-blue-500 py-1 text-xs text-left">
                       <span className="font-bold text-blue-400">{rep.sender}:</span>
                       <span className="text-slate-300 ml-2">{rep.message}</span>
                     </div>
                   ))}
+
+                  {tk.status === "Open" && (
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const input = e.target.elements[`reply-${tk.id}`];
+                        const text = input.value.trim();
+                        if (!text) return;
+                        const updatedReplies = [...(tk.replies || []), { sender: currentUser.name || "Candidate", message: text, timestamp: new Date().toISOString() }];
+                        setTickets(prev => prev.map(t => t.id === tk.id ? { ...t, replies: updatedReplies } : t));
+                        triggerToast("Message sent to Support!");
+                        input.value = "";
+                      }}
+                      className="mt-4 flex gap-2"
+                    >
+                      <input
+                        required
+                        name={`reply-${tk.id}`}
+                        type="text"
+                        placeholder="Type your reply here..."
+                        className="flex-grow px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white bg-slate-900"
+                      />
+                      <button type="submit" className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl cursor-pointer shadow-md transition shrink-0">
+                        Reply
+                      </button>
+                    </form>
+                  )}
                 </div>
               ))
             )}
