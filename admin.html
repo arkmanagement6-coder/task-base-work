@@ -1757,11 +1757,27 @@
                 <td style="padding: 10px 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                   ${s.submitted_link ? '<a href="' + s.submitted_link + '" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 600;">Open Link</a>' : 'N/A'}
                 </td>
-                <td style="padding: 10px 8px;">
-                  ${s.screenshot && !s.screenshot.startsWith("blob:") ? 
-                    '<img src="' + s.screenshot + '" style="max-height: 40px; border-radius: 4px; border: 1px solid #e2e8f0; cursor: pointer;" onclick="window.open(this.src)" />' : 
-                    (s.screenshot && s.screenshot.startsWith("blob:") ? 
-                      '<span style="color:#64748b; font-size:8px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; padding:3px 6px; border-radius:4px; display:inline-block; white-space:nowrap; text-transform:uppercase;">Local Session</span>' : 
+                <td style="padding: 10px 8px; text-align: center;">
+                  ${s.screenshot && !s.screenshot.startsWith("blob:") ? `
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 90px;">
+                      <a href="${s.screenshot}" target="_blank" download="SUB-${s.id.toUpperCase()}_proof.png" style="text-decoration: none; display: inline-block;">
+                        <img src="${s.screenshot}" style="max-height: 45px; max-width: 90px; border-radius: 4px; border: 1px solid #cbd5e1; cursor: pointer; display: block;" />
+                      </a>
+                      <a href="${s.screenshot}" target="_blank" download="SUB-${s.id.toUpperCase()}_proof.png" style="color: #2563eb; text-decoration: none; font-size: 8px; font-weight: bold; background: #eff6ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe; display: inline-block; white-space: nowrap; margin-top: 2px;">
+                        📥 Download
+                      </a>
+                    </div>
+                  ` : 
+                    (s.screenshot && s.screenshot.startsWith("blob:") ? `
+                      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 90px;">
+                        <a href="${s.screenshot}" target="_blank" download="SUB-${s.id.toUpperCase()}_proof.png" style="text-decoration: none; display: inline-block;">
+                          <span style="color:#64748b; font-size:8px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; padding:4px 8px; border-radius:4px; display:inline-block; white-space:nowrap; text-transform:uppercase;">Local Session</span>
+                        </a>
+                        <a href="${s.screenshot}" target="_blank" download="SUB-${s.id.toUpperCase()}_proof.png" style="color: #475569; text-decoration: none; font-size: 7px; font-weight: bold; background: #f1f5f9; padding: 2px 4px; border-radius: 3px; border: 1px solid #cbd5e1; display: inline-block; white-space: nowrap; margin-top: 1px;">
+                          Try Download
+                        </a>
+                      </div>
+                    ` : 
                       '<span style="color:#94a3b8; font-style:italic;">No Image</span>'
                     )
                   }
