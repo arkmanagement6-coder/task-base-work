@@ -638,8 +638,6 @@
                       <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-1.5 mb-2">KYC Uploaded Files</span>
                       <div className="grid grid-cols-3 gap-3">
                         {[
-                          { label: "Aadhaar Front", img: bankRecord.aadhaar_front },
-                          { label: "Aadhaar Back", img: bankRecord.aadhaar_back },
                           { label: "Selfie Image", img: bankRecord.selfie }
                         ].map((doc, idx) => (
                           <div key={idx} className="space-y-1 text-center">
@@ -1399,7 +1397,7 @@
           id: "n" + (notifications.length + 1),
           user_id: kyc.user_id,
           title: "KYC Verified Successfully!",
-          message: "Congratulations! Your bank details and Aadhaar identity cards are approved. You can now browse tasks.",
+          message: "Congratulations! Your bank details and verification selfie are approved. You can now browse tasks.",
           date: new Date().toISOString().split('T')[0]
         };
         setNotifications([...notifications, newNotif]);
@@ -1491,8 +1489,6 @@
                         <h5 className="font-bold text-xs text-slate-400 uppercase">Documents</h5>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           {[
-                            { label: "Aadhaar Front", img: k.aadhaar_front },
-                            { label: "Aadhaar Back", img: k.aadhaar_back },
                             { label: "Selfie Image", img: k.selfie }
                           ].map((doc, idx) => (
                             <div key={idx} className="space-y-1.5 text-center">

@@ -403,7 +403,7 @@
               <h3 className="text-xl font-bold text-white tracking-tight">Earning Tasks Locked</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
                 {currentUser.kyc_status === "Pending" ? (
-                  "Your KYC Verification is currently Under Review. Our administration team is auditing your bank account details and Aadhaar cards. Tasks will unlock immediately once approved (usually reviewed within 24 hours)."
+                  "Your KYC Verification is currently Under Review. Our administration team is auditing your bank account details and verification selfie. Tasks will unlock immediately once approved (usually reviewed within 24 hours)."
                 ) : currentUser.kyc_status === "Rejected" ? (
                   "Your KYC Verification was Rejected by the administrator. Please navigate to the KYC Verification menu to inspect the rejection reason, update details, and re-submit to restore task access."
                 ) : (
@@ -424,7 +424,7 @@
               
               <div className="flex items-center gap-2.5">
                 <Icon name="check-circle" className="w-4 h-4 text-emerald-500" />
-                <span className="text-left text-[11px]">Submit bank accounts & Aadhaar files</span>
+                <span className="text-left text-[11px]">Submit bank accounts & Selfie details</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <Icon name="clock" className={`w-4 h-4 ${currentUser.kyc_status === "Pending" ? "text-amber-500" : "text-slate-500"}`} />
@@ -629,8 +629,8 @@
           account_number: bankForm.accNumber,
           bank_name: bankForm.bank,
           ifsc: bankForm.ifsc,
-          aadhaar_front: myKyc ? myKyc.aadhaar_front : "assets/dashboard_preview.png",
-          aadhaar_back: myKyc ? myKyc.aadhaar_back : "assets/dashboard_preview.png",
+          aadhaar_front: myKyc ? myKyc.aadhaar_front : "",
+          aadhaar_back: myKyc ? myKyc.aadhaar_back : "",
           selfie: myKyc ? myKyc.selfie : "assets/krv_logo.png",
           status: "Pending"
         };
@@ -804,13 +804,11 @@
         ifsc: myKyc ? myKyc.ifsc : ""
       });
 
-      const [previews, setPreviews] = useState({ aadhaarFront: null, aadhaarBack: null, selfie: null });
+      const [previews, setPreviews] = useState({ selfie: null });
 
       useEffect(() => {
         if (myKyc) {
           setPreviews({
-            aadhaarFront: myKyc.aadhaar_front,
-            aadhaarBack: myKyc.aadhaar_back,
             selfie: myKyc.selfie
           });
         }
@@ -825,8 +823,8 @@
 
       const handleSubmit = (e) => {
         e.preventDefault();
-        if (!previews.aadhaarFront || !previews.aadhaarBack || !previews.selfie) {
-          triggerToast("Please upload all Aadhaar documents and Selfie.", "error");
+        if (!previews.selfie) {
+          triggerToast("Please upload your Verification Selfie.", "error");
           return;
         }
 
@@ -837,8 +835,8 @@
           account_number: form.accNumber,
           bank_name: form.bank,
           ifsc: form.ifsc,
-          aadhaar_front: previews.aadhaarFront,
-          aadhaar_back: previews.aadhaarBack,
+          aadhaar_front: myKyc ? myKyc.aadhaar_front : "",
+          aadhaar_back: myKyc ? myKyc.aadhaar_back : "",
           selfie: previews.selfie,
           status: "Pending"
         };
@@ -882,8 +880,6 @@
                 <h4 className="font-bold text-sm text-slate-300">Submitted Documents</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {[
-                    { label: "Aadhaar Card Front", img: previews.aadhaarFront },
-                    { label: "Aadhaar Card Back", img: previews.aadhaarBack },
                     { label: "Verification Selfie", img: previews.selfie }
                   ].map((doc, idx) => (
                     <div key={idx} className="space-y-2">
@@ -954,8 +950,6 @@
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
-                  { field: "aadhaarFront", label: "Aadhaar Card Front" },
-                  { field: "aadhaarBack", label: "Aadhaar Card Back" },
                   { field: "selfie", label: "Verification Selfie" }
                 ].map(item => (
                   <div key={item.field} className="space-y-2">
@@ -967,7 +961,7 @@
                       ) : (
                         <div className="space-y-1">
                           <Icon name="upload" className="w-5 h-5 mx-auto text-slate-400" />
-                          <span className="block text-[10px] text-slate-400 font-bold uppercase">Upload File</span>
+                          <span className="block text-[10px] text-slate-400 font-bold uppercase">Upload Selfie</span>
                         </div>
                       )}
                     </div>
@@ -1519,7 +1513,7 @@
                       <span>
                         {currentUser.kyc_status === "Rejected" 
                           ? "Your KYC documents were rejected by admin. Please update details." 
-                          : "Upload Aadhaar details and Selfie to unlock task catalog submits."}
+                          : "Upload Bank and Selfie details to unlock task catalog submits."}
                       </span>
                     </div>
                   </div>
