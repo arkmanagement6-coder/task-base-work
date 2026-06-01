@@ -1755,10 +1755,10 @@
                 </td>
                 <td style="padding: 10px 8px; white-space: nowrap;">${s.date || 'N/A'}</td>
                 <td style="padding: 10px 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                  ${s.submitted_link ? `<a href="${s.submitted_link}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 600;">Open Link</a>` : 'N/A'}
+                  ${s.submitted_link ? '<a href="' + s.submitted_link + '" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 600;">Open Link</a>' : 'N/A'}
                 </td>
                 <td style="padding: 10px 8px;">
-                  ${s.screenshot ? `<img src="${s.screenshot}" style="max-height: 40px; border-radius: 4px; border: 1px solid #e2e8f0; cursor: pointer;" onclick="window.open(this.src)" />` : 'N/A'}
+                  ${s.screenshot ? '<img src="' + s.screenshot + '" style="max-height: 40px; border-radius: 4px; border: 1px solid #e2e8f0; cursor: pointer;" onclick="window.open(this.src)" />' : 'N/A'}
                 </td>
                 <td style="padding: 10px 8px; max-width: 120px; word-break: break-word;">${s.remarks || '-'}</td>
                 <td style="padding: 10px 8px; max-width: 120px; word-break: break-word; color: #b91c1c;">${s.rejection_reason || '-'}</td>
