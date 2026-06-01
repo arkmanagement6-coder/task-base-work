@@ -1649,40 +1649,209 @@
       const handleExport = (format) => {
         let content = "";
         let filename = `krv_admin_workforce_report_${new Date().toISOString().split('T')[0]}`;
+        
         if (format === "csv") {
-          content = "Sub ID,Candidate ID,Candidate Name,Candidate Mobile,Task Title,Price,Status,Date\n" + 
+          // Full-dataset CSV with all database fields
+          content = "Submission ID,Candidate ID,Candidate Name,Mobile Number,Task ID,Task Title,Price (INR),Status,Submission Date,Submitted Proof Link,Screenshot Proof,Video Proof,Remarks,Rejection Reason\n" + 
             filteredList.map(s => {
               const candidate = users.find(u => u.id === s.user_id);
               const task = tasks.find(t => t.id === s.task_id);
-              return `SUB-${s.id.toUpperCase()},USER-${s.user_id.toUpperCase()},"${candidate ? candidate.name : 'N/A'}","${candidate ? candidate.mobile : 'N/A'}","${task ? task.title : 'N/A'}",${s.amount},${s.review_status},${s.date}`;
+              
+              const escapeCsv = (str) => {
+                if (str === undefined || str === null) return '""';
+                return `"${str.toString().replace(/"/g, '""')}"`;
+              };
+              
+              return [
+                escapeCsv(`SUB-${s.id.toUpperCase()}`),
+                escapeCsv(`USER-${s.user_id.toUpperCase()}`),
+                escapeCsv(candidate ? candidate.name : 'N/A'),
+                escapeCsv(candidate ? candidate.mobile : 'N/A'),
+                escapeCsv(`TASK-${s.task_id.toUpperCase()}`),
+                escapeCsv(task ? task.title : 'N/A'),
+                s.amount || 0,
+                escapeCsv(s.review_status),
+                escapeCsv(s.date || 'N/A'),
+                escapeCsv(s.submitted_link || 'N/A'),
+                escapeCsv(s.screenshot || 'N/A'),
+                escapeCsv(s.video || 'N/A'),
+                escapeCsv(s.remarks || 'N/A'),
+                escapeCsv(s.rejection_reason || 'N/A')
+              ].join(",");
             }).join("\n");
+            
           filename += ".csv";
+          // Prepend UTF-8 BOM so Excel opens it with proper encoding
+          const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          
         } else if (format === "excel") {
-          content = "Sub ID\tCandidate ID\tCandidate Name\tCandidate Mobile\tTask Title\tPrice\tStatus\tDate\n" + 
+          // Full-dataset clean TSV formatted for Excel XLS
+          content = "Submission ID\tCandidate ID\tCandidate Name\tMobile Number\tTask ID\tTask Title\tPrice (INR)\tStatus\tSubmission Date\tSubmitted Proof Link\tScreenshot Proof\tVideo Proof\tRemarks\tRejection Reason\n" + 
             filteredList.map(s => {
               const candidate = users.find(u => u.id === s.user_id);
               const task = tasks.find(t => t.id === s.task_id);
-              return `SUB-${s.id.toUpperCase()}\tUSER-${s.user_id.toUpperCase()}\t${candidate ? candidate.name : 'N/A'}\t${candidate ? candidate.mobile : 'N/A'}\t${task ? task.title : 'N/A'}\t${s.amount}\t${s.review_status}\t${s.date}`;
+              
+              const cleanTsv = (str) => {
+                if (str === undefined || str === null || str === "") return 'N/A';
+                return str.toString().replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
+              };
+              
+              return [
+                `SUB-${s.id.toUpperCase()}`,
+                `USER-${s.user_id.toUpperCase()}`,
+                cleanTsv(candidate ? candidate.name : 'N/A'),
+                cleanTsv(candidate ? candidate.mobile : 'N/A'),
+                `TASK-${s.task_id.toUpperCase()}`,
+                cleanTsv(task ? task.title : 'N/A'),
+                s.amount || 0,
+                cleanTsv(s.review_status),
+                cleanTsv(s.date || 'N/A'),
+                cleanTsv(s.submitted_link || 'N/A'),
+                cleanTsv(s.screenshot || 'N/A'),
+                cleanTsv(s.video || 'N/A'),
+                cleanTsv(s.remarks || 'N/A'),
+                cleanTsv(s.rejection_reason || 'N/A')
+              ].join("\t");
             }).join("\n");
+            
           filename += ".xls";
+          // Prepend UTF-8 BOM for perfect Excel compatibility
+          const blob = new Blob(["\uFEFF" + content], { type: "application/vnd.ms-excel;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          
         } else {
-          content = "KRV ADMIN MASTER AUDIT REPORT\n=============================\n" +
-            `Generated: ${new Date().toLocaleString()}\n` +
-            `Total entries: ${filteredList.length}\n\n` +
-            filteredList.map(s => {
-              const candidate = users.find(u => u.id === s.user_id);
-              const task = tasks.find(t => t.id === s.task_id);
-              return `[SUB-${s.id.toUpperCase()}] USER-${s.user_id.toUpperCase()} | ${candidate ? candidate.name : 'N/A'} (Mob: ${candidate ? candidate.mobile : 'N/A'}) | ${task ? task.title : 'N/A'} | Price: Rs.${s.amount} | Status: ${s.review_status} | Date: ${s.date}`;
-            }).join("\n");
-          filename += ".pdf";
-        }
+          // Create high-fidelity printable HTML report window to save as actual formatted PDF
+          const printWindow = window.open("", "_blank");
+          
+          const rowsHtml = filteredList.map((s, idx) => {
+            const candidate = users.find(u => u.id === s.user_id);
+            const task = tasks.find(t => t.id === s.task_id);
+            return `
+              <tr style="border-bottom: 1px solid #e2e8f0; font-size: 10px; color: #334155;">
+                <td style="padding: 10px 8px; font-weight: bold;">SUB-${s.id.toUpperCase()}</td>
+                <td style="padding: 10px 8px;">USER-${s.user_id.toUpperCase()}</td>
+                <td style="padding: 10px 8px; font-weight: 700; color: #0f172a;">${candidate ? candidate.name : 'N/A'}</td>
+                <td style="padding: 10px 8px; white-space: nowrap;">${candidate ? candidate.mobile : 'N/A'}</td>
+                <td style="padding: 10px 8px;">${task ? task.title : 'N/A'}</td>
+                <td style="padding: 10px 8px; font-weight: bold; color: #16a34a;">₹${s.amount}</td>
+                <td style="padding: 10px 8px;">
+                  <span style="padding: 2px 6px; font-size: 8px; font-weight: bold; border-radius: 4px; border: 1px solid;
+                    background-color: ${s.review_status === 'Approved' ? '#dcfce7' : s.review_status === 'Rejected' ? '#fee2e2' : '#fef9c3'};
+                    border-color: ${s.review_status === 'Approved' ? '#bbf7d0' : s.review_status === 'Rejected' ? '#fecaca' : '#fef08a'};
+                    color: ${s.review_status === 'Approved' ? '#166534' : s.review_status === 'Rejected' ? '#991b1b' : '#854d0e'}; text-transform: uppercase;">
+                    ${s.review_status}
+                  </span>
+                </td>
+                <td style="padding: 10px 8px; white-space: nowrap;">${s.date || 'N/A'}</td>
+                <td style="padding: 10px 8px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  ${s.submitted_link ? `<a href="${s.submitted_link}" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: 600;">Open Link</a>` : 'N/A'}
+                </td>
+                <td style="padding: 10px 8px;">
+                  ${s.screenshot ? `<img src="${s.screenshot}" style="max-height: 40px; border-radius: 4px; border: 1px solid #e2e8f0; cursor: pointer;" onclick="window.open(this.src)" />` : 'N/A'}
+                </td>
+                <td style="padding: 10px 8px; max-width: 120px; word-break: break-word;">${s.remarks || '-'}</td>
+                <td style="padding: 10px 8px; max-width: 120px; word-break: break-word; color: #b91c1c;">${s.rejection_reason || '-'}</td>
+              </tr>
+            `;
+          }).join("");
 
-        const blob = new Blob([content], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        a.click();
+          const printHtml = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>KRV Master Submission Audit Ledger</title>
+              <meta charset="utf-8">
+              <style>
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;700&display=swap');
+                body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #1e293b; margin: 40px; background: #ffffff; }
+                table { width: 100%; border-collapse: collapse; margin-top: 25px; page-break-inside: auto; }
+                tr { page-break-inside: avoid; page-break-after: auto; }
+                th { background-color: #f8fafc; text-align: left; padding: 12px 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #f1f5f9; padding-bottom: 24px; }
+                .logo-container { display: flex; align-items: center; gap: 10px; }
+                .logo-box { width: 32px; height: 32px; background: #2563eb; border-radius: 8px; color: white; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 18px; }
+                .logo-text { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 20px; color: #0f172a; letter-spacing: -0.5px; }
+                .meta-box { font-size: 11px; color: #64748b; text-align: right; line-height: 1.6; }
+                .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; font-size: 9px; color: #94a3b8; text-align: center; font-weight: 500; }
+                .alert-banner { margin: 20px 0; padding: 12px 18px; background-color: #f0fdf4; color: #15803d; font-size: 11px; border-radius: 8px; border: 1px solid #bbf7d0; font-weight: 600; display: flex; items-center: center; gap: 8px; }
+                @media print {
+                  body { margin: 15px; }
+                  .alert-banner { display: none; }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <div class="logo-container">
+                  <div class="logo-box">K</div>
+                  <div>
+                    <div class="logo-text">KRV WORKFORCE REPORT</div>
+                    <div style="font-size: 11px; color: #64748b; font-weight: 500; margin-top: 2px;">Master Audit Ledger & Verification Ledger</div>
+                  </div>
+                </div>
+                <div class="meta-box">
+                  <div><strong>Generated On:</strong> ${new Date().toLocaleString()}</div>
+                  <div><strong>Records Exported:</strong> ${filteredList.length} rows</div>
+                  <div><strong>Audited Status:</strong> ${filterStatus}</div>
+                </div>
+              </div>
+
+              <div class="alert-banner">
+                <span>🖨️</span>
+                <span>The system has automatically loaded your printable master list. Set <strong>Destination</strong> to <strong>"Save as PDF"</strong> in your print window to generate an actual premium PDF report file containing links and screenshots.</span>
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>Sub ID</th>
+                    <th>Candidate ID</th>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Task Title</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Proof Link</th>
+                    <th>Screenshot</th>
+                    <th>Remarks</th>
+                    <th>Rejection Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                </tbody>
+              </table>
+
+              <div class="footer">
+                KRV Administration Audit Log • Standalone Verification Record • Secure System Generated Document
+              </div>
+
+              <script>
+                window.onload = function() {
+                  setTimeout(function() {
+                    window.print();
+                  }, 800);
+                }
+              </script>
+            </body>
+            </html>
+          `;
+          
+          printWindow.document.write(printHtml);
+          printWindow.document.close();
+        }
       };
 
       return (
