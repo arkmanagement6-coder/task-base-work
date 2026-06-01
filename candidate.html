@@ -1373,7 +1373,6 @@
         { id: "tasks", icon: "tasks", label: "Tasks" },
         { id: "earnings", icon: "earnings", label: "Earnings" },
         { id: "reports", icon: "reports", label: "Reports" },
-        { id: "kyc", icon: "kyc", label: "KYC Verification", alert: (currentUser.kyc_status !== "Approved") },
         { id: "profile", icon: "profile", label: "Profile" },
         { id: "support", icon: "support", label: "Support Tickets" }
       ];
@@ -1512,28 +1511,23 @@
             <div className="p-6 flex-grow overflow-y-auto">
               
               {/* KYC global banner alert if pending/rejected */}
-              {currentUser.kyc_status !== "Approved" && currentPage !== "kyc" && (
-                <div className={`p-4 rounded-xl mb-6 border flex items-center justify-between ${
+              {currentUser.kyc_status !== "Approved" && (
+                <div className={`p-4 rounded-xl mb-6 border flex items-center gap-3 ${
                   currentUser.kyc_status === "Rejected" 
                     ? "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400" 
                     : "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
                 }`}>
-                  <div className="flex items-center gap-3">
-                    <Icon name="alert-circle" className="w-5 h-5" />
-                    <div className="text-xs">
-                      <span className="font-bold block">
-                        {currentUser.kyc_status === "Rejected" ? "KYC Verification Rejected!" : "KYC Verification Required"}
-                      </span>
-                      <span>
-                        {currentUser.kyc_status === "Rejected" 
-                          ? "Your KYC documents were rejected by admin. Please update details." 
-                          : "Upload Bank and Selfie details to unlock task catalog submits."}
-                      </span>
-                    </div>
+                  <Icon name="alert-circle" className="w-5 h-5 shrink-0" />
+                  <div className="text-xs">
+                    <span className="font-bold block text-sm">
+                      {currentUser.kyc_status === "Rejected" ? "Profile Activation Rejected!" : "Profile Activation Awaiting Approval"}
+                    </span>
+                    <span className="block mt-0.5 leading-relaxed">
+                      {currentUser.kyc_status === "Rejected" 
+                        ? "Your account activation was rejected by the administrator. Please contact system support or your agency agent." 
+                        : "Your candidate profile is currently awaiting administrator review and approval. All earning tasks will unlock automatically once approved."}
+                    </span>
                   </div>
-                  <button onClick={() => setCurrentPage("kyc")} className="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer">
-                    Verify KYC
-                  </button>
                 </div>
               )}
 

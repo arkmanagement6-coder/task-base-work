@@ -214,8 +214,21 @@
             wallet_balance: 0,
             earnings_pending: 0,
             earnings_paid: 0,
-            kyc_status: "Not Submitted",
+            kyc_status: "Pending",
             role: "candidate"
+          };
+
+          const newKyc = {
+            id: "k" + Date.now(),
+            user_id: newId,
+            account_holder: formData.name,
+            account_number: "",
+            bank_name: "",
+            ifsc: "",
+            aadhaar_front: "",
+            aadhaar_back: "",
+            selfie: "",
+            status: "Pending"
           };
 
           const { error: insertErr } = await client.from("krv_users").insert([newUser]);
@@ -223,6 +236,8 @@
             triggerToast("Failed to create account in cloud.", "error");
             console.error("Cloud insert error:", insertErr);
           } else {
+            // Auto create candidate kyc profile in database for direct admin approval
+            await client.from("krv_kyc").insert([newKyc]);
             triggerToast("Account created successfully! Redirecting to login...");
             setTimeout(() => {
               window.location.href = "login.html";
