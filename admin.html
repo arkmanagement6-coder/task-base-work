@@ -1628,12 +1628,16 @@
           let matchTask = true;
           if (taskSearchTerm.trim() !== "") {
             const term = taskSearchTerm.toLowerCase().trim();
+            const directId = s.task_id ? s.task_id.toLowerCase() : "";
+            const directPrefixed = s.task_id ? `task-${s.task_id.toLowerCase()}` : "";
+            const directMatch = directId.includes(term) || directPrefixed.includes(term);
+            
             if (task) {
               const titleMatch = task.title ? task.title.toLowerCase().includes(term) : false;
               const idMatch = task.id ? `task-${task.id.toLowerCase()}`.includes(term) || task.id.toLowerCase().includes(term) : false;
-              matchTask = titleMatch || idMatch;
+              matchTask = titleMatch || idMatch || directMatch;
             } else {
-              matchTask = false;
+              matchTask = directMatch;
             }
           }
           
