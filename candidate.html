@@ -345,7 +345,14 @@
       const handleImageMockUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
-          setScreenshotFile(URL.createObjectURL(file));
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+            setScreenshotFile(reader.result);
+          };
+          reader.onerror = () => {
+            triggerToast("Failed to read image file.", "error");
+          };
         }
       };
 
@@ -817,7 +824,14 @@
       const handleFilePreview = (e, field) => {
         const file = e.target.files[0];
         if (file) {
-          setPreviews({ ...previews, [field]: URL.createObjectURL(file) });
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => {
+            setPreviews(prev => ({ ...prev, [field]: reader.result }));
+          };
+          reader.onerror = () => {
+            triggerToast("Failed to read image file.", "error");
+          };
         }
       };
 
