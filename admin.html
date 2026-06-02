@@ -141,9 +141,9 @@
     ];
 
     const DEFAULT_KYC = [
-      { id: "k1", user_id: "c1", account_holder: "Rahul Sharma", account_number: "998877665544", bank_name: "HDFC Bank", ifsc: "HDFC0001234", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "assets/krv_logo.png", status: "Approved" },
-      { id: "k2", user_id: "c2", account_holder: "Priya Patel", account_number: "112233445566", bank_name: "SBI Bank", ifsc: "SBIN0007890", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "assets/krv_logo.png", status: "Pending" },
-      { id: "k3", user_id: "c3", account_holder: "Amit Verma", account_number: "554433221100", bank_name: "ICICI Bank", ifsc: "ICIC0009876", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "assets/krv_logo.png", status: "Rejected", rejection_reason: "Selfie did not match Aadhaar picture clear details." }
+      { id: "k1", user_id: "c1", account_holder: "Rahul Sharma", account_number: "998877665544", bank_name: "HDFC Bank", ifsc: "HDFC0001234", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "", status: "Approved" },
+      { id: "k2", user_id: "c2", account_holder: "Priya Patel", account_number: "112233445566", bank_name: "SBI Bank", ifsc: "SBIN0007890", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "", status: "Pending" },
+      { id: "k3", user_id: "c3", account_holder: "Amit Verma", account_number: "554433221100", bank_name: "ICICI Bank", ifsc: "ICIC0009876", aadhaar_front: "assets/dashboard_preview.png", aadhaar_back: "assets/dashboard_preview.png", selfie: "", status: "Rejected", rejection_reason: "Selfie did not match Aadhaar picture clear details." }
     ];
 
     const DEFAULT_WITHDRAWALS = [
@@ -698,14 +698,26 @@
                       <div className="grid grid-cols-3 gap-3">
                         {[
                           { label: "Selfie Image", img: bankRecord.selfie }
-                        ].map((doc, idx) => (
-                          <div key={idx} className="space-y-1 text-center">
-                            <span className="block text-[8px] text-slate-500 uppercase font-bold">{doc.label}</span>
-                            <button type="button" onClick={() => setPreviewImage && setPreviewImage({ title: `${viewCandidate.name}: ${doc.label}`, url: doc.img })} className="w-full border border-slate-800 rounded-lg p-1 bg-slate-950/20 aspect-video flex items-center justify-center overflow-hidden hover:scale-[1.03] transition cursor-zoom-in">
-                              <img src={doc.img} alt={doc.label} onError={(e) => { e.target.src = "assets/krv_logo.png"; }} className="max-h-full max-w-full rounded object-cover" />
-                            </button>
-                          </div>
-                        ))}
+                        ].map((doc, idx) => {
+                          const hasSelfie = doc.img && doc.img !== "assets/krv_logo.png" && doc.img !== "";
+                          return (
+                            <div key={idx} className="space-y-1 text-center">
+                              <span className="block text-[8px] text-slate-500 uppercase font-bold">{doc.label}</span>
+                              {hasSelfie ? (
+                                <button type="button" onClick={() => setPreviewImage && setPreviewImage({ title: `${viewCandidate.name}: ${doc.label}`, url: doc.img })} className="w-full border border-slate-800 rounded-lg p-1 bg-slate-950/20 aspect-video flex items-center justify-center overflow-hidden hover:scale-[1.03] transition cursor-zoom-in">
+                                  <img src={doc.img} alt={doc.label} className="max-h-full max-w-full rounded object-cover" />
+                                </button>
+                              ) : (
+                                <div className="w-full border border-dashed border-slate-800 rounded-lg p-2 bg-slate-950/20 aspect-video flex flex-col items-center justify-center text-slate-500">
+                                  <svg className="w-5 h-5 text-slate-700 mb-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                  <span className="text-[8px] uppercase font-bold text-slate-500">No Selfie</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -1549,14 +1561,26 @@
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           {[
                             { label: "Selfie Image", img: k.selfie }
-                          ].map((doc, idx) => (
-                            <div key={idx} className="space-y-1.5 text-center">
-                              <span className="block text-[10px] text-slate-500 uppercase font-bold">{doc.label}</span>
-                              <button onClick={() => setPreviewImage && setPreviewImage({ title: doc.label, url: doc.img })} className="w-full border border-slate-800 rounded-lg p-1 bg-slate-950/20 aspect-video flex items-center justify-center overflow-hidden hover:scale-105 transition cursor-zoom-in">
-                                <img src={doc.img} alt={doc.label} onError={(e) => { e.target.src = "assets/krv_logo.png"; }} className="max-h-full max-w-full rounded object-cover" />
-                              </button>
-                            </div>
-                          ))}
+                          ].map((doc, idx) => {
+                            const hasSelfie = doc.img && doc.img !== "assets/krv_logo.png" && doc.img !== "";
+                            return (
+                              <div key={idx} className="space-y-1.5 text-center">
+                                <span className="block text-[10px] text-slate-500 uppercase font-bold">{doc.label}</span>
+                                {hasSelfie ? (
+                                  <button onClick={() => setPreviewImage && setPreviewImage({ title: doc.label, url: doc.img })} className="w-full border border-slate-800 rounded-lg p-1 bg-slate-950/20 aspect-video flex items-center justify-center overflow-hidden hover:scale-105 transition cursor-zoom-in">
+                                    <img src={doc.img} alt={doc.label} className="max-h-full max-w-full rounded object-cover" />
+                                  </button>
+                                ) : (
+                                  <div className="w-full border border-dashed border-slate-800 rounded-lg p-3 bg-slate-950/20 aspect-video flex flex-col items-center justify-center text-slate-500">
+                                    <svg className="w-6 h-6 text-slate-700 mb-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                    <span className="text-[10px] uppercase font-bold text-slate-550">No Selfie Uploaded</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>

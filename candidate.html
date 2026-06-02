@@ -638,7 +638,7 @@
           ifsc: bankForm.ifsc,
           aadhaar_front: myKyc ? myKyc.aadhaar_front : "",
           aadhaar_back: myKyc ? myKyc.aadhaar_back : "",
-          selfie: myKyc ? myKyc.selfie : "assets/krv_logo.png",
+          selfie: myKyc ? myKyc.selfie : "",
           status: "Pending"
         };
 
@@ -899,7 +899,14 @@
                     <div key={idx} className="space-y-2">
                       <span className="block text-xs font-bold uppercase text-slate-400">{doc.label}</span>
                       <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-2 bg-slate-900/40 aspect-video flex items-center justify-center overflow-hidden">
-                        <img src={doc.img} alt={doc.label} onClick={() => setPreviewImage && setPreviewImage({ title: doc.label, url: doc.img })} onError={(e) => { e.target.src = "assets/krv_logo.png"; }} className="max-h-full max-w-full rounded object-cover cursor-zoom-in hover:scale-105 transition" />
+                        {doc.img && doc.img !== "assets/krv_logo.png" ? (
+                          <img src={doc.img} alt={doc.label} onClick={() => setPreviewImage && setPreviewImage({ title: doc.label, url: doc.img })} className="max-h-full max-w-full rounded object-cover cursor-zoom-in hover:scale-105 transition" />
+                        ) : (
+                          <div className="text-center text-slate-500 text-xs py-4 flex flex-col items-center justify-center">
+                            <Icon name="profile" className="w-8 h-8 text-slate-600 mb-1" />
+                            <span>No Selfie Uploaded</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -970,8 +977,8 @@
                     <label className="block text-xs font-bold uppercase text-slate-400">{item.label}</label>
                     <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative h-36 flex items-center justify-center bg-white/5">
                       <input disabled={currentUser.kyc_status === "Approved"} type="file" accept="image/*" onChange={(e) => handleFilePreview(e, item.field)} className="absolute inset-0 opacity-0 cursor-pointer" />
-                      {previews[item.field] ? (
-                        <img src={previews[item.field]} onError={(e) => { e.target.src = "assets/krv_logo.png"; }} className="max-h-full max-w-full rounded object-cover" />
+                      {previews[item.field] && previews[item.field] !== "assets/krv_logo.png" ? (
+                        <img src={previews[item.field]} className="max-h-full max-w-full rounded object-cover" />
                       ) : (
                         <div className="space-y-1">
                           <Icon name="upload" className="w-5 h-5 mx-auto text-slate-400" />
