@@ -508,6 +508,8 @@
       const [editCandidate, setEditCandidate] = React.useState(null);
       const [searchQuery, setSearchQuery] = React.useState("");
       const [statusFilter, setStatusFilter] = React.useState("All");
+      const [startDate, setStartDate] = React.useState("");
+      const [endDate, setEndDate] = React.useState("");
       const [editForm, setEditForm] = React.useState({
         name: "", email: "", mobile: "", city: "", pincode: "",
         referral_code: "", wallet_balance: 0, earnings_pending: 0,
@@ -794,6 +796,11 @@
               if (c.kyc_status !== "Blocked") return false;
             }
 
+            const regDateFull = getRegDate(c);
+            const regDate = regDateFull ? regDateFull.split('T')[0].split(' ')[0] : "";
+            if (startDate && regDate < startDate) return false;
+            if (endDate && regDate > endDate) return false;
+
             if (searchQuery.trim() !== "") {
               const term = searchQuery.toLowerCase().trim();
               const matchName = c.name && c.name.toLowerCase().includes(term);
@@ -813,7 +820,7 @@
             }
             return dateB.localeCompare(dateA);
           });
-      }, [candidates, searchQuery, statusFilter, submissions, getRegDate]);
+      }, [candidates, searchQuery, statusFilter, submissions, getRegDate, startDate, endDate]);
 
       const handleBlockUser = (id) => {
         setUsers(prev => prev.map(u => {
@@ -919,6 +926,33 @@
                   <option value="Activation Requested">Activation Requests</option>
                   <option value="Blocked">Blocked Only</option>
                 </select>
+
+                <div className="flex items-center gap-1 bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 shrink-0">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase mr-1">From</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="bg-transparent border-0 outline-none text-xs text-white focus:outline-none focus:ring-0 p-0 w-28"
+                  />
+                  <span className="text-[9px] font-bold text-slate-400 uppercase mx-1">To</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="bg-transparent border-0 outline-none text-xs text-white focus:outline-none focus:ring-0 p-0 w-28"
+                  />
+                  {(startDate || endDate) && (
+                    <button
+                      type="button"
+                      onClick={() => { setStartDate(""); setEndDate(""); }}
+                      className="text-slate-400 hover:text-white transition ml-1.5 cursor-pointer"
+                      title="Clear Dates"
+                    >
+                      <Icon name="x-circle" className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
 
                 <div className="relative w-full sm:w-80">
                   <input
