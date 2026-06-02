@@ -2246,6 +2246,28 @@
         }
       }, [users, currentUser]);
 
+      // Auto-correct and recalculate earnings_pending based on submissions ground truth
+      useEffect(() => {
+        if (isDbLoading) return;
+        
+        let needsUpdate = false;
+        const nextUsers = users.map(u => {
+          const actualPending = submissions
+            .filter(s => s.user_id === u.id && (s.review_status === "Pending" || s.review_status === "Under Review"))
+            .reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+            
+          if (u.earnings_pending !== actualPending) {
+            needsUpdate = true;
+            return { ...u, earnings_pending: actualPending };
+          }
+          return u;
+        });
+        
+        if (needsUpdate) {
+          setUsers(nextUsers);
+        }
+      }, [submissions, users, isDbLoading]);
+
       // Background cloud sync
       useEffect(() => {
         const saveSecureDb = async () => {
