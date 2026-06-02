@@ -688,6 +688,98 @@
         }));
       };
 
+      const handleExportCandidates = (format) => {
+        let content = "";
+        let filename = `krv_candidates_directory_${new Date().toISOString().split('T')[0]}`;
+        
+        const cleanTsvVal = (str) => {
+          if (str === undefined || str === null || str === "") return "N/A";
+          return str.toString().replace(/\t/g, " ").replace(/\r?\n/g, " ");
+        };
+        
+        const escapeCsvVal = (str) => {
+          if (str === undefined || str === null) return '""';
+          return `"${str.toString().replace(/"/g, '""')}"`;
+        };
+
+        if (format === "csv") {
+          content = "Candidate ID,Name,Email,Mobile,Agent Referral,Registration Date,Today Tasks,Total Tasks,KYC Status,City,Pincode,Wallet Balance (INR),Earnings Pending (INR),Earnings Paid (INR),Activity Status\n" +
+            filteredCandidates.map(c => {
+              const candSubs = submissions.filter(s => s.user_id === c.id);
+              const todayStr = new Date().toISOString().split('T')[0];
+              const todayCount = candSubs.filter(s => s.date === todayStr).length;
+              const totalCount = candSubs.length;
+              const actStatus = getUserActivityStatus(c, submissions, kycRecords);
+              
+              return [
+                escapeCsvVal(`USER-${String(c.id).toUpperCase()}`),
+                escapeCsvVal(c.name),
+                escapeCsvVal(c.email),
+                escapeCsvVal(c.mobile),
+                escapeCsvVal(c.referral_code || "Direct"),
+                escapeCsvVal(getRegDate(c)),
+                todayCount,
+                totalCount,
+                escapeCsvVal(c.kyc_status || "Not Submitted"),
+                escapeCsvVal(c.city || "N/A"),
+                escapeCsvVal(c.pincode || "N/A"),
+                c.wallet_balance || 0,
+                c.earnings_pending || 0,
+                c.earnings_paid || 0,
+                escapeCsvVal(actStatus)
+              ].join(",");
+            }).join("\n");
+            
+          filename += ".csv";
+          const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          triggerToast("Candidates directory CSV exported successfully!");
+          
+        } else if (format === "excel") {
+          content = "Candidate ID\tName\tEmail\tMobile\tAgent Referral\tRegistration Date\tToday Tasks\tTotal Tasks\tKYC Status\tCity\tPincode\tWallet Balance (INR)\tEarnings Pending (INR)\tEarnings Paid (INR)\tActivity Status\n" +
+            filteredCandidates.map(c => {
+              const candSubs = submissions.filter(s => s.user_id === c.id);
+              const todayStr = new Date().toISOString().split('T')[0];
+              const todayCount = candSubs.filter(s => s.date === todayStr).length;
+              const totalCount = candSubs.length;
+              const actStatus = getUserActivityStatus(c, submissions, kycRecords);
+              
+              return [
+                `USER-${String(c.id).toUpperCase()}`,
+                cleanTsvVal(c.name),
+                cleanTsvVal(c.email),
+                cleanTsvVal(c.mobile),
+                cleanTsvVal(c.referral_code || "Direct"),
+                cleanTsvVal(getRegDate(c)),
+                todayCount,
+                totalCount,
+                cleanTsvVal(c.kyc_status || "Not Submitted"),
+                cleanTsvVal(c.city || "N/A"),
+                cleanTsvVal(c.pincode || "N/A"),
+                c.wallet_balance || 0,
+                c.earnings_pending || 0,
+                c.earnings_paid || 0,
+                cleanTsvVal(actStatus)
+              ].join("\t");
+            }).join("\n");
+            
+          filename += ".xls";
+          const blob = new Blob(["\uFEFF" + content], { type: "application/vnd.ms-excel;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          triggerToast("Candidates directory Excel exported successfully!");
+        }
+      };
+
       const filteredCandidates = React.useMemo(() => {
         return candidates
           .filter(c => {
@@ -807,6 +899,15 @@
               </div>
               
               <div className="flex flex-col sm:flex-row gap-3.5 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => handleExportCandidates("excel")}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <Icon name="download" className="w-3.5 h-3.5" />
+                  <span>Export to Excel</span>
+                </button>
+
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
