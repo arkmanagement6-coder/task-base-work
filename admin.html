@@ -1417,7 +1417,10 @@
                       <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
                         <td className="py-3.5 font-bold text-white">
                           <div>USER-{s.user_id.toUpperCase()}</div>
-                          <div className="text-[10px] text-slate-500 font-normal mt-0.5">{worker ? worker.name : "Unknown"}</div>
+                          <div className="text-[10px] text-slate-350 font-normal mt-0.5">{worker ? worker.name : "Unknown"}</div>
+                          {worker && worker.mobile && (
+                            <div className="text-[9px] text-slate-500 font-normal mt-0.5">{worker.mobile}</div>
+                          )}
                         </td>
                         <td className="text-slate-400">TASK-{s.task_id.toUpperCase()}</td>
                       <td className="text-blue-500 max-w-[200px] truncate">{s.submitted_link}</td>
@@ -1440,8 +1443,9 @@
                 {(() => {
                   const worker = users.find(u => u.id === reviewModal.user_id);
                   return worker ? (
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">
-                      Submitted by: <span className="text-blue-400 font-extrabold">{worker.name}</span> (USER-{reviewModal.user_id.toUpperCase()})
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2 flex flex-col gap-0.5">
+                      <div>Submitted by: <span className="text-blue-400 font-extrabold">{worker.name}</span> (USER-{reviewModal.user_id.toUpperCase()})</div>
+                      {worker.mobile && <div className="text-slate-500 font-bold normal-case">Mobile: <span className="text-slate-350">{worker.mobile}</span></div>}
                     </div>
                   ) : null;
                 })()}
