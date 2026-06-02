@@ -703,7 +703,7 @@
         };
 
         if (format === "csv") {
-          content = "Candidate ID,Name,Email,Mobile,Agent Referral,Registration Date,Today Tasks,Total Tasks,KYC Status,City,Pincode,Wallet Balance (INR),Earnings Pending (INR),Earnings Paid (INR),Activity Status\n" +
+          content = "sep=,\nCandidate ID,Name,Email,Mobile,Agent Referral,Registration Date,Today Tasks,Total Tasks,KYC Status,City,Pincode,Wallet Balance (INR),Earnings Pending (INR),Earnings Paid (INR),Activity Status\n" +
             filteredCandidates.map(c => {
               const candSubs = submissions.filter(s => s.user_id === c.id);
               const todayStr = new Date().toISOString().split('T')[0];
@@ -2710,7 +2710,7 @@
         
         if (format === "csv") {
           // Full-dataset CSV with all database fields
-          content = "Submission ID,Candidate ID,Candidate Name,Mobile Number,Task ID,Task Title,Price (INR),Status,Submission Date,Submitted Proof Link,Screenshot Proof,Video Proof,Remarks,Rejection Reason\n" + 
+          content = "sep=,\nSubmission ID,Candidate ID,Candidate Name,Mobile Number,Task ID,Task Title,Price (INR),Status,Submission Date,Submitted Proof Link,Screenshot Proof,Video Proof,Remarks,Rejection Reason\n" + 
             filteredList.map(s => {
               const candidate = users.find(u => u.id === s.user_id);
               const task = tasks.find(t => String(t.id) === String(s.task_id));
