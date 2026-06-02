@@ -2081,7 +2081,11 @@
                 </div>
               </div>
             </div>
-           function AdminReports({ users, submissions, withdrawals, kycRecords, tasks, setPreviewImage }) {
+          )}
+        </div>
+      );
+    }
+    function AdminReports({ users, submissions, withdrawals, kycRecords, tasks, setPreviewImage }) {
       const [filterStatus, setFilterStatus] = useState("All");
       const [activityFilter, setActivityFilter] = useState("All");
       const [searchTerm, setSearchTerm] = useState("");
