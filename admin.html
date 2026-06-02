@@ -1313,7 +1313,7 @@
                   <div>
                     <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-wider mb-4">👥 Candidate Submissions & Work Proofs</h4>
                     {(() => {
-                      const taskSubs = submissions.filter(s => s.task_id === selectedTask.id);
+                      const taskSubs = submissions.filter(s => String(s.task_id) === String(selectedTask.id));
                       if (taskSubs.length === 0) return <p className="text-xs text-slate-500 p-6 border border-dashed border-slate-800 rounded-xl bg-slate-950/10 text-center">No submissions.</p>;
                       return (
                         <div className="overflow-x-auto border border-slate-800/80 rounded-xl bg-slate-950/40 text-xs">
@@ -1774,7 +1774,7 @@
           }
           
           // Task details & Search (Title, ID)
-          const task = tasks.find(t => t.id === s.task_id);
+          const task = tasks.find(t => String(t.id) === String(s.task_id));
           let matchTask = true;
           if (taskSearchTerm.trim() !== "") {
             const term = taskSearchTerm.toLowerCase().trim();
@@ -1809,7 +1809,7 @@
           content = "Submission ID,Candidate ID,Candidate Name,Mobile Number,Task ID,Task Title,Price (INR),Status,Submission Date,Submitted Proof Link,Screenshot Proof,Video Proof,Remarks,Rejection Reason\n" + 
             filteredList.map(s => {
               const candidate = users.find(u => u.id === s.user_id);
-              const task = tasks.find(t => t.id === s.task_id);
+              const task = tasks.find(t => String(t.id) === String(s.task_id));
               
               const escapeCsv = (str) => {
                 if (str === undefined || str === null) return '""';
@@ -1849,7 +1849,7 @@
           content = "Submission ID\tCandidate ID\tCandidate Name\tMobile Number\tTask ID\tTask Title\tPrice (INR)\tStatus\tSubmission Date\tSubmitted Proof Link\tScreenshot Proof\tVideo Proof\tRemarks\tRejection Reason\n" + 
             filteredList.map(s => {
               const candidate = users.find(u => u.id === s.user_id);
-              const task = tasks.find(t => t.id === s.task_id);
+              const task = tasks.find(t => String(t.id) === String(s.task_id));
               
               const cleanTsv = (str) => {
                 if (str === undefined || str === null || str === "") return 'N/A';
@@ -1890,7 +1890,7 @@
           
           const rowsHtml = filteredList.map((s, idx) => {
             const candidate = users.find(u => u.id === s.user_id);
-            const task = tasks.find(t => t.id === s.task_id);
+            const task = tasks.find(t => String(t.id) === String(s.task_id));
             return `
               <tr style="border-bottom: 1px solid #e2e8f0; font-size: 10px; color: #334155;">
                 <td style="padding: 10px 8px; font-weight: bold;">SUB-${s.id.toUpperCase()}</td>
@@ -2146,7 +2146,7 @@
           {/* Submission Details Modal */}
           {viewSubmission && (() => {
             const candidate = users.find(u => u.id === viewSubmission.user_id);
-            const task = tasks.find(t => t.id === viewSubmission.task_id);
+            const task = tasks.find(t => String(t.id) === String(viewSubmission.task_id));
             return (
               <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
                 <div className="w-full max-w-xl glass-card rounded-2xl p-6 relative max-h-[90vh] overflow-y-auto">

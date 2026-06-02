@@ -405,7 +405,7 @@
 
       useEffect(() => {
         if (submitDrawer) {
-          const prevSub = submissions.find(s => s.task_id === submitDrawer.id && s.user_id === currentUser.id && s.review_status === "Re-Submit");
+          const prevSub = submissions.find(s => String(s.task_id) === String(submitDrawer.id) && s.user_id === currentUser.id && s.review_status === "Re-Submit");
           if (prevSub) {
             setFormProof({
               link: prevSub.submitted_link || "",
@@ -422,7 +422,7 @@
         }
       }, [submitDrawer, submissions, currentUser.id]);
 
-      const getTaskSubmission = (taskId) => submissions.find(s => s.task_id === taskId && s.user_id === currentUser.id);
+      const getTaskSubmission = (taskId) => submissions.find(s => String(s.task_id) === String(taskId) && s.user_id === currentUser.id);
       const filteredTasks = useMemo(() => {
         if (filterCategory === "All") return tasks;
         return tasks.filter(t => t.category === filterCategory);
@@ -460,7 +460,7 @@
           return;
         }
 
-        const existingSub = submissions.find(s => s.task_id === submitDrawer.id && s.user_id === currentUser.id);
+        const existingSub = submissions.find(s => String(s.task_id) === String(submitDrawer.id) && s.user_id === currentUser.id);
 
         if (existingSub) {
           const updatedSub = {
@@ -682,7 +682,7 @@
                 <p className="text-xs text-slate-400 mb-6">Enter proof link and screenshots confirming task completion.</p>
 
                 {(() => {
-                  const sub = submissions.find(s => s.task_id === submitDrawer.id && s.user_id === currentUser.id);
+                  const sub = submissions.find(s => String(s.task_id) === String(submitDrawer.id) && s.user_id === currentUser.id);
                   if (sub && sub.review_status === "Re-Submit") {
                     return (
                       <div className="p-3 mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-500 text-xs flex flex-col gap-1">
@@ -959,7 +959,7 @@
                       </tr>
                     ) : (
                       mySubmissions.filter(s => s.review_status === "Approved").reverse().map(s => {
-                        const taskDetail = tasks.find(t => t.id === s.task_id);
+                        const taskDetail = tasks.find(t => String(t.id) === String(s.task_id));
                         return (
                           <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/15">
                             <td className="py-3 text-slate-400">{s.date}</td>
