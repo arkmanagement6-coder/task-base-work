@@ -901,7 +901,7 @@
               <div className="flex flex-col sm:flex-row gap-3.5 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => handleExportCandidates("excel")}
+                  onClick={() => handleExportCandidates("csv")}
                   className="px-3.5 py-2 text-xs font-bold rounded-xl text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-600 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
                   <Icon name="download" className="w-3.5 h-3.5" />
@@ -2991,8 +2991,7 @@
           <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-xs text-white">
             <span className="font-semibold text-slate-400">Export options ({filteredList.length} rows):</span>
             <div className="flex gap-2">
-              <button onClick={() => handleExport("csv")} className="px-4 py-2 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-white transition"><Icon name="download" className="w-4 h-4" /> CSV Export</button>
-              <button onClick={() => handleExport("excel")} className="px-4 py-2 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-white transition"><Icon name="download" className="w-4 h-4" /> Excel XLS</button>
+              <button onClick={() => handleExport("csv")} className="px-4 py-2 text-[11px] font-bold rounded-lg text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-600 hover:text-white flex items-center gap-2 cursor-pointer transition shadow"><Icon name="download" className="w-4 h-4" /> Export to Excel (CSV)</button>
               <button onClick={() => handleExport("pdf")} className="px-4 py-2 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2 cursor-pointer transition"><Icon name="download" className="w-4 h-4" /> PDF Report</button>
             </div>
           </div>
