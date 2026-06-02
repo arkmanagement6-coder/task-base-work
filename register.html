@@ -220,7 +220,8 @@
             earnings_pending: 0,
             earnings_paid: 0,
             kyc_status: "Pending",
-            role: "candidate"
+            role: "candidate",
+            created_at: new Date().toISOString().split('T')[0]
           };
 
           const newKyc = {

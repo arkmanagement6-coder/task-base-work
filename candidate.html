@@ -1632,8 +1632,8 @@
 
       const computedActivityStatus = useMemo(() => {
         if (!currentUser) return "Active";
-        return getUserActivityStatus(currentUser, submissions);
-      }, [currentUser, submissions]);
+        return getUserActivityStatus(currentUser, submissions, kycRecords);
+      }, [currentUser, submissions, kycRecords]);
 
       const isUserInactiveOrRequested = useMemo(() => {
         return computedActivityStatus === "Inactive" || computedActivityStatus === "Activation Requested";
@@ -1937,16 +1937,33 @@
     }
 
     // Inactive Candidate Logic Helper
-    const getUserActivityStatus = (candidate, submissions) => {
+    const getUserActivityStatus = (candidate, submissions, kycRecords = []) => {
       if (candidate.kyc_status === "Blocked") return "Blocked";
       if (candidate.status === "Inactive") return "Inactive";
       if (candidate.status === "Activation Requested") return "Activation Requested";
       
       const getRegDateLocal = (user) => {
+        if (user.created_at) return user.created_at;
+        
+        // Try KYC ID timestamp
+        if (kycRecords && kycRecords.length > 0) {
+          const kyc = kycRecords.find(k => k.user_id === user.id);
+          if (kyc && kyc.id && kyc.id.startsWith("k")) {
+            const tsStr = kyc.id.substring(1);
+            const ts = parseInt(tsStr, 10);
+            if (!isNaN(ts) && ts > 1000000000000) {
+              try {
+                return new Date(ts).toISOString().split('T')[0];
+              } catch (e) {}
+            }
+          }
+        }
+        
+        // Try User ID timestamp
         if (user.id && user.id.length > 5) {
           const tsStr = user.id.substring(1);
           const ts = parseInt(tsStr, 10);
-          if (!isNaN(ts)) {
+          if (!isNaN(ts) && ts > 1000000000000) {
             try {
               const d = new Date(ts);
               return d.toISOString().split('T')[0];
@@ -2098,7 +2115,7 @@
               // Dynamic Inactivity Check & Auto-Persistence
               const matchedUser = dbUsers.find(u => u.id === user.id);
               if (matchedUser) {
-                const computedStatus = getUserActivityStatus(matchedUser, dbSubs || []);
+                const computedStatus = getUserActivityStatus(matchedUser, dbSubs || [], dbKyc || []);
                 const todayStr = new Date().toISOString().split('T')[0];
                 
                 if (computedStatus === "Inactive" && matchedUser.status !== "Inactive") {
@@ -2331,7 +2348,7 @@
 
       // Atomic Review Auto-assignment helper
       const autoAssignTaskReview = async (taskId, userId) => {
-        const userStatus = getUserActivityStatus(currentUser, submissions);
+        const userStatus = getUserActivityStatus(currentUser, submissions, kycRecords);
         if (userStatus !== "Active") {
           console.warn("Auto-assignment blocked: candidate is inactive or activation pending.");
           return;

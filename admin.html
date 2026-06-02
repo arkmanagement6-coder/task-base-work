@@ -299,16 +299,33 @@
     };
 
     // Inactive Candidate Logic Helper
-    const getUserActivityStatus = (candidate, submissions) => {
+    const getUserActivityStatus = (candidate, submissions, kycRecords = []) => {
       if (candidate.kyc_status === "Blocked") return "Blocked";
       if (candidate.status === "Inactive") return "Inactive";
       if (candidate.status === "Activation Requested") return "Activation Requested";
       
       const getRegDateLocal = (user) => {
+        if (user.created_at) return user.created_at;
+        
+        // Try KYC ID timestamp
+        if (kycRecords && kycRecords.length > 0) {
+          const kyc = kycRecords.find(k => k.user_id === user.id);
+          if (kyc && kyc.id && kyc.id.startsWith("k")) {
+            const tsStr = kyc.id.substring(1);
+            const ts = parseInt(tsStr, 10);
+            if (!isNaN(ts) && ts > 1000000000000) {
+              try {
+                return new Date(ts).toISOString().split('T')[0];
+              } catch (e) {}
+            }
+          }
+        }
+        
+        // Try User ID timestamp
         if (user.id && user.id.length > 5) {
           const tsStr = user.id.substring(1);
           const ts = parseInt(tsStr, 10);
-          if (!isNaN(ts)) {
+          if (!isNaN(ts) && ts > 1000000000000) {
             try {
               const d = new Date(ts);
               return d.toISOString().split('T')[0];
@@ -627,10 +644,27 @@
       }, [tasks, submissions, viewCandidate]);
 
       const getRegDate = React.useCallback((user) => {
+        if (user.created_at) return user.created_at;
+        
+        // Try KYC ID timestamp
+        if (kycRecords && kycRecords.length > 0) {
+          const kyc = kycRecords.find(k => k.user_id === user.id);
+          if (kyc && kyc.id && kyc.id.startsWith("k")) {
+            const tsStr = kyc.id.substring(1);
+            const ts = parseInt(tsStr, 10);
+            if (!isNaN(ts) && ts > 1000000000000) {
+              try {
+                return new Date(ts).toISOString().split('T')[0];
+              } catch (e) {}
+            }
+          }
+        }
+        
+        // Try User ID timestamp
         if (user.id && user.id.length > 5) {
           const tsStr = user.id.substring(1);
           const ts = parseInt(tsStr, 10);
-          if (!isNaN(ts)) {
+          if (!isNaN(ts) && ts > 1000000000000) {
             try {
               const d = new Date(ts);
               return d.toISOString().split('T')[0];
@@ -641,7 +675,7 @@
         if (user.id === "c2") return "2026-05-23";
         if (user.id === "c3") return "2026-05-26";
         return "2026-05-28";
-      }, []);
+      }, [kycRecords]);
 
       const handleReactivate = (id) => {
         const today = new Date().toISOString().split('T')[0];
@@ -657,7 +691,7 @@
       const filteredCandidates = React.useMemo(() => {
         return candidates
           .filter(c => {
-            const computedStatus = getUserActivityStatus(c, submissions);
+            const computedStatus = getUserActivityStatus(c, submissions, kycRecords);
             if (statusFilter === "Active") {
               if (computedStatus !== "Active") return false;
             } else if (statusFilter === "Inactive") {
@@ -814,7 +848,7 @@
                 </thead>
                 <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
                   {filteredCandidates.map(c => {
-                    const activityStatus = getUserActivityStatus(c, submissions);
+                    const activityStatus = getUserActivityStatus(c, submissions, kycRecords);
                     const isRowInactive = activityStatus === "Inactive";
                     const isRowRequested = activityStatus === "Activation Requested";
                     
@@ -2504,7 +2538,7 @@
           // Candidate Activity Filter
           let matchActivity = true;
           if (activityFilter !== "All" && user) {
-            const computedStatus = getUserActivityStatus(user, submissions);
+            const computedStatus = getUserActivityStatus(user, submissions, kycRecords);
             if (activityFilter === "Active") {
               matchActivity = computedStatus === "Active";
             } else if (activityFilter === "Inactive") {
@@ -3873,7 +3907,7 @@
       };
 
       const sqlCode = `-- COPY AND RUN THIS SCRIPT IN YOUR SUPABASE SQL EDITOR:
-CREATE TABLE IF NOT EXISTS krv_users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, mobile VARCHAR(50), city VARCHAR(50), pincode VARCHAR(50), referral_code VARCHAR(50), wallet_balance DOUBLE PRECISION DEFAULT 0.0, earnings_pending DOUBLE PRECISION DEFAULT 0.0, earnings_paid DOUBLE PRECISION DEFAULT 0.0, kyc_status VARCHAR(50) DEFAULT 'Not Submitted', role VARCHAR(50) DEFAULT 'candidate', last_active VARCHAR(50), status VARCHAR(50) DEFAULT 'Active');
+CREATE TABLE IF NOT EXISTS krv_users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, mobile VARCHAR(50), city VARCHAR(50), pincode VARCHAR(50), referral_code VARCHAR(50), wallet_balance DOUBLE PRECISION DEFAULT 0.0, earnings_pending DOUBLE PRECISION DEFAULT 0.0, earnings_paid DOUBLE PRECISION DEFAULT 0.0, kyc_status VARCHAR(50) DEFAULT 'Not Submitted', role VARCHAR(50) DEFAULT 'candidate', last_active VARCHAR(50), status VARCHAR(50) DEFAULT 'Active', created_at VARCHAR(50));
 CREATE TABLE IF NOT EXISTS krv_tasks (id VARCHAR(50) PRIMARY KEY, title VARCHAR(255) NOT NULL, category VARCHAR(100) NOT NULL, links TEXT, amount DOUBLE PRECISION DEFAULT 0.0, remarks TEXT, deadline VARCHAR(50), status VARCHAR(50) DEFAULT 'Active', imported_reviews JSONB DEFAULT '[]'::jsonb);
 CREATE TABLE IF NOT EXISTS krv_submissions (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) NOT NULL, task_id VARCHAR(50) NOT NULL, submitted_link TEXT, screenshot TEXT, video TEXT, remarks TEXT, review_status VARCHAR(50) DEFAULT 'Pending', amount DOUBLE PRECISION DEFAULT 0.0, date VARCHAR(50), rejection_reason TEXT);
 CREATE TABLE IF NOT EXISTS krv_kyc (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) UNIQUE NOT NULL, account_holder VARCHAR(100), account_number VARCHAR(100), bank_name VARCHAR(100), ifsc VARCHAR(50), aadhaar_front TEXT, aadhaar_back TEXT, selfie TEXT, status VARCHAR(50) DEFAULT 'Pending', rejection_reason TEXT);
@@ -3884,6 +3918,7 @@ CREATE TABLE IF NOT EXISTS krv_notifications (id VARCHAR(50) PRIMARY KEY, user_i
 -- MIGRATION: RUN TO ADD NEW COLUMNS TO EXISTING krv_users IF NEEDED:
 -- ALTER TABLE krv_users ADD COLUMN IF NOT EXISTS last_active VARCHAR(50);
 -- ALTER TABLE krv_users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Active';
+-- ALTER TABLE krv_users ADD COLUMN IF NOT EXISTS created_at VARCHAR(50);
 
 -- DISABLE RLS TO ALLOW DIRECT CLIENT READ/WRITE (RECOMMENDED FOR STANDALONE CHANNELS):
 ALTER TABLE krv_users DISABLE ROW LEVEL SECURITY;
