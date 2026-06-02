@@ -455,8 +455,8 @@
               const matchName = c.name && c.name.toLowerCase().includes(term);
               const matchEmail = c.email && c.email.toLowerCase().includes(term);
               const matchMobile = c.mobile && c.mobile.includes(term);
-              const matchId = c.id && (c.id.toLowerCase().includes(term) || `user-${c.id.toLowerCase()}`.includes(term));
-              const matchAgent = c.referral_code && c.referral_code.toLowerCase().includes(term);
+              const matchId = c.id && (String(c.id).toLowerCase().includes(term) || `user-${String(c.id).toLowerCase()}`.includes(term));
+              const matchAgent = c.referral_code && String(c.referral_code).toLowerCase().includes(term);
               return matchName || matchEmail || matchMobile || matchId || matchAgent;
             }
             return true;
