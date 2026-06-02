@@ -626,36 +626,33 @@
                     )}
                     {renderInstructionPreview(t.remarks, () => setInstructionModalTask(t))}
 
-                    <div className="flex items-center gap-2 p-2 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 mb-4">
-                      <span className="truncate max-w-[180px] select-all">{t.links}</span>
-                      <div className="flex items-center gap-2.5 ml-auto shrink-0">
-                        <a
-                          href={(() => {
-                            if (!t.links) return "#";
-                            let cleanUrl = t.links.trim();
-                            if (!/^https?:\/\//i.test(cleanUrl)) {
-                              cleanUrl = "https://" + cleanUrl;
-                            }
-                            return cleanUrl;
-                          })()}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-slate-400 hover:text-blue-500 flex items-center gap-1 font-bold uppercase text-[9px] transition cursor-pointer"
-                          title="Open Link in New Tab"
-                        >
-                          <Icon name="external-link" className="w-3.5 h-3.5" />
-                          <span>Open Link</span>
-                        </a>
-                        <div className="h-3 w-px bg-slate-200 dark:bg-slate-800"></div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyLink(t.links)}
-                          className="text-slate-400 hover:text-blue-500 transition cursor-pointer"
-                          title="Copy Link"
-                        >
-                          <Icon name="copy" className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    <div className="flex items-center justify-center gap-3.5 p-2 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 mb-4">
+                      <a
+                        href={(() => {
+                          if (!t.links) return "#";
+                          let cleanUrl = t.links.trim();
+                          if (!/^https?:\/\//i.test(cleanUrl)) {
+                            cleanUrl = "https://" + cleanUrl;
+                          }
+                          return cleanUrl;
+                        })()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-slate-400 hover:text-blue-500 flex items-center gap-1.5 font-bold uppercase text-[10px] transition cursor-pointer"
+                        title="Open Link in New Tab"
+                      >
+                        <Icon name="external-link" className="w-4 h-4" />
+                        <span>Open Link</span>
+                      </a>
+                      <div className="h-3.5 w-px bg-slate-200 dark:bg-slate-800"></div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyLink(t.links)}
+                        className="text-slate-400 hover:text-blue-500 transition cursor-pointer"
+                        title="Copy Link"
+                      >
+                        <Icon name="copy" className="w-4 h-4" />
+                      </button>
                     </div>
 
                     {t.category === "Application Review Provide by Brand" && (
