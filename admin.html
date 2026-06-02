@@ -1358,7 +1358,7 @@
       );
     }
     // 4. Submissions Review System
-    function AdminReviews({ submissions, setSubmissions, users, setNotifications, notifications, triggerToast, updateWallet, setPreviewImage }) {
+    function AdminReviews({ submissions, setSubmissions, users, setUsers, setNotifications, notifications, triggerToast, updateWallet, setPreviewImage }) {
       const [reviewModal, setReviewModal] = useState(null);
       const [rejectionReason, setRejectionReason] = useState("");
 
@@ -1381,11 +1381,14 @@
       };
 
       const handleReject = (sub) => {
-        if (!rejectionReason) {
+        if (!rejectionReason.trim()) {
           triggerToast("Please provide a rejection reason.", "error");
           return;
         }
         setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Rejected", rejection_reason: rejectionReason } : s));
+        
+        // Decrement pending earnings since it is no longer pending validation
+        setUsers && setUsers(prev => prev.map(u => u.id === sub.user_id ? { ...u, earnings_pending: Math.max(0, u.earnings_pending - sub.amount) } : u));
         
         const newNotif = {
           id: "n" + (notifications.length + 1),
@@ -1396,6 +1399,29 @@
         };
         setNotifications([...notifications, newNotif]);
         triggerToast("Submission rejected with remark details.");
+        setReviewModal(null);
+        setRejectionReason("");
+      };
+
+      const handleReSubmit = (sub) => {
+        if (!rejectionReason.trim()) {
+          triggerToast("Please provide a reason why this task needs to be re-submitted.", "error");
+          return;
+        }
+        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Re-Submit", rejection_reason: rejectionReason } : s));
+        
+        // Decrement pending earnings since it is no longer pending validation
+        setUsers && setUsers(prev => prev.map(u => u.id === sub.user_id ? { ...u, earnings_pending: Math.max(0, u.earnings_pending - sub.amount) } : u));
+        
+        const newNotif = {
+          id: "n" + (notifications.length + 1),
+          user_id: sub.user_id,
+          title: "Re-Submit Requested for Task",
+          message: `Your task submission (SUB-${sub.id.toUpperCase()}) requires re-submission: "${rejectionReason}"`,
+          date: new Date().toISOString().split('T')[0]
+        };
+        setNotifications([...notifications, newNotif]);
+        triggerToast("Re-Submit request sent successfully to candidate!");
         setReviewModal(null);
         setRejectionReason("");
       };
@@ -1485,13 +1511,14 @@
                     <p className="text-slate-350 mt-1 bg-slate-950/20 p-2.5 rounded-lg border border-slate-800">{reviewModal.remarks || "No comments"}</p>
                   </div>
                   <div className="pt-2">
-                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Rejection Reason (If rejecting)</label>
-                    <input type="text" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Blur image, incorrect link details..." />
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Rejection / Re-Submit Reason (Required)</label>
+                    <input type="text" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" placeholder="Incorrect screenshot, please follow instructions and re-submit..." />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
-                    <button onClick={() => handleReject(reviewModal)} className="py-3 font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">Reject Proof</button>
-                    <button onClick={() => handleApprove(reviewModal)} className="py-3 font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl uppercase tracking-wider cursor-pointer">Approve Payout</button>
+                  <div className="grid grid-cols-3 gap-2 pt-4 border-t border-slate-800">
+                    <button onClick={() => handleReject(reviewModal)} className="py-2.5 text-[10px] md:text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl uppercase tracking-wider cursor-pointer text-center flex items-center justify-center">Reject Proof</button>
+                    <button onClick={() => handleReSubmit(reviewModal)} className="py-2.5 text-[10px] md:text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl uppercase tracking-wider cursor-pointer text-center flex items-center justify-center">Ask Re-Submit</button>
+                    <button onClick={() => handleApprove(reviewModal)} className="py-2.5 text-[10px] md:text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl uppercase tracking-wider cursor-pointer text-center flex items-center justify-center">Approve Payout</button>
                   </div>
                   <button onClick={() => { setReviewModal(null); setRejectionReason(""); }} className="w-full mt-3 py-2.5 text-xs font-bold bg-slate-805 dark:bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-xl border border-slate-750 uppercase tracking-wider cursor-pointer transition">
                     Cancel & Close Dialog
@@ -3311,6 +3338,7 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
                   submissions={submissions} 
                   setSubmissions={setSubmissions} 
                   users={users}
+                  setUsers={setUsers}
                   setNotifications={setNotifications}
                   notifications={notifications}
                   triggerToast={triggerToast}

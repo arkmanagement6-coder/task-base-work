@@ -251,6 +251,20 @@
 
       return (
         <div className="space-y-6">
+          {mySubmissions.some(s => s.review_status === "Re-Submit") && (
+            <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-500 text-xs flex items-center justify-between animate-pulse">
+              <div className="flex items-center gap-2">
+                <span className="text-base shrink-0">⚠️</span>
+                <div>
+                  <span className="font-extrabold uppercase text-[10px] tracking-wider block text-amber-500">Action Required: Re-Submit Requested</span>
+                  <p className="font-semibold text-slate-350 dark:text-slate-300 mt-0.5 leading-relaxed">Admin has requested you to re-submit proof for one or more tasks. Please review the comments and update them.</p>
+                </div>
+              </div>
+              <button onClick={() => setCurrentPage("tasks")} className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold uppercase transition tracking-wider cursor-pointer shrink-0 shadow-md">
+                Fix Now
+              </button>
+            </div>
+          )}
           <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between">
             <div className="z-10 text-center md:text-left">
               <h2 className="text-2xl font-bold">“Welcome Back, {currentUser.name}!”</h2>
@@ -305,9 +319,10 @@
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
                             sub.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
                             sub.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                            sub.review_status === "Re-Submit" ? "bg-amber-600/15 text-amber-500 border border-amber-500/30 animate-pulse font-extrabold" :
                             "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                           }`}>
-                            {sub.review_status}
+                            {sub.review_status === "Re-Submit" ? "Re-Submit" : sub.review_status}
                           </span>
                         </td>
                         <td className="text-slate-400 max-w-xs truncate">{sub.remarks || "No remarks"}</td>
@@ -388,6 +403,25 @@
         });
       }, [tasks, currentUser.id, autoAssignTaskReview]);
 
+      useEffect(() => {
+        if (submitDrawer) {
+          const prevSub = submissions.find(s => s.task_id === submitDrawer.id && s.user_id === currentUser.id && s.review_status === "Re-Submit");
+          if (prevSub) {
+            setFormProof({
+              link: prevSub.submitted_link || "",
+              remarks: prevSub.remarks || ""
+            });
+            setScreenshotFile(prevSub.screenshot || null);
+          } else {
+            setFormProof({ link: "", remarks: "" });
+            setScreenshotFile(null);
+          }
+        } else {
+          setFormProof({ link: "", remarks: "" });
+          setScreenshotFile(null);
+        }
+      }, [submitDrawer, submissions, currentUser.id]);
+
       const getTaskSubmission = (taskId) => submissions.find(s => s.task_id === taskId && s.user_id === currentUser.id);
       const filteredTasks = useMemo(() => {
         if (filterCategory === "All") return tasks;
@@ -426,20 +460,39 @@
           return;
         }
 
-        const newSub = {
-          id: "s" + (submissions.length + 1),
-          user_id: currentUser.id,
-          task_id: submitDrawer.id,
-          submitted_link: formProof.link,
-          screenshot: screenshotFile,
-          video: "",
-          remarks: formProof.remarks,
-          review_status: "Pending",
-          amount: submitDrawer.amount,
-          date: new Date().toISOString().split('T')[0]
-        };
+        const existingSub = submissions.find(s => s.task_id === submitDrawer.id && s.user_id === currentUser.id);
 
-        setSubmissions([...submissions, newSub]);
+        if (existingSub) {
+          const updatedSub = {
+            ...existingSub,
+            submitted_link: formProof.link,
+            screenshot: screenshotFile,
+            remarks: formProof.remarks,
+            review_status: "Pending",
+            date: new Date().toISOString().split('T')[0]
+          };
+          setSubmissions(prev => prev.map(s => s.id === existingSub.id ? updatedSub : s));
+          
+          // Re-increment pending earnings since it goes back to 'Pending' validation
+          if (existingSub.review_status === "Re-Submit" || existingSub.review_status === "Rejected") {
+            setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount } : u));
+          }
+        } else {
+          const newSub = {
+            id: "s" + (submissions.length + 1),
+            user_id: currentUser.id,
+            task_id: submitDrawer.id,
+            submitted_link: formProof.link,
+            screenshot: screenshotFile,
+            video: "",
+            remarks: formProof.remarks,
+            review_status: "Pending",
+            amount: submitDrawer.amount,
+            date: new Date().toISOString().split('T')[0]
+          };
+          setSubmissions([...submissions, newSub]);
+          setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount } : u));
+        }
         
         if (submitDrawer.category === "Application Review Provide by Brand" && setTasks) {
           const client = getSupabaseClient();
@@ -454,7 +507,6 @@
           }
         }
         
-        setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount } : u));
         triggerToast("Task proof submitted successfully!");
         setSubmitDrawer(null);
         setFormProof({ link: "", remarks: "" });
@@ -538,6 +590,12 @@
                     </div>
 
                     <h3 className="text-base font-bold mb-2 text-white">{t.title}</h3>
+                    {sub && sub.review_status === "Re-Submit" && (
+                      <div className="p-3 mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-500 text-xs flex flex-col gap-1">
+                        <span className="font-extrabold uppercase text-[9px] tracking-wider block">⚠️ Admin Re-Submit Request:</span>
+                        <p className="font-medium text-[11px] leading-relaxed break-words">{sub.rejection_reason || "Please verify your details and submit again."}</p>
+                      </div>
+                    )}
                     {renderInstructionPreview(t.remarks, () => setInstructionModalTask(t))}
 
                     <div className="flex items-center gap-2 p-2 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 select-all mb-4">
@@ -581,16 +639,24 @@
                           <span className={`font-bold ${
                             sub.review_status === "Approved" ? "text-emerald-500" :
                             sub.review_status === "Rejected" ? "text-rose-500" :
+                            sub.review_status === "Re-Submit" ? "text-amber-500 animate-pulse font-extrabold" :
                             "text-amber-500"
-                          }`}>{sub.review_status}</span>
+                          }`}>{sub.review_status === "Re-Submit" ? "Re-Submit Required" : sub.review_status}</span>
                         ) : "Unsubmitted"}
                       </span>
                     </div>
 
                     {sub ? (
-                      <button disabled className="w-full py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-405 text-center uppercase tracking-wider">
-                        Submitted
-                      </button>
+                      sub.review_status === "Re-Submit" ? (
+                        <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5 animate-bounce">
+                          <Icon name="upload" className="w-3.5 h-3.5 animate-pulse" />
+                          <span>Re-Submit Task</span>
+                        </button>
+                      ) : (
+                        <button disabled className="w-full py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-405 text-center uppercase tracking-wider">
+                          Submitted
+                        </button>
+                      )
                     ) : (
                       <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer">
                         Submit Task
@@ -609,6 +675,19 @@
                 
                 <h3 className="text-lg font-bold mb-2 text-white">Submit Proof: {submitDrawer.title}</h3>
                 <p className="text-xs text-slate-400 mb-6">Enter proof link and screenshots confirming task completion.</p>
+
+                {(() => {
+                  const sub = submissions.find(s => s.task_id === submitDrawer.id && s.user_id === currentUser.id);
+                  if (sub && sub.review_status === "Re-Submit") {
+                    return (
+                      <div className="p-3 mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-500 text-xs flex flex-col gap-1">
+                        <span className="font-extrabold uppercase text-[9px] tracking-wider block">⚠️ Admin Re-Submit Reason:</span>
+                        <p className="font-medium text-[11px] leading-relaxed break-words">{sub.rejection_reason || "Please verify your details and submit again."}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 <form onSubmit={handleSubmission} className="space-y-4">
                   <div>
@@ -1171,6 +1250,7 @@
                 <option value="All">All Statuses</option>
                 <option value="Approved">Approved</option>
                 <option value="Pending">Pending</option>
+                <option value="Re-Submit">Re-Submit</option>
                 <option value="Rejected">Rejected</option>
               </select>
             </div>
@@ -1227,9 +1307,10 @@
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
                             s.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
                             s.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                            s.review_status === "Re-Submit" ? "bg-amber-600/15 text-amber-500 border border-amber-500/30 animate-pulse font-extrabold" :
                             "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                           }`}>
-                            {s.review_status}
+                            {s.review_status === "Re-Submit" ? "Re-Submit" : s.review_status}
                           </span>
                         </td>
                         <td className="text-slate-400">{s.date}</td>
