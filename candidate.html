@@ -606,6 +606,7 @@
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {filteredTasks.map(t => {
               const sub = getTaskSubmission(t.id);
+              const isSubmittedAndLocked = sub && sub.review_status !== "Re-Submit";
               return (
                 <div key={t.id} className="rounded-2xl glass-card p-6 flex flex-col justify-between hover:scale-[1.02]">
                   <div>
@@ -626,22 +627,29 @@
                     )}
                     {renderInstructionPreview(t.remarks, () => setInstructionModalTask(t))}
 
-                    <a
-                      href={(() => {
-                        if (!t.links) return "#";
-                        let cleanUrl = t.links.trim();
-                        if (!/^https?:\/\//i.test(cleanUrl)) {
-                          cleanUrl = "https://" + cleanUrl;
-                        }
-                        return cleanUrl;
-                      })()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-2.5 mb-4 rounded-xl font-extrabold uppercase text-[10px] tracking-wider transition-all duration-300 cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 hover:border-emerald-500/50 text-emerald-500 hover:text-emerald-400 shadow-sm"
-                    >
-                      <Icon name="external-link" className="w-3.5 h-3.5" />
-                      <span>Open Task Link</span>
-                    </a>
+                    {isSubmittedAndLocked ? (
+                      <div className="flex items-center justify-center gap-2 w-full py-2.5 mb-4 rounded-xl font-extrabold uppercase text-[10px] tracking-wider bg-slate-900/40 border border-slate-800 text-slate-500 cursor-not-allowed shadow-none select-none">
+                        <Icon name="lock" className="w-3.5 h-3.5 opacity-40" />
+                        <span>Open Task Link (Locked)</span>
+                      </div>
+                    ) : (
+                      <a
+                        href={(() => {
+                          if (!t.links) return "#";
+                          let cleanUrl = t.links.trim();
+                          if (!/^https?:\/\//i.test(cleanUrl)) {
+                            cleanUrl = "https://" + cleanUrl;
+                          }
+                          return cleanUrl;
+                        })()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full py-2.5 mb-4 rounded-xl font-extrabold uppercase text-[10px] tracking-wider transition-all duration-300 cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 hover:border-emerald-500/50 text-emerald-500 hover:text-emerald-400 shadow-sm"
+                      >
+                        <Icon name="external-link" className="w-3.5 h-3.5" />
+                        <span>Open Task Link</span>
+                      </a>
+                    )}
 
                     {t.category === "Application Review Provide by Brand" && (
                       (() => {
@@ -650,14 +658,21 @@
                           return (
                             <div className="p-2.5 rounded bg-slate-150/40 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800/80 text-xs text-slate-650 dark:text-slate-300 mb-4 mt-2">
                               <span className="block text-[9px] uppercase font-bold text-slate-400 mb-1">Your Assigned Review (S.No {myReview.sno})</span>
-                              <p className="font-semibold text-slate-700 dark:text-slate-200 text-[11px] mb-2 leading-relaxed select-all">{myReview.text}</p>
-                              <button type="button" onClick={() => {
-                                navigator.clipboard.writeText(myReview.text);
-                                triggerToast("Review text copied!");
-                              }} className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 dark:text-blue-400 rounded text-[10px] font-bold uppercase transition cursor-pointer">
-                                <Icon name="copy" className="w-3 h-3 shrink-0" />
-                                <span>Copy Review Text</span>
-                              </button>
+                              <p className={`font-semibold text-slate-700 dark:text-slate-200 text-[11px] mb-2 leading-relaxed ${isSubmittedAndLocked ? 'select-none opacity-50' : 'select-all'}`}>{myReview.text}</p>
+                              {isSubmittedAndLocked ? (
+                                <button type="button" disabled className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-slate-900/40 text-slate-500 border border-slate-800 rounded text-[10px] font-bold uppercase cursor-not-allowed select-none">
+                                  <Icon name="lock" className="w-3 h-3 shrink-0 opacity-40" />
+                                  <span>Review Text Locked</span>
+                                </button>
+                              ) : (
+                                <button type="button" onClick={() => {
+                                  navigator.clipboard.writeText(myReview.text);
+                                  triggerToast("Review text copied!");
+                                }} className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 dark:text-blue-400 rounded text-[10px] font-bold uppercase transition cursor-pointer">
+                                  <Icon name="copy" className="w-3 h-3 shrink-0" />
+                                  <span>Copy Review Text</span>
+                                </button>
+                              )}
                             </div>
                           );
                         } else {
