@@ -804,9 +804,7 @@
                   <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
                     <th className="py-3">Candidate ID</th>
                     <th>Name</th>
-                    <th>Email ID</th>
                     <th>Mobile</th>
-                    <th>Location</th>
                     <th>Agent Name</th>
                     <th>Reg. Date</th>
                     <th>Tasks</th>
@@ -831,9 +829,7 @@
                       <tr key={c.id} className={rowClass}>
                         <td className="py-3.5 font-extrabold text-blue-500 uppercase">USER-{String(c.id).toUpperCase()}</td>
                         <td className={`font-bold ${isRowInactive ? 'text-slate-500 line-through' : 'text-white'}`}>{c.name}</td>
-                        <td className="text-slate-400">{c.email}</td>
                         <td className="text-slate-400">{c.mobile}</td>
-                        <td className="text-slate-400">{c.city || "N/A"} - {c.pincode || "N/A"}</td>
                         <td className="text-slate-400 font-semibold">{c.referral_code || <span className="text-slate-600 italic">Direct</span>}</td>
                         <td className="text-slate-400">{getRegDate(c)}</td>
                         <td>
@@ -874,7 +870,7 @@
                   })}
                   {filteredCandidates.length === 0 && (
                     <tr>
-                      <td colSpan="10" className="py-6 text-center text-slate-500">No candidates found matching your criteria.</td>
+                      <td colSpan="8" className="py-6 text-center text-slate-500">No candidates found matching your criteria.</td>
                     </tr>
                   )}
                 </tbody>
