@@ -243,7 +243,7 @@
         return {
           total: mySubmissions.length,
           approved: approved.length,
-          pending: mySubmissions.filter(s => s.review_status === "Pending").length,
+          pending: mySubmissions.filter(s => s.review_status === "Pending" || s.review_status === "Under Review").length,
           rejected: mySubmissions.filter(s => s.review_status === "Rejected").length,
           earnings: approved.reduce((sum, s) => sum + s.amount, 0)
         };
@@ -319,6 +319,7 @@
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
                             sub.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
                             sub.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                            sub.review_status === "Under Review" ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 animate-pulse font-extrabold" :
                             sub.review_status === "Re-Submit" ? "bg-amber-600/15 text-amber-500 border border-amber-500/30 animate-pulse font-extrabold" :
                             "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                           }`}>
@@ -665,6 +666,7 @@
                           <span className={`font-bold ${
                             sub.review_status === "Approved" ? "text-emerald-500" :
                             sub.review_status === "Rejected" ? "text-rose-500" :
+                            sub.review_status === "Under Review" ? "text-indigo-400 animate-pulse font-extrabold" :
                             sub.review_status === "Re-Submit" ? "text-amber-500 animate-pulse font-extrabold" :
                             "text-amber-500"
                           }`}>{sub.review_status === "Re-Submit" ? "Re-Submit Required" : sub.review_status}</span>
@@ -682,6 +684,11 @@
                         <button disabled className="w-full py-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs font-bold text-emerald-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5">
                           <Icon name="check-circle" className="w-4 h-4 text-emerald-500" />
                           <span>Completed</span>
+                        </button>
+                      ) : sub.review_status === "Under Review" ? (
+                        <button disabled className="w-full py-2.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-xs font-bold text-indigo-400 text-center uppercase tracking-wider flex items-center justify-center gap-1.5 animate-pulse">
+                          <Icon name="clock" className="w-4 h-4 text-indigo-400" />
+                          <span>Under Review</span>
                         </button>
                       ) : (
                         <button disabled className="w-full py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-405 text-center uppercase tracking-wider">
@@ -812,7 +819,7 @@
       
       const stats = useMemo(() => {
         const approvedSub = mySubmissions.filter(s => s.review_status === "Approved");
-        const pendingSub = mySubmissions.filter(s => s.review_status === "Pending");
+        const pendingSub = mySubmissions.filter(s => s.review_status === "Pending" || s.review_status === "Under Review");
         return {
           approvedEarnings: approvedSub.reduce((sum, s) => sum + s.amount, 0),
           pendingEarnings: pendingSub.reduce((sum, s) => sum + s.amount, 0),
@@ -1292,6 +1299,7 @@
                 <option value="All">All Statuses</option>
                 <option value="Approved">Approved</option>
                 <option value="Pending">Pending</option>
+                <option value="Under Review">Under Review</option>
                 <option value="Re-Submit">Re-Submit</option>
                 <option value="Rejected">Rejected</option>
               </select>
@@ -1349,6 +1357,7 @@
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
                             s.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
                             s.review_status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                            s.review_status === "Under Review" ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 animate-pulse font-extrabold" :
                             s.review_status === "Re-Submit" ? "bg-amber-600/15 text-amber-500 border border-amber-500/30 animate-pulse font-extrabold" :
                             "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                           }`}>
