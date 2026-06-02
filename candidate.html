@@ -652,6 +652,11 @@
                           <Icon name="upload" className="w-3.5 h-3.5 animate-pulse" />
                           <span>Re-Submit Task</span>
                         </button>
+                      ) : sub.review_status === "Approved" ? (
+                        <button disabled className="w-full py-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs font-bold text-emerald-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5">
+                          <Icon name="check-circle" className="w-4 h-4 text-emerald-500" />
+                          <span>Completed</span>
+                        </button>
                       ) : (
                         <button disabled className="w-full py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-405 text-center uppercase tracking-wider">
                           Submitted
