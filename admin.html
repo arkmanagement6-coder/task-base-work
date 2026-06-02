@@ -297,6 +297,58 @@
       );
     };
 
+    // Inactive Candidate Logic Helper
+    const getUserActivityStatus = (candidate, submissions) => {
+      if (candidate.kyc_status === "Blocked") return "Blocked";
+      if (candidate.status === "Inactive") return "Inactive";
+      if (candidate.status === "Activation Requested") return "Activation Requested";
+      
+      const getRegDateLocal = (user) => {
+        if (user.id && user.id.length > 5) {
+          const tsStr = user.id.substring(1);
+          const ts = parseInt(tsStr, 10);
+          if (!isNaN(ts)) {
+            try {
+              const d = new Date(ts);
+              return d.toISOString().split('T')[0];
+            } catch (e) {}
+          }
+        }
+        if (user.id === "c1") return "2026-05-20";
+        if (user.id === "c2") return "2026-05-23";
+        if (user.id === "c3") return "2026-05-26";
+        return "2026-05-28";
+      };
+
+      const regDate = getRegDateLocal(candidate);
+      const lastActiveStr = candidate.last_active || regDate;
+
+      // Find latest submission date
+      const candidateSubs = submissions.filter(s => s.user_id === candidate.id);
+      let latestSubDateStr = null;
+      candidateSubs.forEach(s => {
+        if (s.date && (!latestSubDateStr || s.date > latestSubDateStr)) {
+          latestSubDateStr = s.date;
+        }
+      });
+      const lastSubStr = latestSubDateStr || regDate;
+
+      const getDaysSince = (dStr) => {
+        if (!dStr) return 999;
+        const today = new Date().toISOString().split('T')[0];
+        const diffTime = new Date(today) - new Date(dStr);
+        return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      };
+
+      const daysSinceActive = getDaysSince(lastActiveStr);
+      const daysSinceSub = getDaysSince(lastSubStr);
+
+      if (daysSinceActive > 7 && daysSinceSub > 7) {
+        return "Inactive";
+      }
+      return candidate.status || "Active";
+    };
+
     // Include Admin Subcomponents
     // [AdminOverview, AdminCandidates, AdminTasks, AdminReviews, AdminEarnings, AdminKyc, AdminReports, AdminSettings]
     
@@ -418,13 +470,14 @@
       );
     }
     // 2. Candidate Management
-    function AdminCandidates({ users, setUsers, kycRecords, triggerToast, setPreviewImage }) {
+    function AdminCandidates({ users, setUsers, kycRecords, submissions, triggerToast, setPreviewImage }) {
       const candidates = React.useMemo(() => users.filter(u => u.role === "candidate"), [users]);
       const agents = React.useMemo(() => users.filter(u => u.role === "agent"), [users]);
 
       const [viewCandidate, setViewCandidate] = React.useState(null);
       const [editCandidate, setEditCandidate] = React.useState(null);
       const [searchQuery, setSearchQuery] = React.useState("");
+      const [statusFilter, setStatusFilter] = React.useState("All");
       const [editForm, setEditForm] = React.useState({
         name: "", email: "", mobile: "", city: "", pincode: "",
         referral_code: "", wallet_balance: 0, earnings_pending: 0,
@@ -448,9 +501,31 @@
         return "2026-05-28";
       }, []);
 
+      const handleReactivate = (id) => {
+        const today = new Date().toISOString().split('T')[0];
+        setUsers(prev => prev.map(u => {
+          if (u.id === id) {
+            triggerToast("Candidate reactivated successfully!", "success");
+            return { ...u, status: "Active", last_active: today };
+          }
+          return u;
+        }));
+      };
+
       const filteredCandidates = React.useMemo(() => {
         return candidates
           .filter(c => {
+            const computedStatus = getUserActivityStatus(c, submissions);
+            if (statusFilter === "Active") {
+              if (computedStatus !== "Active") return false;
+            } else if (statusFilter === "Inactive") {
+              if (computedStatus !== "Inactive") return false;
+            } else if (statusFilter === "Activation Requested") {
+              if (computedStatus !== "Activation Requested") return false;
+            } else if (statusFilter === "Blocked") {
+              if (c.kyc_status !== "Blocked") return false;
+            }
+
             if (searchQuery.trim() !== "") {
               const term = searchQuery.toLowerCase().trim();
               const matchName = c.name && c.name.toLowerCase().includes(term);
@@ -470,7 +545,7 @@
             }
             return dateB.localeCompare(dateA);
           });
-      }, [candidates, searchQuery, getRegDate]);
+      }, [candidates, searchQuery, statusFilter, submissions, getRegDate]);
 
       const handleBlockUser = (id) => {
         setUsers(prev => prev.map(u => {
@@ -555,15 +630,29 @@
                 <p className="text-[10px] text-slate-400 font-semibold uppercase mt-0.5">{filteredCandidates.length} profiles visible</p>
               </div>
               
-              <div className="relative w-full sm:w-80">
-                <input
-                  type="text"
-                  placeholder="Search by ID, name, agent, email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white"
-                />
-                <Icon name="profile" className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <div className="flex flex-col sm:flex-row gap-3.5 w-full sm:w-auto">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-900/50 dark:bg-slate-900 focus:outline-none focus:border-blue-500 text-white font-semibold"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Active">Active Only</option>
+                  <option value="Inactive">Inactive Only</option>
+                  <option value="Activation Requested">Activation Requests</option>
+                  <option value="Blocked">Blocked Only</option>
+                </select>
+
+                <div className="relative w-full sm:w-80">
+                  <input
+                    type="text"
+                    placeholder="Search by ID, name, agent, email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white"
+                  />
+                  <Icon name="profile" className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                </div>
               </div>
             </div>
 
@@ -583,33 +672,58 @@
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
-                  {filteredCandidates.map(c => (
-                    <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
-                      <td className="py-3.5 font-extrabold text-blue-500 uppercase">USER-{String(c.id).toUpperCase()}</td>
-                      <td className="font-bold text-white">{c.name}</td>
-                      <td className="text-slate-400">{c.email}</td>
-                      <td className="text-slate-400">{c.mobile}</td>
-                      <td className="text-slate-400">{c.city || "N/A"} - {c.pincode || "N/A"}</td>
-                      <td className="text-slate-400 font-semibold">{c.referral_code || <span className="text-slate-600 italic">Direct</span>}</td>
-                      <td className="text-slate-400">{getRegDate(c)}</td>
-                      <td>
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                          c.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
-                          c.kyc_status === "Blocked" ? "bg-rose-500/25 text-rose-450 border border-rose-500/30" :
-                          c.kyc_status === "Rejected" ? "bg-red-500/10 text-red-500 border border-red-500/20" :
-                          "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                        }`}>{c.kyc_status || "Not Submitted"}</span>
-                      </td>
-                      <td className="text-right whitespace-nowrap">
-                        <div className="flex justify-end gap-1.5">
-                          <button onClick={() => setViewCandidate(c)} className="px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/20 text-[9px] font-bold uppercase rounded cursor-pointer transition">View</button>
-                          <button onClick={() => handleEditClick(c)} className="px-2 py-1 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/20 text-[9px] font-bold uppercase rounded cursor-pointer transition">Edit</button>
-                          <button onClick={() => handleBlockUser(c.id)} className={`px-2 py-1 text-[9px] font-bold uppercase rounded cursor-pointer transition ${c.kyc_status === "Blocked" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border border-amber-500/20"}`}>{c.kyc_status === "Blocked" ? "Unblock" : "Block"}</button>
-                          <button onClick={() => handleDeleteCandidate(c.id, c.name)} className="px-2 py-1 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 text-[9px] font-bold uppercase rounded cursor-pointer transition">Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredCandidates.map(c => {
+                    const activityStatus = getUserActivityStatus(c, submissions);
+                    const isRowInactive = activityStatus === "Inactive";
+                    const isRowRequested = activityStatus === "Activation Requested";
+                    
+                    let rowClass = "hover:bg-slate-50/50 dark:hover:bg-slate-800/15 transition-all";
+                    if (isRowInactive) {
+                      rowClass = "bg-rose-950/5 hover:bg-rose-950/10 opacity-75 border-l-2 border-rose-500/40 text-slate-400 transition-all";
+                    } else if (isRowRequested) {
+                      rowClass = "bg-amber-950/10 hover:bg-amber-950/15 border-l-2 border-amber-500 animate-pulse transition-all";
+                    }
+                    
+                    return (
+                      <tr key={c.id} className={rowClass}>
+                        <td className="py-3.5 font-extrabold text-blue-500 uppercase">USER-{String(c.id).toUpperCase()}</td>
+                        <td className={`font-bold ${isRowInactive ? 'text-slate-500 line-through' : 'text-white'}`}>{c.name}</td>
+                        <td className="text-slate-400">{c.email}</td>
+                        <td className="text-slate-400">{c.mobile}</td>
+                        <td className="text-slate-400">{c.city || "N/A"} - {c.pincode || "N/A"}</td>
+                        <td className="text-slate-400 font-semibold">{c.referral_code || <span className="text-slate-600 italic">Direct</span>}</td>
+                        <td className="text-slate-400">{getRegDate(c)}</td>
+                        <td>
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                              c.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" :
+                              c.kyc_status === "Blocked" ? "bg-rose-500/25 text-rose-450 border border-rose-500/30" :
+                              c.kyc_status === "Rejected" ? "bg-red-500/10 text-red-500 border border-red-500/20" :
+                              "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                            }`}>{c.kyc_status || "Not Submitted"}</span>
+                            
+                            {isRowInactive && (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-rose-500/15 text-rose-405 border border-rose-500/25 animate-pulse">Inactive</span>
+                            )}
+                            {isRowRequested && (
+                              <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/15 text-amber-405 border border-amber-500/25 animate-pulse">Activation Pending</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="text-right whitespace-nowrap">
+                          <div className="flex justify-end gap-1.5">
+                            {(isRowInactive || isRowRequested) && (
+                              <button onClick={() => handleReactivate(c.id)} className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold uppercase rounded cursor-pointer transition shadow border border-emerald-550/30">Reactivate</button>
+                            )}
+                            <button onClick={() => setViewCandidate(c)} className="px-2 py-1 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/20 text-[9px] font-bold uppercase rounded cursor-pointer transition">View</button>
+                            <button onClick={() => handleEditClick(c)} className="px-2 py-1 bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/20 text-[9px] font-bold uppercase rounded cursor-pointer transition">Edit</button>
+                            <button onClick={() => handleBlockUser(c.id)} className={`px-2 py-1 text-[9px] font-bold uppercase rounded cursor-pointer transition ${c.kyc_status === "Blocked" ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border border-amber-500/20"}`}>{c.kyc_status === "Blocked" ? "Unblock" : "Block"}</button>
+                            <button onClick={() => handleDeleteCandidate(c.id, c.name)} className="px-2 py-1 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 text-[9px] font-bold uppercase rounded cursor-pointer transition">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {filteredCandidates.length === 0 && (
                     <tr>
                       <td colSpan="9" className="py-6 text-center text-slate-500">No candidates found matching your criteria.</td>
@@ -1967,12 +2081,9 @@
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      );
-    }
-    function AdminReports({ users, submissions, withdrawals, kycRecords, tasks, setPreviewImage }) {
+           function AdminReports({ users, submissions, withdrawals, kycRecords, tasks, setPreviewImage }) {
       const [filterStatus, setFilterStatus] = useState("All");
+      const [activityFilter, setActivityFilter] = useState("All");
       const [searchTerm, setSearchTerm] = useState("");
       const [taskSearchTerm, setTaskSearchTerm] = useState("");
       const [startDate, setStartDate] = useState("");
@@ -2034,6 +2145,17 @@
               matchCandidate = false;
             }
           }
+
+          // Candidate Activity Filter
+          let matchActivity = true;
+          if (activityFilter !== "All" && user) {
+            const computedStatus = getUserActivityStatus(user, submissions);
+            if (activityFilter === "Active") {
+              matchActivity = computedStatus === "Active";
+            } else if (activityFilter === "Inactive") {
+              matchActivity = computedStatus === "Inactive" || computedStatus === "Activation Requested";
+            }
+          }
           
           // Task details & Search (Title, ID)
           const task = tasks.find(t => String(t.id) === String(s.task_id));
@@ -2058,9 +2180,9 @@
           if (startDate) matchDate = matchDate && (s.date >= startDate);
           if (endDate) matchDate = matchDate && (s.date <= endDate);
           
-          return matchStatus && matchCandidate && matchTask && matchDate;
+          return matchStatus && matchCandidate && matchTask && matchDate && matchActivity;
         });
-      }, [submissions, users, tasks, filterStatus, searchTerm, taskSearchTerm, startDate, endDate]);
+      }, [submissions, users, tasks, filterStatus, activityFilter, searchTerm, taskSearchTerm, startDate, endDate]);
 
       const handleExport = (format) => {
         let content = "";
@@ -2295,7 +2417,7 @@
       return (
         <div className="space-y-6">
           {/* Top Filters Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-5 rounded-2xl glass-card text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-4 p-5 rounded-2xl glass-card text-xs">
             <div>
               <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Search Candidate</label>
               <input 
@@ -2325,6 +2447,14 @@
                 <option value="Under Review">Under Review</option>
                 <option value="Re-Submit">Re-Submit</option>
                 <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Candidate Activity</label>
+              <select value={activityFilter} onChange={(e) => setActivityFilter(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white">
+                <option value="All">All Candidates</option>
+                <option value="Active">Active Only</option>
+                <option value="Inactive">Inactive Only</option>
               </select>
             </div>
             <div>
@@ -3388,13 +3518,17 @@
       };
 
       const sqlCode = `-- COPY AND RUN THIS SCRIPT IN YOUR SUPABASE SQL EDITOR:
-CREATE TABLE IF NOT EXISTS krv_users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, mobile VARCHAR(50), city VARCHAR(50), pincode VARCHAR(50), referral_code VARCHAR(50), wallet_balance DOUBLE PRECISION DEFAULT 0.0, earnings_pending DOUBLE PRECISION DEFAULT 0.0, earnings_paid DOUBLE PRECISION DEFAULT 0.0, kyc_status VARCHAR(50) DEFAULT 'Not Submitted', role VARCHAR(50) DEFAULT 'candidate');
+CREATE TABLE IF NOT EXISTS krv_users (id VARCHAR(50) PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, mobile VARCHAR(50), city VARCHAR(50), pincode VARCHAR(50), referral_code VARCHAR(50), wallet_balance DOUBLE PRECISION DEFAULT 0.0, earnings_pending DOUBLE PRECISION DEFAULT 0.0, earnings_paid DOUBLE PRECISION DEFAULT 0.0, kyc_status VARCHAR(50) DEFAULT 'Not Submitted', role VARCHAR(50) DEFAULT 'candidate', last_active VARCHAR(50), status VARCHAR(50) DEFAULT 'Active');
 CREATE TABLE IF NOT EXISTS krv_tasks (id VARCHAR(50) PRIMARY KEY, title VARCHAR(255) NOT NULL, category VARCHAR(100) NOT NULL, links TEXT, amount DOUBLE PRECISION DEFAULT 0.0, remarks TEXT, deadline VARCHAR(50), status VARCHAR(50) DEFAULT 'Active', imported_reviews JSONB DEFAULT '[]'::jsonb);
 CREATE TABLE IF NOT EXISTS krv_submissions (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) NOT NULL, task_id VARCHAR(50) NOT NULL, submitted_link TEXT, screenshot TEXT, video TEXT, remarks TEXT, review_status VARCHAR(50) DEFAULT 'Pending', amount DOUBLE PRECISION DEFAULT 0.0, date VARCHAR(50), rejection_reason TEXT);
 CREATE TABLE IF NOT EXISTS krv_kyc (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) UNIQUE NOT NULL, account_holder VARCHAR(100), account_number VARCHAR(100), bank_name VARCHAR(100), ifsc VARCHAR(50), aadhaar_front TEXT, aadhaar_back TEXT, selfie TEXT, status VARCHAR(50) DEFAULT 'Pending', rejection_reason TEXT);
 CREATE TABLE IF NOT EXISTS krv_withdrawals (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) NOT NULL, amount DOUBLE PRECISION NOT NULL, status VARCHAR(50) DEFAULT 'Pending', date VARCHAR(50), bank_details TEXT);
 CREATE TABLE IF NOT EXISTS krv_tickets (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) NOT NULL, subject VARCHAR(255), category VARCHAR(100), description TEXT, status VARCHAR(50) DEFAULT 'Open', replies JSONB DEFAULT '[]'::jsonb);
 CREATE TABLE IF NOT EXISTS krv_notifications (id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(50) NOT NULL, title VARCHAR(255), message TEXT, date VARCHAR(50));
+
+-- MIGRATION: RUN TO ADD NEW COLUMNS TO EXISTING krv_users IF NEEDED:
+-- ALTER TABLE krv_users ADD COLUMN IF NOT EXISTS last_active VARCHAR(50);
+-- ALTER TABLE krv_users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Active';
 
 -- DISABLE RLS TO ALLOW DIRECT CLIENT READ/WRITE (RECOMMENDED FOR STANDALONE CHANNELS):
 ALTER TABLE krv_users DISABLE ROW LEVEL SECURITY;
@@ -3589,6 +3723,7 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
                   users={users} 
                   setUsers={setUsers} 
                   kycRecords={kycRecords}
+                  submissions={submissions}
                   triggerToast={triggerToast}
                   setPreviewImage={setPreviewImage}
                 />
