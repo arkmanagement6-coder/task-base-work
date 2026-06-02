@@ -404,6 +404,7 @@
       }, [tasks, currentUser.id, autoAssignTaskReview]);
 
       useEffect(() => {
+        let isCancelled = false;
         if (submitDrawer) {
           const prevSub = submissions.find(s => String(s.task_id) === String(submitDrawer.id) && s.user_id === currentUser.id && s.review_status === "Re-Submit");
           if (prevSub) {
@@ -411,7 +412,26 @@
               link: prevSub.submitted_link || "",
               remarks: prevSub.remarks || ""
             });
-            setScreenshotFile(prevSub.screenshot || null);
+            if (prevSub.screenshot) {
+              setScreenshotFile(prevSub.screenshot);
+            } else {
+              setScreenshotFile("loading");
+              const fetchScreenshot = async () => {
+                const client = getSupabaseClient();
+                if (client) {
+                  const { data, error } = await client.from("krv_submissions").select("screenshot").eq("id", prevSub.id).single();
+                  if (!isCancelled && !error && data && data.screenshot) {
+                    prevSub.screenshot = data.screenshot;
+                    setScreenshotFile(data.screenshot);
+                  } else if (!isCancelled) {
+                    setScreenshotFile(null);
+                  }
+                } else if (!isCancelled) {
+                  setScreenshotFile(null);
+                }
+              };
+              fetchScreenshot();
+            }
           } else {
             setFormProof({ link: "", remarks: "" });
             setScreenshotFile(null);
@@ -420,6 +440,9 @@
           setFormProof({ link: "", remarks: "" });
           setScreenshotFile(null);
         }
+        return () => {
+          isCancelled = true;
+        };
       }, [submitDrawer, submissions, currentUser.id]);
 
       const getTaskSubmission = (taskId) => submissions.find(s => String(s.task_id) === String(taskId) && s.user_id === currentUser.id);
@@ -704,7 +727,15 @@
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Screenshot Upload (Required)</label>
                     <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative bg-white/5">
                       <input type="file" accept="image/*" onChange={handleImageMockUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                      {screenshotFile ? (
+                      {screenshotFile === "loading" ? (
+                        <div className="space-y-2 py-4">
+                          <svg className="animate-spin h-6 w-6 mx-auto text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span className="block text-xs text-slate-400 font-bold uppercase">Loading Previous Screenshot...</span>
+                        </div>
+                      ) : screenshotFile ? (
                         <img src={screenshotFile} className="mx-auto max-h-32 rounded object-cover" />
                       ) : (
                         <div className="space-y-2">
@@ -1904,7 +1935,7 @@
               }
 
               // 3. Fetch Submissions
-              const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("*");
+              const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("id,user_id,task_id,submitted_link,video,remarks,review_status,amount,date,rejection_reason").eq("user_id", user.id);
               if (!subsErr && dbSubs) {
                 setSubmissions(dbSubs);
                 prevSubmissionsRef.current = dbSubs;
@@ -1973,6 +2004,9 @@
                   }
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_submissions' }, (payload) => {
+                  if (payload.new && payload.new.user_id !== user.id) return;
+                  if (payload.old && payload.old.user_id && payload.old.user_id !== user.id) return;
+                  
                   if (payload.eventType === 'INSERT') {
                     setSubmissions(prev => {
                       const next = prev.some(s => s.id === payload.new.id) ? prev : [...prev, payload.new];
