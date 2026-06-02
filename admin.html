@@ -455,7 +455,8 @@
               const matchName = c.name && c.name.toLowerCase().includes(term);
               const matchEmail = c.email && c.email.toLowerCase().includes(term);
               const matchMobile = c.mobile && c.mobile.includes(term);
-              return matchName || matchEmail || matchMobile;
+              const matchId = c.id && (c.id.toLowerCase().includes(term) || `user-${c.id.toLowerCase()}`.includes(term));
+              return matchName || matchEmail || matchMobile || matchId;
             }
             return true;
           })
@@ -555,7 +556,7 @@
               <div className="relative w-full sm:w-80">
                 <input
                   type="text"
-                  placeholder="Search by name, mobile, email..."
+                  placeholder="Search by ID, name, mobile, email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white"
@@ -568,7 +569,8 @@
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
-                    <th className="py-3">Name</th>
+                    <th className="py-3">Candidate ID</th>
+                    <th>Name</th>
                     <th>Email ID</th>
                     <th>Mobile</th>
                     <th>Location</th>
@@ -580,7 +582,8 @@
                 <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
                   {filteredCandidates.map(c => (
                     <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
-                      <td className="py-3.5 font-bold text-white">{c.name}</td>
+                      <td className="py-3.5 font-extrabold text-blue-500 uppercase">USER-{String(c.id).toUpperCase()}</td>
+                      <td className="font-bold text-white">{c.name}</td>
                       <td className="text-slate-400">{c.email}</td>
                       <td className="text-slate-400">{c.mobile}</td>
                       <td className="text-slate-400">{c.city || "N/A"} - {c.pincode || "N/A"}</td>
@@ -605,7 +608,7 @@
                   ))}
                   {filteredCandidates.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="py-6 text-center text-slate-500">No candidates found matching your criteria.</td>
+                      <td colSpan="8" className="py-6 text-center text-slate-500">No candidates found matching your criteria.</td>
                     </tr>
                   )}
                 </tbody>
@@ -627,6 +630,10 @@
                   {/* Profile Info */}
                   <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 space-y-3">
                     <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-1.5 mb-2">Personal Information</span>
+                    <div className="flex justify-between py-1 border-b border-slate-850">
+                      <span className="text-slate-500">Candidate ID</span>
+                      <span className="font-extrabold text-blue-500 uppercase">USER-{String(viewCandidate.id).toUpperCase()}</span>
+                    </div>
                     <div className="flex justify-between py-1 border-b border-slate-850">
                       <span className="text-slate-500">Candidate Name</span>
                       <span className="font-bold text-slate-200">{viewCandidate.name}</span>
@@ -1171,7 +1178,10 @@
               <div key={t.id} onClick={() => setSelectedTask(t)} className="rounded-2xl glass-card p-6 flex flex-col justify-between cursor-pointer border border-slate-800/40 hover:border-blue-500/40 hover:shadow-lg transition-all duration-305">
                 <div>
                   <div className="flex justify-between items-center mb-3">
-                    <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[9px] font-bold uppercase border border-blue-500/20">{t.category}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[9px] font-bold uppercase border border-blue-500/20">{t.category}</span>
+                      <span className="text-[9px] font-bold text-slate-400">TASK-{String(t.id).toUpperCase()}</span>
+                    </div>
                     <span className="text-lg font-extrabold text-emerald-500">₹{t.amount}</span>
                   </div>
                   <h4 className="font-bold text-sm mb-2 text-white">{t.title}</h4>
@@ -1251,6 +1261,7 @@
                 <div className="border-b border-slate-800/85 pb-5 mb-6">
                   <div className="flex flex-wrap gap-2 items-center mb-3">
                     <span className="px-3 py-1 rounded bg-blue-500/10 text-blue-400 text-xs font-bold uppercase border border-blue-500/20">{selectedTask.category}</span>
+                    <span className="px-3 py-1 rounded bg-slate-800 text-slate-300 text-xs font-bold uppercase">TASK-{String(selectedTask.id).toUpperCase()}</span>
                     <span className={`px-3 py-1 rounded text-xs font-bold uppercase ${selectedTask.status === "Active" ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>{selectedTask.status}</span>
                   </div>
                   <h2 className="text-xl md:text-2xl font-extrabold text-white leading-tight">{selectedTask.title}</h2>
