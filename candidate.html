@@ -411,12 +411,17 @@
           return;
         }
 
+        if (!screenshotFile) {
+          triggerToast("Please upload a proof screenshot.", "error");
+          return;
+        }
+
         const newSub = {
           id: "s" + (submissions.length + 1),
           user_id: currentUser.id,
           task_id: submitDrawer.id,
           submitted_link: formProof.link,
-          screenshot: screenshotFile || "assets/dashboard_preview.png",
+          screenshot: screenshotFile,
           video: "",
           remarks: formProof.remarks,
           review_status: "Pending",
@@ -602,7 +607,7 @@
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Screenshot Upload</label>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Screenshot Upload (Required)</label>
                     <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative bg-white/5">
                       <input type="file" accept="image/*" onChange={handleImageMockUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
                       {screenshotFile ? (
