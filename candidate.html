@@ -690,9 +690,15 @@
                           <Icon name="clock" className="w-4 h-4 text-indigo-400" />
                           <span>Under Review</span>
                         </button>
+                      ) : sub.review_status === "Rejected" ? (
+                        <button disabled className="w-full py-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-xs font-bold text-rose-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5">
+                          <Icon name="x-circle" className="w-4 h-4 text-rose-500" />
+                          <span>Rejected</span>
+                        </button>
                       ) : (
-                        <button disabled className="w-full py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-405 text-center uppercase tracking-wider">
-                          Submitted
+                        <button disabled className="w-full py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs font-bold text-amber-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5">
+                          <Icon name="clock" className="w-4 h-4 text-amber-500" />
+                          <span>Pending Audit</span>
                         </button>
                       )
                     ) : (
@@ -728,10 +734,6 @@
                 })()}
 
                 <form onSubmit={handleSubmission} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Paste Submitted Link</label>
-                    <input required type="url" value={formProof.link} onChange={(e) => setFormProof({ ...formProof, link: e.target.value })} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="https://store.google.com/review/id" />
-                  </div>
 
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Screenshot Upload (Required)</label>
