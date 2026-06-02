@@ -1452,13 +1452,13 @@
                     return (
                       <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
                         <td className="py-3.5 font-bold text-white">
-                          <div>USER-{s.user_id.toUpperCase()}</div>
+                          <div>USER-{String(s.user_id).toUpperCase()}</div>
                           <div className="text-[10px] text-slate-350 font-normal mt-0.5">{worker ? worker.name : "Unknown"}</div>
                           {worker && worker.mobile && (
                             <div className="text-[9px] text-slate-500 font-normal mt-0.5">{worker.mobile}</div>
                           )}
                         </td>
-                        <td className="text-slate-400">TASK-{s.task_id.toUpperCase()}</td>
+                        <td className="text-slate-400">TASK-{String(s.task_id).toUpperCase()}</td>
                       <td className="text-blue-500 max-w-[200px] truncate">{s.submitted_link}</td>
                       <td className="font-bold text-emerald-500">₹{s.amount}</td>
                       <td><span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">{s.review_status}</span></td>
@@ -1475,12 +1475,12 @@
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 overflow-y-auto">
               <div className="w-full max-w-lg glass-card rounded-2xl p-6 relative my-8 md:my-auto border border-slate-800/60">
                 <button onClick={() => setReviewModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-5 h-5" /></button>
-                <h3 className="text-lg font-bold mb-1 text-white">Audit Task Proof: SUB-{reviewModal.id.toUpperCase()}</h3>
+                <h3 className="text-lg font-bold mb-1 text-white">Audit Task Proof: SUB-{String(reviewModal.id).toUpperCase()}</h3>
                 {(() => {
                   const worker = users.find(u => u.id === reviewModal.user_id);
                   return worker ? (
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2 flex flex-col gap-0.5">
-                      <div>Submitted by: <span className="text-blue-400 font-extrabold">{worker.name}</span> (USER-{reviewModal.user_id.toUpperCase()})</div>
+                      <div>Submitted by: <span className="text-blue-400 font-extrabold">{worker.name}</span> (USER-{String(reviewModal.user_id).toUpperCase()})</div>
                       {worker.mobile && <div className="text-slate-500 font-bold normal-case">Mobile: <span className="text-slate-350">{worker.mobile}</span></div>}
                     </div>
                   ) : null;
@@ -1495,7 +1495,7 @@
                     <span className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Proof Screenshot</span>
                     <div className="max-h-40 overflow-hidden border border-slate-700 rounded-lg p-1 bg-slate-950/20 flex items-center justify-center">
                       {reviewModal.screenshot && reviewModal.screenshot !== "assets/dashboard_preview.png" ? (
-                        <img src={reviewModal.screenshot} alt="Proof" onClick={() => setPreviewImage && setPreviewImage({ title: `Proof: Task SUB-${reviewModal.id.toUpperCase()}`, url: reviewModal.screenshot })} className="mx-auto max-h-36 rounded object-contain cursor-zoom-in hover:scale-105 transition" />
+                        <img src={reviewModal.screenshot} alt="Proof" onClick={() => setPreviewImage && setPreviewImage({ title: `Proof: Task SUB-${String(reviewModal.id).toUpperCase()}`, url: reviewModal.screenshot })} className="mx-auto max-h-36 rounded object-contain cursor-zoom-in hover:scale-105 transition" />
                       ) : (
                         <div className="text-center text-slate-500 text-xs py-4 flex flex-col items-center justify-center">
                           <svg className="w-8 h-8 text-slate-700 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1817,11 +1817,11 @@
               };
               
               return [
-                escapeCsv(`SUB-${s.id.toUpperCase()}`),
-                escapeCsv(`USER-${s.user_id.toUpperCase()}`),
+                escapeCsv(`SUB-${String(s.id).toUpperCase()}`),
+                escapeCsv(`USER-${String(s.user_id).toUpperCase()}`),
                 escapeCsv(candidate ? candidate.name : 'N/A'),
                 escapeCsv(candidate ? candidate.mobile : 'N/A'),
-                escapeCsv(`TASK-${s.task_id.toUpperCase()}`),
+                escapeCsv(`TASK-${String(s.task_id).toUpperCase()}`),
                 escapeCsv(task ? task.title : 'N/A'),
                 s.amount || 0,
                 escapeCsv(s.review_status),
@@ -1857,11 +1857,11 @@
               };
               
               return [
-                `SUB-${s.id.toUpperCase()}`,
-                `USER-${s.user_id.toUpperCase()}`,
+                `SUB-${String(s.id).toUpperCase()}`,
+                `USER-${String(s.user_id).toUpperCase()}`,
                 cleanTsv(candidate ? candidate.name : 'N/A'),
                 cleanTsv(candidate ? candidate.mobile : 'N/A'),
-                `TASK-${s.task_id.toUpperCase()}`,
+                `TASK-${String(s.task_id).toUpperCase()}`,
                 cleanTsv(task ? task.title : 'N/A'),
                 s.amount || 0,
                 cleanTsv(s.review_status),
@@ -1893,8 +1893,8 @@
             const task = tasks.find(t => String(t.id) === String(s.task_id));
             return `
               <tr style="border-bottom: 1px solid #e2e8f0; font-size: 10px; color: #334155;">
-                <td style="padding: 10px 8px; font-weight: bold;">SUB-${s.id.toUpperCase()}</td>
-                <td style="padding: 10px 8px;">USER-${s.user_id.toUpperCase()}</td>
+                <td style="padding: 10px 8px; font-weight: bold;">SUB-${String(s.id).toUpperCase()}</td>
+                <td style="padding: 10px 8px;">USER-${String(s.user_id).toUpperCase()}</td>
                 <td style="padding: 10px 8px; font-weight: 700; color: #0f172a;">${candidate ? candidate.name : 'N/A'}</td>
                 <td style="padding: 10px 8px; white-space: nowrap;">${candidate ? candidate.mobile : 'N/A'}</td>
                 <td style="padding: 10px 8px;">${task ? task.title : 'N/A'}</td>
@@ -1914,20 +1914,20 @@
                 <td style="padding: 10px 8px; text-align: center;">
                   ${s.screenshot && !s.screenshot.startsWith("blob:") ? `
                     <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 90px;">
-                      <a href="${s.screenshot}" target="_blank" download="SUB-${s.id.toUpperCase()}_proof.png" style="text-decoration: none; display: inline-block;">
+                      <a href="${s.screenshot}" target="_blank" download="SUB-${String(s.id).toUpperCase()}_proof.png" style="text-decoration: none; display: inline-block;">
                         <img src="${s.screenshot}" style="max-height: 45px; max-width: 90px; border-radius: 4px; border: 1px solid #cbd5e1; cursor: pointer; display: block;" />
                       </a>
-                      <a href="${s.screenshot}" target="_blank" download="SUB-${s.id.toUpperCase()}_proof.png" style="color: #2563eb; text-decoration: none; font-size: 8px; font-weight: bold; background: #eff6ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe; display: inline-block; white-space: nowrap; margin-top: 2px;">
+                      <a href="${s.screenshot}" target="_blank" download="SUB-${String(s.id).toUpperCase()}_proof.png" style="color: #2563eb; text-decoration: none; font-size: 8px; font-weight: bold; background: #eff6ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #bfdbfe; display: inline-block; white-space: nowrap; margin-top: 2px;">
                         📥 Download
                       </a>
                     </div>
                   ` : 
                     (s.screenshot && s.screenshot.startsWith("blob:") ? `
                       <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 90px;">
-                        <a href="${s.screenshot}" target="_blank" download="SUB-${s.id.toUpperCase()}_proof.png" style="text-decoration: none; display: inline-block;">
+                        <a href="${s.screenshot}" target="_blank" download="SUB-${String(s.id).toUpperCase()}_proof.png" style="text-decoration: none; display: inline-block;">
                           <span style="color:#64748b; font-size:8px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; padding:4px 8px; border-radius:4px; display:inline-block; white-space:nowrap; text-transform:uppercase;">Local Session</span>
                         </a>
-                        <a href="${s.screenshot}" target="_blank" download="SUB-${s.id.toUpperCase()}_proof.png" style="color: #475569; text-decoration: none; font-size: 7px; font-weight: bold; background: #f1f5f9; padding: 2px 4px; border-radius: 3px; border: 1px solid #cbd5e1; display: inline-block; white-space: nowrap; margin-top: 1px;">
+                        <a href="${s.screenshot}" target="_blank" download="SUB-${String(s.id).toUpperCase()}_proof.png" style="color: #475569; text-decoration: none; font-size: 7px; font-weight: bold; background: #f1f5f9; padding: 2px 4px; border-radius: 3px; border: 1px solid #cbd5e1; display: inline-block; white-space: nowrap; margin-top: 1px;">
                           Try Download
                         </a>
                       </div>
@@ -2105,11 +2105,11 @@
                     const user = users.find(u => u.id === s.user_id);
                     return (
                       <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
-                        <td className="py-3.5 font-bold">SUB-{s.id.toUpperCase()}</td>
-                        <td className="font-extrabold text-blue-500 uppercase">USER-{s.user_id.toUpperCase()}</td>
+                        <td className="py-3.5 font-bold">SUB-{String(s.id).toUpperCase()}</td>
+                        <td className="font-extrabold text-blue-500 uppercase">USER-{String(s.user_id).toUpperCase()}</td>
                         <td className="text-slate-200 font-semibold">{user ? user.name : "N/A"}</td>
                         <td className="text-slate-400 font-medium">{user ? user.mobile : "N/A"}</td>
-                        <td className="text-slate-405">TASK-{s.task_id.toUpperCase()}</td>
+                        <td className="text-slate-405">TASK-{String(s.task_id).toUpperCase()}</td>
                         <td className="font-extrabold text-emerald-500">₹{s.amount}</td>
                         <td>
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
@@ -2194,7 +2194,7 @@
                         </div>
                         <div>
                           <span className="text-slate-500 block text-[9px] font-bold uppercase">Task ID</span>
-                          <span className="font-semibold text-slate-400 block mt-0.5">TASK-{viewSubmission.task_id.toUpperCase()}</span>
+                          <span className="font-semibold text-slate-400 block mt-0.5">TASK-{String(viewSubmission.task_id).toUpperCase()}</span>
                         </div>
                         <div>
                           <span className="text-slate-500 block text-[9px] font-bold uppercase">Submission Date</span>

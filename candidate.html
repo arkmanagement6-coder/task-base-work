@@ -313,7 +313,7 @@
                   ) : (
                     mySubmissions.slice(-5).reverse().map(sub => (
                       <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
-                        <td className="py-3.5 font-semibold text-slate-500">SUB-{sub.id.toUpperCase()}</td>
+                        <td className="py-3.5 font-semibold text-slate-500">SUB-{String(sub.id).toUpperCase()}</td>
                         <td className="font-bold text-emerald-500">₹{sub.amount}</td>
                         <td>
                           <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
@@ -1221,11 +1221,11 @@
         
         if (format === "csv") {
           content = "Submission ID,Amount,Review Status,Link,Date\n" + 
-            filteredList.map(s => `SUB-${s.id.toUpperCase()},${s.amount},${s.review_status},${s.submitted_link},${s.date}`).join("\n");
+            filteredList.map(s => `SUB-${String(s.id).toUpperCase()},${s.amount},${s.review_status},${s.submitted_link},${s.date}`).join("\n");
           filename += ".csv";
         } else if (format === "excel") {
           content = "Submission ID\tAmount\tReview Status\tLink\tDate\n" + 
-            filteredList.map(s => `SUB-${s.id.toUpperCase()}\t${s.amount}\t${s.review_status}\t${s.submitted_link}\t${s.date}`).join("\n");
+            filteredList.map(s => `SUB-${String(s.id).toUpperCase()}\t${s.amount}\t${s.review_status}\t${s.submitted_link}\t${s.date}`).join("\n");
           filename += ".xls";
         } else {
           content = "KRV MANAGEMENT WORK REPORT\n=========================\n" + 
@@ -1233,7 +1233,7 @@
             `Total Approved: ${filteredList.filter(s => s.review_status === "Approved").length} Tasks\n` + 
             `Total Wallet Bal: ${currentUser.wallet_balance} Rs\n\n` +
             "SUBMISSIONS LIST:\n-----------------\n" +
-            filteredList.map(s => `[SUB-${s.id.toUpperCase()}] Price: Rs.${s.amount} | Status: ${s.review_status}\nLink: ${s.submitted_link}\nRemarks: ${s.remarks || "N/A"}\n---`).join("\n");
+            filteredList.map(s => `[SUB-${String(s.id).toUpperCase()}] Price: Rs.${s.amount} | Status: ${s.review_status}\nLink: ${s.submitted_link}\nRemarks: ${s.remarks || "N/A"}\n---`).join("\n");
           filename += ".pdf";
         }
 
@@ -1305,7 +1305,7 @@
                   ) : (
                     filteredList.map(s => (
                       <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
-                        <td className="py-3.5 font-bold text-white">SUB-{s.id.toUpperCase()}</td>
+                        <td className="py-3.5 font-bold text-white">SUB-{String(s.id).toUpperCase()}</td>
                         <td className="text-slate-400">Task-{s.task_id}</td>
                         <td className="font-bold text-emerald-500">₹{s.amount}</td>
                         <td>
@@ -1512,7 +1512,7 @@
                 <div key={tk.id} className="p-6 rounded-2xl glass-card space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                     <div>
-                      <span className="text-[10px] font-bold uppercase text-slate-400">Ticket ID: TK-{tk.id.toUpperCase()}</span>
+                      <span className="text-[10px] font-bold uppercase text-slate-400">Ticket ID: TK-{String(tk.id).toUpperCase()}</span>
                       <h4 className="font-bold text-base mt-0.5 text-white">{tk.subject}</h4>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
