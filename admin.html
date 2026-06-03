@@ -1502,7 +1502,7 @@
       const [showCreate, setShowCreate] = useState(false);
       const [editingTaskId, setEditingTaskId] = useState(null);
       const [selectedTask, setSelectedTask] = useState(null);
-      const [form, setForm] = useState({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
+      const [form, setForm] = useState({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "", status: "Active" });
 
       const handleViewSubScreenshot = async (sub) => {
         if (!sub) return;
@@ -1612,7 +1612,7 @@
 
       const toggleForm = () => {
         if (showCreate) {
-          setForm({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
+          setForm({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "", status: "Active" });
           setEditingTaskId(null);
           setPasteReviews("");
           setImportedReviewsList([]);
@@ -1708,7 +1708,8 @@
                 links: form.links,
                 amount: parseFloat(form.amount) || 0,
                 remarks: form.remarks,
-                deadline: form.deadline
+                deadline: form.deadline,
+                status: form.status || "Active"
               };
               if (form.category === "Application Review Provide by Brand") {
                 updatedTask.imported_reviews = importedReviewsList;
@@ -1730,7 +1731,7 @@
             amount: parseFloat(form.amount) || 0,
             remarks: form.remarks,
             deadline: form.deadline,
-            status: "Active"
+            status: form.status || "Active"
           };
           if (form.category === "Application Review Provide by Brand") {
             newTask.imported_reviews = importedReviewsList;
@@ -1739,7 +1740,7 @@
           triggerToast("New digital task created successfully!");
         }
 
-        setForm({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "" });
+        setForm({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "", status: "Active" });
         setPasteReviews("");
         setImportedReviewsList([]);
         setShowCreate(false);
@@ -1808,6 +1809,14 @@
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Deadline</label>
                     <input required type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
                   </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Status</label>
+                    <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white">
+                      <option value="Active">Active (Open)</option>
+                      <option value="Stop">Stop (Closed)</option>
+                      <option value="Pending">Pending (Paused)</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Instruction Remarks</label>
@@ -1869,6 +1878,11 @@
                     <div className="flex items-center gap-1.5">
                       <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[9px] font-bold uppercase border border-blue-500/20">{t.category}</span>
                       <span className="text-[9px] font-bold text-slate-400">TASK-{String(t.id).toUpperCase()}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${
+                        t.status === "Active" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                        t.status === "Stop" ? "bg-rose-500/10 text-rose-500 border-rose-500/20" :
+                        "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                      }`}>{t.status || "Active"}</span>
                     </div>
                     <span className="text-lg font-extrabold text-emerald-500">₹{t.amount}</span>
                   </div>
@@ -1937,7 +1951,7 @@
                   <div className="flex items-center gap-1.5">
                     <button onClick={(e) => {
                       e.stopPropagation();
-                      setForm({ title: t.title, category: t.category, links: t.links, amount: t.amount.toString(), remarks: t.remarks, deadline: t.deadline });
+                      setForm({ title: t.title, category: t.category, links: t.links, amount: t.amount.toString(), remarks: t.remarks, deadline: t.deadline, status: t.status || "Active" });
                       setEditingTaskId(t.id);
                       setImportedReviewsList(t.imported_reviews || []);
                       setPasteReviews("");
@@ -1963,7 +1977,11 @@
                   <div className="flex flex-wrap gap-2 items-center mb-3">
                     <span className="px-3 py-1 rounded bg-blue-500/10 text-blue-400 text-xs font-bold uppercase border border-blue-500/20">{selectedTask.category}</span>
                     <span className="px-3 py-1 rounded bg-slate-800 text-slate-300 text-xs font-bold uppercase">TASK-{String(selectedTask.id).toUpperCase()}</span>
-                    <span className={`px-3 py-1 rounded text-xs font-bold uppercase ${selectedTask.status === "Active" ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>{selectedTask.status}</span>
+                    <span className={`px-3 py-1 rounded text-xs font-bold uppercase border ${
+                      selectedTask.status === "Active" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25" :
+                      selectedTask.status === "Stop" ? "bg-rose-500/10 text-rose-400 border-rose-500/25" :
+                      "bg-amber-500/10 text-amber-400 border-amber-500/25"
+                    }`}>{selectedTask.status || "Active"}</span>
                   </div>
                   <h2 className="text-xl md:text-2xl font-extrabold text-white leading-tight">{selectedTask.title}</h2>
                 </div>

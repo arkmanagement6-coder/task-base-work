@@ -450,6 +450,7 @@
       const getTaskSubmission = (taskId) => submissions.find(s => String(s.task_id) === String(taskId) && s.user_id === currentUser.id);
 
       const isTaskActive = (task) => {
+        if (task.status === "Stop" || task.status === "Pending") return false;
         if (!task.deadline) return true;
         const todayStr = new Date().toISOString().split('T')[0];
         return task.deadline >= todayStr;
