@@ -455,7 +455,7 @@
       const getTaskSubmission = (taskId) => submissions.find(s => String(s.task_id) === String(taskId) && s.user_id === currentUser.id);
 
       const isTaskActive = (task) => {
-        if (task.status === "Stop" || task.status === "Pending") return false;
+        if (task.status === "Stop" || task.status === "Pending" || task.status === "Closed" || task.status === "Deleted") return false;
         if (!task.deadline) return true;
         const todayStr = new Date().toISOString().split('T')[0];
         return task.deadline >= todayStr;
@@ -497,11 +497,28 @@
                       : 'bg-slate-500/10 text-slate-500 border-slate-500/20'
                   }`}>{t.category}</span>
                   <span className="text-[9px] font-bold text-slate-400">TASK-{String(t.id).toUpperCase()}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase border ${
+                    isActive
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                  }`}>
+                    {isActive ? "Active" : "Stop"}
+                  </span>
                 </div>
                 <span className={`text-lg font-extrabold ${isActive ? 'text-emerald-500' : 'text-slate-500'}`}>₹{t.amount}</span>
               </div>
 
               <h3 className="text-base font-bold mb-2 text-white">{t.title}</h3>
+              {!isActive && (
+                <div className="p-3 mb-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-500 text-xs flex flex-col gap-1">
+                  <span className="font-extrabold uppercase text-[9px] tracking-wider block">⚠️ Deadline Expired / Stopped:</span>
+                  <p className="font-medium text-[11px] leading-relaxed break-words">
+                    {t.status === "Stop" 
+                      ? "This task has been stopped by the administrator."
+                      : "The campaign deadline has passed. No further submissions are accepted."}
+                  </p>
+                </div>
+              )}
               {sub && sub.review_status === "Re-Submit" && isActive && (
                 <div className="p-3 mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-500 text-xs flex flex-col gap-1">
                   <span className="font-extrabold uppercase text-[9px] tracking-wider block">⚠️ Admin Re-Submit Request:</span>
@@ -579,13 +596,12 @@
                   }
                 })()
               )}
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-4 font-semibold uppercase">
+               <div className="flex items-center justify-between text-[10px] text-slate-400 mb-4 font-semibold uppercase">
                 <span>Deadline: {t.deadline}</span>
                 <span>
-                  {sub ? (
+                  {!isActive ? (
+                    <span className="text-rose-500 font-bold">Stop</span>
+                  ) : sub ? (
                     <span className={`font-bold ${
                       sub.review_status === "Approved" ? "text-emerald-500" :
                       sub.review_status === "Rejected" ? "text-rose-500" :
@@ -593,25 +609,21 @@
                       sub.review_status === "Re-Submit" ? "text-amber-500 animate-pulse font-extrabold" :
                       "text-amber-500"
                     }`}>{sub.review_status === "Re-Submit" ? "Re-Submit Required" : sub.review_status}</span>
-                  ) : !isActive ? (
-                    <span className="text-rose-500 font-bold">Closed</span>
                   ) : "Unsubmitted"}
                 </span>
               </div>
 
-              {sub ? (
+              {!isActive ? (
+                <button disabled className="w-full py-2.5 rounded-lg border border-slate-800 bg-slate-900/40 text-xs font-bold text-slate-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed">
+                  <Icon name="lock" className="w-4 h-4 text-slate-600" />
+                  <span>Campaign Closed</span>
+                </button>
+              ) : sub ? (
                 sub.review_status === "Re-Submit" ? (
-                  !isActive ? (
-                    <button disabled className="w-full py-2.5 rounded-lg border border-slate-800 bg-slate-900/40 text-xs font-bold text-slate-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed">
-                      <Icon name="lock" className="w-4 h-4 text-slate-600" />
-                      <span>Campaign Closed</span>
-                    </button>
-                  ) : (
-                    <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5 animate-bounce">
-                      <Icon name="upload" className="w-3.5 h-3.5 animate-pulse" />
-                      <span>Re-Submit Task</span>
-                    </button>
-                  )
+                  <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5 animate-bounce">
+                    <Icon name="upload" className="w-3.5 h-3.5 animate-pulse" />
+                    <span>Re-Submit Task</span>
+                  </button>
                 ) : sub.review_status === "Approved" ? (
                   <button disabled className="w-full py-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs font-bold text-emerald-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5">
                     <Icon name="check-circle" className="w-4 h-4 text-emerald-500" />
@@ -633,11 +645,6 @@
                     <span>Pending Audit</span>
                   </button>
                 )
-              ) : !isActive ? (
-                <button disabled className="w-full py-2.5 rounded-lg border border-slate-800 bg-slate-900/40 text-xs font-bold text-slate-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed">
-                  <Icon name="lock" className="w-4 h-4 text-slate-600" />
-                  <span>Campaign Closed</span>
-                </button>
               ) : (
                 <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer">
                   Submit Task
@@ -2186,7 +2193,7 @@
               const { user } = JSON.parse(storedSession);
 
               // 1. Fetch Users
-              const { data: dbUsers, error: usersErr } = await client.from("krv_users").select("*");
+              const { data: dbUsers, error: usersErr } = await client.from("krv_users").select("*").eq("id", user.id);
               if (!usersErr && dbUsers) {
                 setUsers(dbUsers);
                 prevUsersRef.current = dbUsers;
@@ -2199,7 +2206,13 @@
               // 2. Fetch Tasks
               const { data: dbTasks, error: tasksErr } = await client.from("krv_tasks").select("*");
               if (!tasksErr && dbTasks) {
-                const activeTasks = dbTasks.filter(t => t.status !== "Deleted");
+                const todayStr = new Date().toISOString().split('T')[0];
+                const activeTasks = dbTasks.filter(t => t.status !== "Deleted").map(t => {
+                  if (t.deadline && t.deadline < todayStr && t.status === "Active") {
+                    return { ...t, status: "Stop" };
+                  }
+                  return t;
+                });
                 setTasks(activeTasks);
                 prevTasksRef.current = activeTasks;
               }
@@ -2212,28 +2225,28 @@
               }
 
               // 4. Fetch KYC
-              const { data: dbKyc, error: kycErr } = await client.from("krv_kyc").select("*");
+              const { data: dbKyc, error: kycErr } = await client.from("krv_kyc").select("*").eq("user_id", user.id);
               if (!kycErr && dbKyc) {
                 setKycRecords(dbKyc);
                 prevKycRecordsRef.current = dbKyc;
               }
 
               // 5. Fetch Withdrawals
-              const { data: dbWithdrawals, error: wErr } = await client.from("krv_withdrawals").select("*");
+              const { data: dbWithdrawals, error: wErr } = await client.from("krv_withdrawals").select("*").eq("user_id", user.id);
               if (!wErr && dbWithdrawals) {
                 setWithdrawals(dbWithdrawals);
                 prevWithdrawalsRef.current = dbWithdrawals;
               }
 
               // 6. Fetch Tickets
-              const { data: dbTickets, error: tErr } = await client.from("krv_tickets").select("*");
+              const { data: dbTickets, error: tErr } = await client.from("krv_tickets").select("*").eq("user_id", user.id);
               if (!tErr && dbTickets) {
                 setTickets(dbTickets);
                 prevTicketsRef.current = dbTickets;
               }
 
               // 7. Fetch Notifications
-              const { data: dbNotifs, error: nErr } = await client.from("krv_notifications").select("*");
+              const { data: dbNotifs, error: nErr } = await client.from("krv_notifications").select("*").eq("user_id", user.id);
               if (!nErr && dbNotifs) {
                 setNotifications(dbNotifs);
                 prevNotificationsRef.current = dbNotifs;
@@ -2409,10 +2422,24 @@
                   return !prevU || JSON.stringify(prevU) !== JSON.stringify(u);
                 });
                 if (changedUsers.length > 0) {
-                  const { error } = await client.from("krv_users").upsert(changedUsers);
-                  if (error) {
-                    console.error("Users sync failed:", error);
-                    triggerToast("Sync Error (Users): " + error.message, "error");
+                  for (const u of changedUsers) {
+                    const { error } = await client.from("krv_users").update({
+                      name: u.name,
+                      email: u.email,
+                      password: u.password,
+                      mobile: u.mobile,
+                      city: u.city,
+                      pincode: u.pincode,
+                      referral_code: u.referral_code,
+                      kyc_status: u.kyc_status,
+                      role: u.role,
+                      last_active: u.last_active,
+                      status: u.status
+                    }).eq("id", u.id);
+                    if (error) {
+                      console.error("Users sync failed:", error);
+                      triggerToast("Sync Error (Users): " + error.message, "error");
+                    }
                   }
                 }
                 prevUsersRef.current = users;

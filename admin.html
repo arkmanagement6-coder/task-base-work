@@ -564,15 +564,7 @@
         }));
 
         // Handle financial changes
-        if (newStatus === "Approved") {
-          updateWallet(sub.user_id, sub.amount);
-        } else if (sub.review_status === "Approved" && (newStatus === "Rejected" || newStatus === "Re-Submit")) {
-          // If it was approved before and is now rejected/resubmitted, deduct from wallet
-          updateWallet(sub.user_id, -sub.amount);
-        } else if (sub.review_status === "Pending" && (newStatus === "Rejected" || newStatus === "Re-Submit")) {
-          // Decrement pending earnings since it is no longer pending validation
-          setUsers && setUsers(prev => prev.map(u => u.id === sub.user_id ? { ...u, earnings_pending: Math.max(0, u.earnings_pending - sub.amount) } : u));
-        }
+        updateWallet(sub.user_id, sub.review_status, newStatus, sub.amount);
 
         // Send notifications
         let notifTitle = "";
@@ -2280,7 +2272,7 @@
 
       const handleApprove = (sub) => {
         setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Approved" } : s));
-        updateWallet(sub.user_id, sub.amount);
+        updateWallet(sub.user_id, sub.review_status, "Approved", sub.amount);
 
         const newNotif = {
           id: "n" + (notifications.length + 1),
@@ -2296,6 +2288,7 @@
 
       const handleUnderReview = (sub) => {
         setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Under Review" } : s));
+        updateWallet(sub.user_id, sub.review_status, "Under Review", sub.amount);
 
         const newNotif = {
           id: "n" + (notifications.length + 1),
@@ -2315,9 +2308,7 @@
           return;
         }
         setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Rejected", rejection_reason: rejectionReason } : s));
-        
-        // Decrement pending earnings since it is no longer pending validation
-        setUsers && setUsers(prev => prev.map(u => u.id === sub.user_id ? { ...u, earnings_pending: Math.max(0, u.earnings_pending - sub.amount) } : u));
+        updateWallet(sub.user_id, sub.review_status, "Rejected", sub.amount);
         
         const newNotif = {
           id: "n" + (notifications.length + 1),
@@ -2338,9 +2329,7 @@
           return;
         }
         setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Re-Submit", rejection_reason: rejectionReason } : s));
-        
-        // Decrement pending earnings since it is no longer pending validation
-        setUsers && setUsers(prev => prev.map(u => u.id === sub.user_id ? { ...u, earnings_pending: Math.max(0, u.earnings_pending - sub.amount) } : u));
+        updateWallet(sub.user_id, sub.review_status, "Re-Submit", sub.amount);
         
         const newNotif = {
           id: "n" + (notifications.length + 1),
@@ -4616,16 +4605,38 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
         setToast({ message, type });
       };
 
-      const updateWallet = (userId, amount) => {
-        setUsers(prev => prev.map(u => {
-          if (u.id === userId) {
-            return {
-              ...u,
-              wallet_balance: u.wallet_balance + amount,
-              earnings_pending: Math.max(0, u.earnings_pending - amount)
-            };
+      const updateWallet = (userId, prevStatus, newStatus, amount) => {
+        const prev = (prevStatus || "").trim().toLowerCase();
+        const next = (newStatus || "").trim().toLowerCase();
+        const val = parseFloat(amount) || 0;
+        
+        if (prev === next) return;
+
+        setUsers(prevUsers => prevUsers.map(u => {
+          if (u.id !== userId) return u;
+
+          let walletDiff = 0;
+          let pendingDiff = 0;
+
+          // Remove from previous state
+          if (prev === "approved") {
+            walletDiff -= val;
+          } else if (prev === "pending" || prev === "under review") {
+            pendingDiff -= val;
           }
-          return u;
+
+          // Add to new state
+          if (next === "approved") {
+            walletDiff += val;
+          } else if (next === "pending" || next === "under review") {
+            pendingDiff += val;
+          }
+
+          return {
+            ...u,
+            wallet_balance: Math.max(0, (u.wallet_balance || 0) + walletDiff),
+            earnings_pending: Math.max(0, (u.earnings_pending || 0) + pendingDiff)
+          };
         }));
       };
 
@@ -4658,7 +4669,13 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
               // 2. Fetch Tasks
               const { data: dbTasks, error: tasksErr } = await client.from("krv_tasks").select("*");
               if (!tasksErr && dbTasks) {
-                const activeTasks = dbTasks.filter(t => t.status !== "Deleted");
+                const todayStr = new Date().toISOString().split('T')[0];
+                const activeTasks = dbTasks.filter(t => t.status !== "Deleted").map(t => {
+                  if (t.deadline && t.deadline < todayStr && t.status === "Active") {
+                    return { ...t, status: "Stop" };
+                  }
+                  return t;
+                });
                 setTasks(activeTasks);
                 prevTasksRef.current = activeTasks;
               }
