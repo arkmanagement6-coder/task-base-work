@@ -3493,6 +3493,470 @@
       );
     }
 
+    // 9b. Proof Booklet Export Panel
+    function AdminProofs({ users, submissions, setSubmissions, tasks, triggerToast, setPreviewImage }) {
+      const [filterStatus, setFilterStatus] = useState("All");
+      const [searchTerm, setSearchTerm] = useState("");
+      const [taskSearchTerm, setTaskSearchTerm] = useState("");
+      const [startDate, setStartDate] = useState("");
+      const [endDate, setEndDate] = useState("");
+      const [loadingScreenshotIds, setLoadingScreenshotIds] = useState([]);
+      const [loadingProgress, setLoadingProgress] = useState({ active: false, loaded: 0, total: 0 });
+
+      const handleLoadRowScreenshot = async (sub) => {
+        if (sub.screenshot || loadingScreenshotIds.includes(sub.id)) return;
+        setLoadingScreenshotIds(prev => [...prev, sub.id]);
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            const { data, error } = await client.from("krv_submissions").select("screenshot").eq("id", sub.id).single();
+            if (!error && data && setSubmissions) {
+              setSubmissions(prevSubs => prevSubs.map(s => s.id === sub.id ? { ...s, screenshot: data.screenshot } : s));
+            }
+          } catch (e) {
+            console.error("Error fetching row screenshot in proofs booklet:", e);
+          }
+        }
+        setLoadingScreenshotIds(prev => prev.filter(id => id !== sub.id));
+      };
+
+      const filteredList = useMemo(() => {
+        return submissions.filter(s => {
+          const matchStatus = filterStatus === "All" || s.review_status === filterStatus;
+          
+          const user = users.find(u => u.id === s.user_id);
+          let matchCandidate = true;
+          if (searchTerm.trim() !== "") {
+            const term = searchTerm.toLowerCase().trim();
+            if (user) {
+              const nameMatch = user.name ? user.name.toLowerCase().includes(term) : false;
+              const mobileMatch = user.mobile ? user.mobile.includes(term) : false;
+              const emailMatch = user.email ? user.email.toLowerCase().includes(term) : false;
+              const idMatch = user.id ? `user-${user.id.toLowerCase()}`.includes(term) || user.id.toLowerCase().includes(term) : false;
+              matchCandidate = nameMatch || mobileMatch || emailMatch || idMatch;
+            } else {
+              matchCandidate = false;
+            }
+          }
+
+          const task = tasks.find(t => String(t.id) === String(s.task_id));
+          let matchTask = true;
+          if (taskSearchTerm.trim() !== "") {
+            const term = taskSearchTerm.toLowerCase().trim();
+            if (task) {
+              const titleMatch = task.title ? task.title.toLowerCase().includes(term) : false;
+              const idMatch = task.id ? `task-${task.id.toLowerCase()}`.includes(term) || task.id.toLowerCase().includes(term) : false;
+              matchTask = titleMatch || idMatch;
+            } else {
+              matchTask = false;
+            }
+          }
+
+          if (startDate && s.date && s.date < startDate) return false;
+          if (endDate && s.date && s.date > endDate) return false;
+
+          return matchStatus && matchCandidate && matchTask;
+        });
+      }, [submissions, users, tasks, filterStatus, searchTerm, taskSearchTerm, startDate, endDate]);
+
+      const handleGeneratePDFBooklet = async () => {
+        const missingSubs = filteredList.filter(s => !s.screenshot);
+        
+        if (missingSubs.length > 0) {
+          setLoadingProgress({ active: true, loaded: 0, total: missingSubs.length });
+          const client = getSupabaseClient();
+          if (!client) {
+            triggerToast("Supabase client connection missing.", "error");
+            setLoadingProgress({ active: false, loaded: 0, total: 0 });
+            return;
+          }
+          
+          const batchSize = 5;
+          for (let i = 0; i < missingSubs.length; i += batchSize) {
+            const batch = missingSubs.slice(i, i + batchSize);
+            try {
+              const results = await Promise.all(
+                batch.map(async (s) => {
+                  const { data, error } = await client.from("krv_submissions").select("screenshot").eq("id", s.id).single();
+                  return { id: s.id, screenshot: (!error && data && data.screenshot) ? data.screenshot : "assets/dashboard_preview.png" };
+                })
+              );
+              
+              if (setSubmissions) {
+                setSubmissions(prevSubs => prevSubs.map(sub => {
+                  const found = results.find(r => r.id === sub.id);
+                  return found ? { ...sub, screenshot: found.screenshot } : sub;
+                }));
+              }
+              
+              setLoadingProgress(prev => ({ ...prev, loaded: Math.min(prev.loaded + batch.length, prev.total) }));
+            } catch (err) {
+              console.error("Batch load error in booklet generator:", err);
+            }
+          }
+          setLoadingProgress({ active: false, loaded: 0, total: 0 });
+        }
+        
+        triggerPrintWindow();
+      };
+
+      const triggerPrintWindow = () => {
+        const currentList = submissions.filter(s => {
+          const matchStatus = filterStatus === "All" || s.review_status === filterStatus;
+          const user = users.find(u => u.id === s.user_id);
+          let matchCandidate = true;
+          if (searchTerm.trim() !== "") {
+            const term = searchTerm.toLowerCase().trim();
+            if (user) {
+              const nameMatch = user.name ? user.name.toLowerCase().includes(term) : false;
+              const mobileMatch = user.mobile ? user.mobile.includes(term) : false;
+              const emailMatch = user.email ? user.email.toLowerCase().includes(term) : false;
+              const idMatch = user.id ? `user-${user.id.toLowerCase()}`.includes(term) || user.id.toLowerCase().includes(term) : false;
+              matchCandidate = nameMatch || mobileMatch || emailMatch || idMatch;
+            } else {
+              matchCandidate = false;
+            }
+          }
+          const task = tasks.find(t => String(t.id) === String(s.task_id));
+          let matchTask = true;
+          if (taskSearchTerm.trim() !== "") {
+            const term = taskSearchTerm.toLowerCase().trim();
+            if (task) {
+              const titleMatch = task.title ? task.title.toLowerCase().includes(term) : false;
+              const idMatch = task.id ? `task-${task.id.toLowerCase()}`.includes(term) || task.id.toLowerCase().includes(term) : false;
+              matchTask = titleMatch || idMatch;
+            } else {
+              matchTask = false;
+            }
+          }
+          if (startDate && s.date && s.date < startDate) return false;
+          if (endDate && s.date && s.date > endDate) return false;
+          return matchStatus && matchCandidate && matchTask;
+        });
+
+        if (currentList.length === 0) {
+          triggerToast("No items found to compile.", "error");
+          return;
+        }
+
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) {
+          triggerToast("Pop-up window blocked. Please enable pop-ups in your browser settings.", "error");
+          return;
+        }
+
+        const pagesHtml = currentList.map((s) => {
+          const candidate = users.find(u => u.id === s.user_id);
+          const hasImage = s.screenshot && s.screenshot !== "assets/dashboard_preview.png" && s.screenshot !== "";
+          return `
+            <div class="proof-page">
+              <div class="proof-header">
+                <span class="task-title">TASK-${String(s.task_id).toUpperCase()}</span>
+                <span class="candidate-info">Candidate: ${candidate ? candidate.name : "Unknown"} (USER-${String(s.user_id).toUpperCase()})</span>
+              </div>
+              <div class="image-container">
+                ${hasImage ? `
+                  <img src="${s.screenshot}" class="proof-image" />
+                ` : `
+                  <div class="no-image-box">
+                    <span class="no-image-text">No Screenshot proof uploaded for this task</span>
+                  </div>
+                `}
+              </div>
+              <div class="proof-footer">
+                <span>Status: ${s.review_status} • Submitted Date: ${s.date || "N/A"} • Code: SUB-${String(s.id).toUpperCase()}</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        const printHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>KRV Audit Submissions Proof Booklet</title>
+            <meta charset="utf-8">
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;700&display=swap');
+              body { 
+                font-family: 'Plus Jakarta Sans', system-ui, sans-serif; 
+                margin: 0; 
+                padding: 0; 
+                background: #ffffff; 
+                color: #0f172a; 
+              }
+              .proof-page { 
+                page-break-after: always; 
+                height: 100vh; 
+                display: flex; 
+                flex-direction: column; 
+                justify-content: space-between; 
+                padding: 40px; 
+                box-sizing: border-box; 
+              }
+              .proof-header { 
+                font-family: 'Outfit', sans-serif; 
+                font-size: 24px; 
+                font-weight: 800; 
+                border-bottom: 2px dashed #cbd5e1; 
+                width: 100%; 
+                padding-bottom: 12px; 
+                margin-bottom: 20px; 
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center; 
+              }
+              .task-title {
+                color: #2563eb;
+                text-transform: uppercase;
+              }
+              .candidate-info {
+                font-size: 16px;
+                color: #475569;
+                font-weight: 600;
+              }
+              .image-container {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                width: 100%;
+                margin: 20px 0;
+                background: #f8fafc;
+                border-radius: 12px;
+                border: 1px solid #f1f5f9;
+                padding: 10px;
+              }
+              .proof-image { 
+                max-height: 75vh; 
+                max-width: 100%; 
+                object-fit: contain; 
+                border-radius: 8px; 
+                box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05); 
+              }
+              .no-image-box {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 200px;
+                width: 100%;
+                border: 2px dashed #cbd5e1;
+                border-radius: 8px;
+                background: #f8fafc;
+              }
+              .no-image-text {
+                font-size: 14px;
+                font-weight: 600;
+                color: #94a3b8;
+              }
+              .proof-footer {
+                border-top: 1px solid #e2e8f0;
+                padding-top: 12px;
+                font-size: 10px;
+                font-weight: 600;
+                color: #94a3b8;
+                text-align: center;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              }
+              @media print {
+                body { background: #ffffff; }
+                .proof-page { height: 100vh; page-break-after: always; }
+              }
+            </style>
+          </head>
+          <body>
+            ${pagesHtml}
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                }, 600);
+              };
+            <\/script>
+          </body>
+          </html>
+        `;
+
+        printWindow.document.write(printHtml);
+        printWindow.document.close();
+      };
+
+      return (
+        <div className="space-y-6">
+          {/* Top Filters Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-4 p-5 rounded-2xl glass-card text-xs">
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Search Candidate</label>
+              <input 
+                type="text" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white" 
+                placeholder="Name, Mobile, ID..." 
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Search Task</label>
+              <input 
+                type="text" 
+                value={taskSearchTerm} 
+                onChange={(e) => setTaskSearchTerm(e.target.value)} 
+                className="w-full px-3 py-2 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white" 
+                placeholder="Title or ID..." 
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Audit Status</label>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white">
+                <option value="All">All Statuses</option>
+                <option value="Approved">Approved</option>
+                <option value="Pending">Pending</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Re-Submit">Re-Submit</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">Start Date</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1.5">End Date</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-3 py-1.5 rounded-lg border border-slate-205 dark:border-slate-800 bg-white/5 text-white" />
+            </div>
+            <div className="flex items-end">
+              <button 
+                onClick={() => { setSearchTerm(""); setTaskSearchTerm(""); setFilterStatus("All"); setStartDate(""); setEndDate(""); }}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold uppercase tracking-wide cursor-pointer transition border border-slate-700"
+              >
+                Reset Filters
+              </button>
+            </div>
+          </div>
+
+          {/* Export Action Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-xs text-white">
+            <span className="font-semibold text-slate-400">Total matched submissions for booklet: <span className="text-blue-400 font-extrabold">{filteredList.length} rows</span></span>
+            <button 
+              onClick={handleGeneratePDFBooklet} 
+              className="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-2 cursor-pointer transition shadow-md"
+            >
+              <Icon name="download" className="w-4 h-4" />
+              <span>Export PDF Booklet</span>
+            </button>
+          </div>
+
+          {/* Table Directory for Submissions & Proofs */}
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-base font-bold mb-4 text-white">Proofs Directory (Single-Row Lazy Loading)</h3>
+            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] pr-1 scrollbar-thin">
+              <table className="w-full text-xs text-left border-collapse text-white">
+                <thead>
+                  <tr className="sticky top-0 bg-slate-900 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px] z-10 shadow-sm">
+                    <th className="py-3 bg-slate-900">Sub ID</th>
+                    <th className="bg-slate-900">Candidate ID</th>
+                    <th className="bg-slate-900">Candidate Name</th>
+                    <th className="bg-slate-900">Task ID</th>
+                    <th className="bg-slate-900">Submitted Date</th>
+                    <th className="bg-slate-900">Status</th>
+                    <th className="bg-slate-900">Proof Screenshot</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/40">
+                  {filteredList.map(s => {
+                    const user = users.find(u => u.id === s.user_id);
+                    return (
+                      <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/15">
+                        <td className="py-3.5 font-bold">SUB-{String(s.id).toUpperCase()}</td>
+                        <td className="font-extrabold text-blue-500 uppercase">USER-{String(s.user_id).toUpperCase()}</td>
+                        <td className="text-slate-200 font-semibold">{user ? user.name : "N/A"}</td>
+                        <td className="text-slate-405">TASK-{String(s.task_id).toUpperCase()}</td>
+                        <td className="text-slate-400 font-medium">{s.date || "N/A"}</td>
+                        <td>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                            s.review_status === "Approved" 
+                              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                              : s.review_status === "Rejected"
+                              ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                              : s.review_status === "Under Review"
+                              ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 animate-pulse"
+                              : s.review_status === "Re-Submit"
+                              ? "bg-amber-500/15 text-amber-500 border border-amber-500/25 animate-pulse"
+                              : "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                          }`}>
+                            {s.review_status}
+                          </span>
+                        </td>
+                        <td>
+                          {loadingScreenshotIds.includes(s.id) ? (
+                            <div className="flex items-center gap-1 text-[9px] text-blue-400 font-bold uppercase">
+                              <svg className="animate-spin h-3.5 w-3.5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span>Loading...</span>
+                            </div>
+                          ) : s.screenshot ? (
+                            s.screenshot === "assets/dashboard_preview.png" ? (
+                              <span className="text-slate-500 italic text-[10px]">No Image</span>
+                            ) : (
+                              <div className="relative group w-12 h-12 border border-slate-800 rounded bg-slate-950/20 flex items-center justify-center overflow-hidden">
+                                <img 
+                                  src={s.screenshot} 
+                                  alt="Proof" 
+                                  onClick={() => setPreviewImage && setPreviewImage({ title: `Proof: Submission SUB-${s.id.toUpperCase()}`, url: s.screenshot })} 
+                                  className="max-h-full max-w-full rounded object-contain cursor-zoom-in hover:scale-110 transition duration-200" 
+                                />
+                              </div>
+                            )
+                          ) : (
+                            <button 
+                              onClick={() => handleLoadRowScreenshot(s)} 
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-slate-800 rounded text-[9px] font-bold uppercase cursor-pointer transition flex items-center gap-1.5"
+                            >
+                              <Icon name="image" className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Load Proof</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredList.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="py-6 text-center text-slate-500">No submissions found matching criteria.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Loading batch progress overlay modal */}
+          {loadingProgress.active && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-6">
+              <div className="w-full max-w-sm glass-card rounded-2xl p-6 text-center border border-slate-850">
+                <svg className="animate-spin h-8 w-8 text-blue-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <h4 className="text-sm font-bold text-white mb-2">Preparing Proof Booklet</h4>
+                <p className="text-xs text-slate-400 mb-4">Fetching large proof screenshots from database...</p>
+                <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                  <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${(loadingProgress.loaded / loadingProgress.total) * 100}%` }}></div>
+                </div>
+                <div className="text-[10px] text-slate-550 font-extrabold uppercase mt-2">
+                  Loaded {loadingProgress.loaded} of {loadingProgress.total} Submissions
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // 9. Agent Control (AdminAgents Component)
     function AdminAgents({ users, setUsers, triggerToast }) {
       const agents = React.useMemo(() => users.filter(u => u.role === "agent"), [users]);
@@ -4385,6 +4849,7 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
         { id: "admin-earnings", icon: "earnings", label: "Earnings Control" },
         { id: "admin-kyc", icon: "kyc", label: "KYC Documents" },
         { id: "admin-reports", icon: "reports", label: "Reports Export" },
+        { id: "admin-proofs", icon: "image", label: "Proof Booklet" },
         { id: "admin-support", icon: "support", label: "Support Tickets" },
         { id: "admin-settings", icon: "settings", label: "System Settings" }
       ];
@@ -4575,6 +5040,17 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
                   withdrawals={withdrawals}
                   kycRecords={kycRecords}
                   tasks={tasks}
+                  setPreviewImage={setPreviewImage}
+                />
+              )}
+
+              {currentPage === "admin-proofs" && (
+                <AdminProofs 
+                  users={users} 
+                  submissions={submissions}
+                  setSubmissions={setSubmissions}
+                  tasks={tasks}
+                  triggerToast={triggerToast}
                   setPreviewImage={setPreviewImage}
                 />
               )}
