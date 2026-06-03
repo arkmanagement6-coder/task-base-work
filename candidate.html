@@ -326,6 +326,11 @@
                           }`}>
                             {sub.review_status === "Re-Submit" ? "Re-Submit" : sub.review_status}
                           </span>
+                          {(sub.review_status === "Rejected" || sub.review_status === "Re-Submit") && sub.rejection_reason && (
+                            <div className="text-[10px] text-rose-500 dark:text-rose-400 font-semibold mt-1 max-w-[150px] break-words">
+                              Reason: {sub.rejection_reason}
+                            </div>
+                          )}
                         </td>
                         <td className="text-slate-400 max-w-xs truncate">{sub.remarks || "No remarks"}</td>
                         <td className="text-slate-400">{sub.date}</td>
@@ -1480,6 +1485,11 @@
                           }`}>
                             {s.review_status === "Re-Submit" ? "Re-Submit" : s.review_status}
                           </span>
+                          {(s.review_status === "Rejected" || s.review_status === "Re-Submit") && s.rejection_reason && (
+                            <div className="text-[10px] text-rose-500 dark:text-rose-400 font-semibold mt-1 max-w-[150px] break-words">
+                              Reason: {s.rejection_reason}
+                            </div>
+                          )}
                         </td>
                         <td className="text-slate-400">{s.date}</td>
                       </tr>
