@@ -509,7 +509,7 @@
               </div>
 
               <h3 className="text-base font-bold mb-2 text-white">{t.title}</h3>
-              {!isActive && (
+              {!isActive && (!sub || sub.review_status === "Re-Submit") && (
                 <div className="p-3 mb-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-500 text-xs flex flex-col gap-1">
                   <span className="font-extrabold uppercase text-[9px] tracking-wider block">⚠️ Deadline Expired / Stopped:</span>
                   <p className="font-medium text-[11px] leading-relaxed break-words">
@@ -596,12 +596,10 @@
                   }
                 })()
               )}
-               <div className="flex items-center justify-between text-[10px] text-slate-400 mb-4 font-semibold uppercase">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 mb-4 font-semibold uppercase">
                 <span>Deadline: {t.deadline}</span>
                 <span>
-                  {!isActive ? (
-                    <span className="text-rose-500 font-bold">Stop</span>
-                  ) : sub ? (
+                  {sub && (sub.review_status !== "Re-Submit" || isActive) ? (
                     <span className={`font-bold ${
                       sub.review_status === "Approved" ? "text-emerald-500" :
                       sub.review_status === "Rejected" ? "text-rose-500" :
@@ -609,16 +607,13 @@
                       sub.review_status === "Re-Submit" ? "text-amber-500 animate-pulse font-extrabold" :
                       "text-amber-500"
                     }`}>{sub.review_status === "Re-Submit" ? "Re-Submit Required" : sub.review_status}</span>
+                  ) : !isActive ? (
+                    <span className="text-rose-500 font-bold">Stop</span>
                   ) : "Unsubmitted"}
                 </span>
               </div>
 
-              {!isActive ? (
-                <button disabled className="w-full py-2.5 rounded-lg border border-slate-800 bg-slate-900/40 text-xs font-bold text-slate-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed">
-                  <Icon name="lock" className="w-4 h-4 text-slate-600" />
-                  <span>Campaign Closed</span>
-                </button>
-              ) : sub ? (
+              {sub && (sub.review_status !== "Re-Submit" || isActive) ? (
                 sub.review_status === "Re-Submit" ? (
                   <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5 animate-bounce">
                     <Icon name="upload" className="w-3.5 h-3.5 animate-pulse" />
@@ -645,6 +640,11 @@
                     <span>Pending Audit</span>
                   </button>
                 )
+              ) : !isActive ? (
+                <button disabled className="w-full py-2.5 rounded-lg border border-slate-800 bg-slate-900/40 text-xs font-bold text-slate-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed">
+                  <Icon name="lock" className="w-4 h-4 text-slate-650" />
+                  <span>Campaign Closed</span>
+                </button>
               ) : (
                 <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer">
                   Submit Task
