@@ -851,6 +851,35 @@
         );
       }
 
+      if (currentUser && (currentUser.kyc_status === "Blocked" || currentUser.status === "Blocked")) {
+        return (
+          <div className="min-h-screen flex items-center justify-center app-bg p-4">
+            <div className="max-w-md w-full p-8 rounded-2xl glass-card text-center space-y-6 border border-rose-500/30 shadow-2xl">
+              <div className="w-20 h-20 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto border border-rose-500/20">
+                <Icon name="x-circle" className="w-10 h-10" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold text-white tracking-tight">Agent Account Suspended</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Your partner agent workspace has been suspended by the system administrator. All operations, team access, and submissions are currently locked.
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-950/50 text-[11px] text-slate-400 text-left border border-slate-800 space-y-1.5">
+                <p>• Referred team candidates are preserved securely.</p>
+                <p>• Cumulative balance and payroll history remain intact.</p>
+                <p>• Contact support to appeal this suspension.</p>
+              </div>
+              <button 
+                onClick={handleLogout} 
+                className="w-full py-3.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-lg transition uppercase tracking-wider cursor-pointer"
+              >
+                Logout Account
+              </button>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="min-h-screen">
           <AgentPanel

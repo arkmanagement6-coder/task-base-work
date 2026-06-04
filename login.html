@@ -222,6 +222,11 @@
             return;
           }
 
+          if (matchedUser.kyc_status === "Blocked" || matchedUser.status === "Blocked") {
+            triggerToast("Your account has been blocked by the administrator.", "error");
+            return;
+          }
+
           const signature = await signSession(matchedUser);
           localStorage.setItem("krv-current-user-session", JSON.stringify({ user: matchedUser, signature }));
           
