@@ -2590,7 +2590,11 @@
 
       const handleReleasePayment = (w) => {
         setWithdrawals(prev => prev.map(item => item.id === w.id ? { ...item, status: "Approved" } : item));
-        setUsers(prev => prev.map(u => u.id === w.user_id ? { ...u, earnings_paid: u.earnings_paid + w.amount } : u));
+        setUsers(prev => prev.map(u => u.id === w.user_id ? {
+          ...u,
+          wallet_balance: Math.max(0, (u.wallet_balance || 0) - w.amount),
+          earnings_paid: (u.earnings_paid || 0) + w.amount
+        } : u));
         triggerToast("Withdrawal approved and funds released successfully!");
       };
 
@@ -5326,6 +5330,12 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
                       prevSubmissionsRef.current = next;
                       return next;
                     });
+                  } else if (payload.eventType === 'DELETE') {
+                    setSubmissions(prev => {
+                      const next = prev.filter(s => s.id !== payload.old.id);
+                      prevSubmissionsRef.current = next;
+                      return next;
+                    });
                   }
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'krv_kyc' }, (payload) => {
@@ -5393,7 +5403,7 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
         }
       }, [users, currentUser]);
 
-      // Auto-correct and recalculate earnings_pending based on submissions ground truth
+      // Auto-correct and recalculate wallet, pending and paid earnings based on ground truth
       useEffect(() => {
         if (isDbLoading) return;
         
@@ -5402,10 +5412,29 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
           const actualPending = submissions
             .filter(s => s.user_id === u.id && (s.review_status === "Pending" || s.review_status === "Under Review"))
             .reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+
+          const actualApproved = submissions
+            .filter(s => s.user_id === u.id && s.review_status === "Approved")
+            .reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+
+          const actualPaid = withdrawals
+            .filter(w => w.user_id === u.id && w.status === "Approved")
+            .reduce((sum, w) => sum + (parseFloat(w.amount) || 0), 0);
+
+          const actualWallet = Math.max(0, actualApproved - actualPaid);
             
-          if (u.earnings_pending !== actualPending) {
+          if (
+            u.earnings_pending !== actualPending ||
+            u.wallet_balance !== actualWallet ||
+            u.earnings_paid !== actualPaid
+          ) {
             needsUpdate = true;
-            return { ...u, earnings_pending: actualPending };
+            return {
+              ...u,
+              earnings_pending: actualPending,
+              wallet_balance: actualWallet,
+              earnings_paid: actualPaid
+            };
           }
           return u;
         });
@@ -5413,7 +5442,7 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
         if (needsUpdate) {
           setUsers(nextUsers);
         }
-      }, [submissions, users, isDbLoading]);
+      }, [submissions, withdrawals, users, isDbLoading]);
 
       // Background cloud sync
       useEffect(() => {
