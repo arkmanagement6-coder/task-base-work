@@ -239,6 +239,9 @@
     // (Inserted below from index.html)
     // 1. Overview
     function CandidateOverview({ currentUser, mySubmissions, setCurrentPage }) {
+      const [activeInstructionTab, setActiveInstructionTab] = useState("work");
+      const [instructionLang, setInstructionLang] = useState("en");
+
       const stats = useMemo(() => {
         const approved = mySubmissions.filter(s => s.review_status === "Approved");
         return {
@@ -341,6 +344,166 @@
               </table>
             </div>
           </div>
+
+          {/* Instructions Panel */}
+          {(() => {
+            const instructions = {
+              work: {
+                en: [
+                  { text: "This is a task-based work opportunity.", icon: "shield" },
+                  { text: "Payment will be provided only after successful completion and verification of assigned tasks.", icon: "wallet" },
+                  { text: "Read all task instructions carefully before starting the work.", icon: "alert-circle" },
+                  { text: "Complete the task within the given deadline.", icon: "clock" },
+                  { text: "Do not submit fake, edited, or misleading screenshots or proofs.", icon: "x-circle" },
+                  { text: "Use only your own device, account, and details unless otherwise instructed.", icon: "profile" },
+                  { text: "One person can participate with only one account.", icon: "profile" },
+                  { text: "Any fraudulent activity may result in account suspension and payment cancellation.", icon: "alert-circle" },
+                  { text: "Task proof must be uploaded in the required format on the dashboard.", icon: "tasks" },
+                  { text: "Do not delete or modify the completed work until verification is completed.", icon: "lock" },
+                  { text: "Follow company guidelines and maintain professional communication at all times.", icon: "shield" },
+                  { text: "Payments will be processed as per the company's payment schedule after approval.", icon: "earnings" },
+                  { text: "If you face any issue while completing the task, contact your assigned HR or support team immediately.", icon: "support" },
+                  { text: "Failure to follow instructions may lead to task rejection.", icon: "x-circle" },
+                  { text: "The company reserves the right to approve, reject, or reassign tasks based on quality standards.", icon: "shield" }
+                ],
+                hi: [
+                  { text: "यह एक Task-Based Work है।", icon: "shield" },
+                  { text: "भुगतान केवल सफलतापूर्वक कार्य पूरा होने और सत्यापन के बाद किया जाएगा।", icon: "wallet" },
+                  { text: "कार्य शुरू करने से पहले सभी निर्देश ध्यानपूर्वक पढ़ें।", icon: "alert-circle" },
+                  { text: "दिए गए समय के भीतर कार्य पूरा करें।", icon: "clock" },
+                  { text: "फर्जी, एडिट किए हुए या गलत स्क्रीनशॉट/प्रूफ जमा न करें।", icon: "x-circle" },
+                  { text: "जब तक अलग से निर्देश न दिए जाएं, केवल अपनी डिवाइस और अकाउंट का उपयोग करें।", icon: "profile" },
+                  { text: "एक व्यक्ति केवल एक ही अकाउंट से कार्य कर सकता है।", icon: "profile" },
+                  { text: "किसी भी प्रकार की धोखाधड़ी पाए जाने पर अकाउंट बंद किया जा सकता है और भुगतान रोक दिया जाएगा।", icon: "alert-circle" },
+                  { text: "कार्य पूरा होने के बाद आवश्यक प्रूफ डैशबोर्ड पर अपलोड करें।", icon: "tasks" },
+                  { text: "सत्यापन पूरा होने तक किए गए कार्य को डिलीट या संशोधित न करें।", icon: "lock" },
+                  { text: "कंपनी के सभी नियमों का पालन करें और प्रोफेशनल व्यवहार बनाए रखें।", icon: "shield" },
+                  { text: "कार्य स्वीकृत होने के बाद कंपनी की भुगतान नीति के अनुसार भुगतान किया जाएगा।", icon: "earnings" },
+                  { text: "किसी भी समस्या की स्थिति में तुरंत अपने HR या सपोर्ट टीम से संपर्क करें।", icon: "support" },
+                  { text: "निर्देशों का पालन न करने पर कार्य अस्वीकार किया जा सकता है।", icon: "x-circle" },
+                  { text: "गुणवत्ता मानकों के आधार पर कार्य को स्वीकृत, अस्वीकृत या पुनः आवंटित करने का अधिकार कंपनी के पास सुरक्षित है।", icon: "shield" }
+                ]
+              },
+              payment: {
+                en: [
+                  { text: "All payments will be processed through Bank Transfer only.", icon: "wallet" },
+                  { text: "The company follows a monthly payment cycle.", icon: "clock" },
+                  { text: "Payments will be released between the 5th and 10th of every month for the approved work completed in the previous month.", icon: "earnings" },
+                  { text: "Both salary (if applicable) and task-based earnings will be calculated at the end of each month.", icon: "earnings" },
+                  { text: "The final payable amount will be verified and processed after successful completion and approval of assigned tasks.", icon: "check-circle" },
+                  { text: "Candidates are responsible for providing correct bank account details for payment processing.", icon: "profile" },
+                  { text: "Any rejected, incomplete, or unverified tasks will not be included in the monthly payment calculation.", icon: "x-circle" },
+                  { text: "The company reserves the right to hold or delay payments in case of policy violations, fraudulent activities, or pending verification.", icon: "alert-circle" }
+                ],
+                hi: [
+                  { text: "सभी भुगतान केवल बैंक ट्रांसफर के माध्यम से किए जाएंगे।", icon: "wallet" },
+                  { text: "कंपनी मासिक भुगतान प्रणाली का पालन करती है।", icon: "clock" },
+                  { text: "प्रत्येक माह की 5 से 10 तारीख के बीच पिछले माह के स्वीकृत कार्यों का भुगतान जारी किया जाएगा।", icon: "earnings" },
+                  { text: "वेतन (यदि लागू हो) तथा टास्क से अर्जित राशि की गणना प्रत्येक माह के अंत में की जाएगी।", icon: "earnings" },
+                  { text: "भुगतान केवल कार्य के सफल सत्यापन और स्वीकृति के बाद ही किया जाएगा।", icon: "check-circle" },
+                  { text: "उम्मीदवार को अपने बैंक खाते की सही जानकारी प्रदान करनी होगी।", icon: "profile" },
+                  { text: "अस्वीकृत, अधूरे या सत्यापित न हुए कार्यों की राशि भुगतान में शामिल नहीं की जाएगी।", icon: "x-circle" },
+                  { text: "कंपनी को नियमों के उल्लंघन, धोखाधड़ी या लंबित सत्यापन की स्थिति में भुगतान रोकने या विलंबित करने का अधिकार सुरक्षित है।", icon: "alert-circle" }
+                ]
+              },
+              activity: {
+                en: [
+                  { text: "Candidates are expected to actively participate in assigned tasks on a regular basis.", icon: "home" },
+                  { text: "If a candidate stops working without prior notice or remains inactive for an extended period, the company reserves the right to suspend or deactivate their dashboard access.", icon: "x-circle" },
+                  { text: "Once a candidate starts working, continuous engagement is required to remain eligible for payments.", icon: "check-circle" },
+                  { text: "If a candidate remains inactive for 2 consecutive working days without informing the HR or support team, the account may be marked as inactive.", icon: "clock" },
+                  { text: "Inactive accounts may be temporarily blocked or permanently deactivated based on the company's review.", icon: "alert-circle" },
+                  { text: "Candidates with inactive or blocked accounts may not be eligible for payout processing until their account status is reviewed and reactivated.", icon: "wallet" },
+                  { text: "Regular task completion and compliance with company guidelines are mandatory for maintaining active status and receiving payments.", icon: "shield" },
+                  { text: "The company reserves the right to withhold or cancel payouts in cases of prolonged inactivity, policy violations, or failure to complete assigned tasks.", icon: "alert-circle" }
+                ],
+                hi: [
+                  { text: "सभी उम्मीदवारों से अपेक्षा की जाती है कि वे नियमित रूप से सौंपे गए कार्यों को पूरा करें।", icon: "home" },
+                  { text: "यदि कोई उम्मीदवार बिना पूर्व सूचना के कार्य करना बंद कर देता है या लंबे समय तक निष्क्रिय रहता है, तो कंपनी उसके डैशबोर्ड की पहुंच को अस्थायी या स्थायी रूप से बंद कर सकती है।", icon: "x-circle" },
+                  { text: "कार्य प्रारंभ करने के बाद निरंतर सक्रिय रहना भुगतान प्राप्त करने की पात्रता के लिए आवश्यक है।", icon: "check-circle" },
+                  { text: "यदि कोई उम्मीदवार लगातार 2 कार्य दिवसों तक बिना HR या सपोर्ट टीम को सूचित किए कार्य नहीं करता है, तो उसे निष्क्रिय (Inactive) माना जा सकता है।", icon: "clock" },
+                  { text: "निष्क्रिय खातों को कंपनी की समीक्षा के आधार पर अस्थायी रूप से ब्लॉक या स्थायी रूप से बंद किया जा सकता है।", icon: "alert-circle" },
+                  { text: "निष्क्रिय या ब्लॉक किए गए खातों के भुगतान को समीक्षा और पुनः सक्रिय होने तक रोका जा सकता है।", icon: "wallet" },
+                  { text: "सक्रिय स्थिति बनाए रखने और भुगतान प्राप्त करने के लिए नियमित रूप से कार्य पूरा करना तथा कंपनी के सभी नियमों का पालन करना अनिवार्य है।", icon: "shield" },
+                  { text: "लंबे समय तक निष्क्रिय रहने, कंपनी की नीतियों का उल्लंघन करने या सौंपे गए कार्य पूरे न करने की स्थिति में कंपनी भुगतान रोकने या रद्द करने का अधिकार सुरक्षित रखती है।", icon: "alert-circle" }
+                ]
+              }
+            };
+            const currentList = instructions[activeInstructionTab][instructionLang];
+
+            return (
+              <div className="glass-card rounded-2xl p-6 border border-slate-200/50 dark:border-slate-800/40">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 pb-4 border-b border-slate-200/30 dark:border-slate-800/30">
+                  <div>
+                    <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                      <Icon name="shield" className="w-5 h-5 text-blue-500" />
+                      <span>{instructionLang === "en" ? "Instructions & Policy Center" : "दिशानिर्देश एवं नीति केंद्र"}</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {instructionLang === "en" ? "Read carefully to maintain your active account status and payments." : "सक्रिय खाता स्थिति और भुगतान सुनिश्चित करने के लिए सभी नियमों को ध्यान से पढ़ें।"}
+                    </p>
+                  </div>
+                  
+                  {/* Language Selector */}
+                  <div className="flex items-center gap-1 p-1 bg-slate-950/40 border border-slate-800 rounded-xl self-start sm:self-center shrink-0">
+                    <button 
+                      onClick={() => setInstructionLang("en")} 
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition duration-200 cursor-pointer ${
+                        instructionLang === "en" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      English
+                    </button>
+                    <button 
+                      onClick={() => setInstructionLang("hi")} 
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition duration-200 cursor-pointer ${
+                        instructionLang === "hi" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      हिन्दी
+                    </button>
+                  </div>
+                </div>
+
+                {/* Categories Tab Selector */}
+                <div className="grid grid-cols-3 gap-2 p-1 bg-slate-950/20 border border-slate-850 rounded-xl mb-6">
+                  {[
+                    { id: "work", icon: "tasks", labelEn: "Work Guidelines", labelHi: "कार्य निर्देश" },
+                    { id: "payment", icon: "wallet", labelEn: "Payment Policy", labelHi: "भुगतान नीति" },
+                    { id: "activity", icon: "clock", labelEn: "Activity & Status", labelHi: "सक्रियता नीति" }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveInstructionTab(tab.id)}
+                      className={`py-2 px-1.5 rounded-lg text-[10px] md:text-xs font-bold transition flex flex-col md:flex-row items-center justify-center gap-1.5 cursor-pointer border ${
+                        activeInstructionTab === tab.id
+                          ? "bg-blue-600/10 text-blue-400 border-blue-500/20"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border-transparent"
+                      }`}
+                    >
+                      <Icon name={tab.icon} className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{instructionLang === "en" ? tab.labelEn : tab.labelHi}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Instruction Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {currentList.map((item, idx) => (
+                    <div key={idx} className="flex gap-3.5 items-start p-3.5 rounded-xl border border-slate-200/50 dark:border-slate-800/20 bg-slate-100/30 dark:bg-slate-900/30 hover:bg-slate-100/50 dark:hover:bg-slate-900/50 transition">
+                      <div className="p-2 rounded-lg bg-blue-600/10 text-blue-400 shrink-0 border border-blue-500/10">
+                        <Icon name={item.icon} className="w-4 h-4" />
+                      </div>
+                      <div className="text-[11px] text-slate-350 dark:text-slate-300 leading-relaxed pt-0.5">
+                        <span className="font-extrabold text-blue-450 mr-1.5">{idx + 1}.</span>
+                        {item.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       );
     }
