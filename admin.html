@@ -545,13 +545,56 @@
         }
       };
 
-      const handleAuditAction = (sub, newStatus, reason = "") => {
+      const handleAuditAction = async (sub, newStatus, reason = "") => {
         if ((newStatus === "Rejected" || newStatus === "Re-Submit") && !reason.trim()) {
           triggerToast("Please enter a rejection/re-submit reason.", "error");
           return;
         }
+
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            // 1. Update submission in Supabase
+            const { error: subErr } = await client.from("krv_submissions").update({
+              review_status: newStatus,
+              rejection_reason: (newStatus === "Rejected" || newStatus === "Re-Submit") ? reason : sub.rejection_reason
+            }).eq("id", sub.id);
+            if (subErr) throw subErr;
+
+            // 2. Handle wallet change in Supabase
+            const candidateUser = users.find(u => u.id === sub.user_id);
+            if (candidateUser) {
+              let walletDiff = 0;
+              let pendingDiff = 0;
+              const prev = (sub.review_status || "").trim().toLowerCase();
+              const next = (newStatus || "").trim().toLowerCase();
+              const val = parseFloat(sub.amount) || 0;
+              if (prev !== next) {
+                if (prev === "approved") walletDiff -= val;
+                else if (prev === "pending" || prev === "under review") pendingDiff -= val;
+                
+                if (next === "approved") walletDiff += val;
+                else if (next === "pending" || next === "under review") pendingDiff += val;
+                
+                if (walletDiff !== 0 || pendingDiff !== 0) {
+                  const nextWallet = Math.max(0, (candidateUser.wallet_balance || 0) + walletDiff);
+                  const nextPending = Math.max(0, (candidateUser.earnings_pending || 0) + pendingDiff);
+                  const { error: userErr } = await client.from("krv_users").update({
+                    wallet_balance: nextWallet,
+                    earnings_pending: nextPending
+                  }).eq("id", sub.user_id);
+                  if (userErr) throw userErr;
+                }
+              }
+            }
+          } catch (dbErr) {
+            console.error("Direct Supabase update failed in handleAuditAction:", dbErr);
+            triggerToast("Database Error: " + dbErr.message, "error");
+            return;
+          }
+        }
         
-        // Update submissions state
+        // Update submissions state locally
         setSubmissions && setSubmissions(prev => prev.map(s => {
           if (s.id === sub.id) {
             return { 
@@ -563,7 +606,7 @@
           return s;
         }));
 
-        // Handle financial changes
+        // Handle financial changes locally
         updateWallet(sub.user_id, sub.review_status, newStatus, sub.amount);
 
         // Send notifications
@@ -590,6 +633,13 @@
           message: notifMsg,
           date: new Date().toISOString().split('T')[0]
         };
+
+        if (client) {
+          client.from("krv_notifications").insert(newNotif).then(({ error }) => {
+            if (error) console.error("Direct Supabase notification insert failed:", error);
+          });
+        }
+
         setNotifications && setNotifications([...notifications, newNotif]);
         triggerToast(`Task submission status updated to: ${newStatus}`, "success");
       };
@@ -814,20 +864,46 @@
           });
       }, [candidates, searchQuery, statusFilter, submissions, getRegDate, startDate, endDate]);
 
-      const handleBlockUser = (id) => {
+      const handleBlockUser = async (id) => {
+        const candidateUser = users.find(u => u.id === id);
+        if (!candidateUser) return;
+        const isBlocked = candidateUser.kyc_status === "Blocked";
+        const newKycStatus = isBlocked ? "Pending" : "Blocked";
+
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            const { error } = await client.from("krv_users").update({ kyc_status: newKycStatus }).eq("id", id);
+            if (error) throw error;
+          } catch (err) {
+            console.error("Failed to block/unblock user directly:", err);
+            triggerToast("Database Error: " + err.message, "error");
+            return;
+          }
+        }
+
         setUsers(prev => prev.map(u => {
           if (u.id === id) {
-            const isBlocked = u.kyc_status === "Blocked";
-            const updated = { ...u, kyc_status: isBlocked ? "Pending" : "Blocked" };
             triggerToast(isBlocked ? "Candidate unblocked!" : "Candidate blocked!", "info");
-            return updated;
+            return { ...u, kyc_status: newKycStatus };
           }
           return u;
         }));
       };
 
-      const handleDeleteCandidate = (id, name) => {
+      const handleDeleteCandidate = async (id, name) => {
         if (confirm(`Are you sure you want to permanently delete candidate "${name}"? This action will completely remove them from the database and cannot be undone.`)) {
+          const client = getSupabaseClient();
+          if (client) {
+            try {
+              const { error } = await client.from("krv_users").delete().eq("id", id);
+              if (error) throw error;
+            } catch (err) {
+              console.error("Failed to delete candidate directly:", err);
+              triggerToast("Database Error: " + err.message, "error");
+              return;
+            }
+          }
           setUsers(prev => prev.filter(u => u.id !== id));
           triggerToast("Candidate deleted successfully.", "info");
         }
@@ -858,21 +934,37 @@
           hashedPassword = await getSaltedHash(editForm.email.toLowerCase().trim(), editForm.password);
         }
 
+        const client = getSupabaseClient();
+        const updatedFields = {
+          name: editForm.name,
+          email: editForm.email.toLowerCase().trim(),
+          mobile: editForm.mobile,
+          city: editForm.city,
+          pincode: editForm.pincode,
+          referral_code: editForm.referral_code,
+          wallet_balance: parseFloat(editForm.wallet_balance) || 0,
+          earnings_pending: parseFloat(editForm.earnings_pending) || 0,
+          earnings_paid: parseFloat(editForm.earnings_paid) || 0,
+          kyc_status: editForm.kyc_status,
+          password: hashedPassword
+        };
+
+        if (client) {
+          try {
+            const { error } = await client.from("krv_users").update(updatedFields).eq("id", editCandidate.id);
+            if (error) throw error;
+          } catch (err) {
+            console.error("Failed to update candidate directly:", err);
+            triggerToast("Database Error: " + err.message, "error");
+            return;
+          }
+        }
+
         setUsers(prev => prev.map(u => {
           if (u.id === editCandidate.id) {
             return {
               ...u,
-              name: editForm.name,
-              email: editForm.email.toLowerCase().trim(),
-              mobile: editForm.mobile,
-              city: editForm.city,
-              pincode: editForm.pincode,
-              referral_code: editForm.referral_code,
-              wallet_balance: parseFloat(editForm.wallet_balance) || 0,
-              earnings_pending: parseFloat(editForm.earnings_pending) || 0,
-              earnings_paid: parseFloat(editForm.earnings_paid) || 0,
-              kyc_status: editForm.kyc_status,
-              password: hashedPassword
+              ...updatedFields
             };
           }
           return u;
@@ -1530,28 +1622,42 @@
         }
       };
 
-      const handleReassignReview = (taskId, reviewId, reviewSno) => {
+      const handleReassignReview = async (taskId, reviewId, reviewSno) => {
         if (!confirm("Are you sure you want to reassign this review? It will be released back to the unused pool and can be claimed by any active candidate.")) {
           return;
         }
 
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        const updatedReviews = (task.imported_reviews || []).map(r => {
+          const matchId = reviewId && r.id === reviewId;
+          const matchSno = reviewSno && r.sno === reviewSno;
+          if (matchId || matchSno) {
+            return { ...r, status: "Unused", assigned_to: null, assigned_at: null };
+          }
+          return r;
+        });
+
+        const updatedTask = { ...task, imported_reviews: updatedReviews };
+
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            const { error } = await client.from("krv_tasks").update({ imported_reviews: updatedReviews }).eq("id", taskId);
+            if (error) throw error;
+          } catch (err) {
+            console.error("Direct review reassign failed:", err);
+            triggerToast("Database Error: " + err.message, "error");
+            return;
+          }
+        }
+
         setTasks(prevTasks => prevTasks.map(t => {
           if (t.id === taskId) {
-            const updatedReviews = (t.imported_reviews || []).map(r => {
-              const matchId = reviewId && r.id === reviewId;
-              const matchSno = reviewSno && r.sno === reviewSno;
-              if (matchId || matchSno) {
-                return { ...r, status: "Unused", assigned_to: null };
-              }
-              return r;
-            });
-            
-            const updatedTask = { ...t, imported_reviews: updatedReviews };
-            
             if (selectedTask && selectedTask.id === taskId) {
               setSelectedTask(updatedTask);
             }
-            
             return updatedTask;
           }
           return t;
@@ -1695,7 +1801,7 @@
         setImportedReviewsList(parsed);
       };
 
-      const handleFormSubmit = (e) => {
+      const handleFormSubmit = async (e) => {
         e.preventDefault();
         
         const isPast = form.deadline && form.deadline < new Date().toISOString().split('T')[0];
@@ -1704,34 +1810,46 @@
             return;
           }
         }
+
+        const client = getSupabaseClient();
         
         if (editingTaskId) {
-          setTasks(prev => prev.map(t => {
-            if (t.id === editingTaskId) {
-              const updatedTask = {
-                ...t,
-                title: form.title,
-                category: form.category,
-                links: form.links,
-                amount: parseFloat(form.amount) || 0,
-                remarks: form.remarks,
-                deadline: form.deadline,
-                status: form.status || "Active"
-              };
-              if (form.category === "Application Review Provide by Brand") {
-                updatedTask.imported_reviews = importedReviewsList;
-              } else {
-                delete updatedTask.imported_reviews;
-              }
-              return updatedTask;
+          const currentTask = tasks.find(t => t.id === editingTaskId);
+          if (!currentTask) return;
+          const updatedTask = {
+            ...currentTask,
+            title: form.title,
+            category: form.category,
+            links: form.links,
+            amount: parseFloat(form.amount) || 0,
+            remarks: form.remarks,
+            deadline: form.deadline,
+            status: form.status || "Active"
+          };
+          if (form.category === "Application Review Provide by Brand") {
+            updatedTask.imported_reviews = importedReviewsList;
+          } else {
+            delete updatedTask.imported_reviews;
+          }
+
+          if (client) {
+            try {
+              const { error } = await client.from("krv_tasks").upsert(updatedTask);
+              if (error) throw error;
+            } catch (err) {
+              console.error("Direct task update failed:", err);
+              triggerToast("Database Error: " + err.message, "error");
+              return;
             }
-            return t;
-          }));
+          }
+
+          setTasks(prev => prev.map(t => t.id === editingTaskId ? updatedTask : t));
           triggerToast("Workforce task updated successfully!");
           setEditingTaskId(null);
         } else {
+          const nextIdVal = Math.max(0, ...tasks.map(t => parseInt(t.id.replace("t", "")) || 0)) + 1;
           const newTask = {
-            id: "t" + (Math.max(0, ...tasks.map(t => parseInt(t.id.replace("t", "")) || 0)) + 1),
+            id: "t" + nextIdVal,
             title: form.title,
             category: form.category,
             links: form.links,
@@ -1743,6 +1861,18 @@
           if (form.category === "Application Review Provide by Brand") {
             newTask.imported_reviews = importedReviewsList;
           }
+
+          if (client) {
+            try {
+              const { error } = await client.from("krv_tasks").insert(newTask);
+              if (error) throw error;
+            } catch (err) {
+              console.error("Direct task insert failed:", err);
+              triggerToast("Database Error: " + err.message, "error");
+              return;
+            }
+          }
+
           setTasks([...tasks, newTask]);
           triggerToast("New digital task created successfully!");
         }
@@ -1928,9 +2058,38 @@
                               <span className="block text-slate-500">Total</span>
                               <span className="text-xs font-bold text-white block mt-0.5">{t.imported_reviews.length}</span>
                             </div>
-                            <div className="bg-slate-800/40 p-1.5 rounded">
+                            <div className="bg-slate-800/40 p-1.5 rounded flex flex-col justify-between items-center relative group">
                               <span className="block text-slate-500">Unused</span>
-                              <span className="text-xs font-bold text-amber-500 block mt-0.5">{t.imported_reviews.filter(r => r.status === "Unused").length}</span>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span className="text-xs font-bold text-amber-500">{t.imported_reviews.filter(r => r.status === "Unused").length}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const exportable = (t.imported_reviews || []).filter(r => r.status === "Unused");
+                                    if (exportable.length === 0) {
+                                      triggerToast("No unused reviews to download!", "info");
+                                      return;
+                                    }
+                                    const csvHeader = "sep=,\nS.No,Review Text\n";
+                                    const csvRows = exportable.map(r => `${r.sno},"${r.text.replace(/"/g, '""')}"`).join("\n");
+                                    const blob = new Blob(["\uFEFF" + csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
+                                    const url = URL.createObjectURL(blob);
+                                    const link = document.createElement("a");
+                                    link.setAttribute("href", url);
+                                    link.setAttribute("download", `task_${t.id}_unused_reviews.csv`);
+                                    link.style.visibility = "hidden";
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    triggerToast("Unused reviews exported successfully!");
+                                  }}
+                                  className="p-0.5 hover:bg-amber-500/20 text-amber-500 rounded cursor-pointer transition"
+                                  title="Download Unused Reviews"
+                                >
+                                  <Icon name="download" className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
                             </div>
                             <div className="bg-slate-800/40 p-1.5 rounded">
                               <span className="block text-slate-500">Used</span>
@@ -2303,10 +2462,8 @@
         });
       }, [pendingSub, users, searchTerm, startDate, endDate]);
 
-      const handleApprove = (sub) => {
-        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Approved" } : s));
-        updateWallet(sub.user_id, sub.review_status, "Approved", sub.amount);
-
+      const handleApprove = async (sub) => {
+        const client = getSupabaseClient();
         const newNotif = {
           id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: sub.user_id,
@@ -2314,15 +2471,48 @@
           message: `Your task submission (SUB-${sub.id.toUpperCase()}) was verified successfully. ₹${sub.amount} added to wallet.`,
           date: new Date().toISOString().split('T')[0]
         };
+
+        if (client) {
+          try {
+            const { error: subErr } = await client.from("krv_submissions").update({ review_status: "Approved" }).eq("id", sub.id);
+            if (subErr) throw subErr;
+
+            const candidateUser = users.find(u => u.id === sub.user_id);
+            if (candidateUser) {
+              const prev = (sub.review_status || "").trim().toLowerCase();
+              const val = parseFloat(sub.amount) || 0;
+              if (prev !== "approved") {
+                let walletDiff = val;
+                let pendingDiff = 0;
+                if (prev === "pending" || prev === "under review") pendingDiff = -val;
+
+                const nextWallet = Math.max(0, (candidateUser.wallet_balance || 0) + walletDiff);
+                const nextPending = Math.max(0, (candidateUser.earnings_pending || 0) + pendingDiff);
+                const { error: userErr } = await client.from("krv_users").update({
+                  wallet_balance: nextWallet,
+                  earnings_pending: nextPending
+                }).eq("id", sub.user_id);
+                if (userErr) throw userErr;
+              }
+            }
+
+            await client.from("krv_notifications").insert(newNotif);
+          } catch (dbErr) {
+            console.error("Direct Supabase update failed in handleApprove:", dbErr);
+            triggerToast("Database Error: " + dbErr.message, "error");
+            return;
+          }
+        }
+
+        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Approved" } : s));
+        updateWallet(sub.user_id, sub.review_status, "Approved", sub.amount);
         setNotifications([...notifications, newNotif]);
         triggerToast("Task submission approved!");
         setReviewModal(null);
       };
 
-      const handleUnderReview = (sub) => {
-        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Under Review" } : s));
-        updateWallet(sub.user_id, sub.review_status, "Under Review", sub.amount);
-
+      const handleUnderReview = async (sub) => {
+        const client = getSupabaseClient();
         const newNotif = {
           id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: sub.user_id,
@@ -2330,19 +2520,58 @@
           message: `Your task submission (SUB-${sub.id.toUpperCase()}) is now under review by our auditing team.`,
           date: new Date().toISOString().split('T')[0]
         };
+
+        if (client) {
+          try {
+            const { error: subErr } = await client.from("krv_submissions").update({ review_status: "Under Review" }).eq("id", sub.id);
+            if (subErr) throw subErr;
+
+            const candidateUser = users.find(u => u.id === sub.user_id);
+            if (candidateUser) {
+              const prev = (sub.review_status || "").trim().toLowerCase();
+              const val = parseFloat(sub.amount) || 0;
+              if (prev !== "under review") {
+                let walletDiff = 0;
+                let pendingDiff = 0;
+                if (prev === "approved") {
+                  walletDiff = -val;
+                  pendingDiff = val;
+                }
+
+                if (walletDiff !== 0 || pendingDiff !== 0) {
+                  const nextWallet = Math.max(0, (candidateUser.wallet_balance || 0) + walletDiff);
+                  const nextPending = Math.max(0, (candidateUser.earnings_pending || 0) + pendingDiff);
+                  const { error: userErr } = await client.from("krv_users").update({
+                    wallet_balance: nextWallet,
+                    earnings_pending: nextPending
+                  }).eq("id", sub.user_id);
+                  if (userErr) throw userErr;
+                }
+              }
+            }
+
+            await client.from("krv_notifications").insert(newNotif);
+          } catch (dbErr) {
+            console.error("Direct Supabase update failed in handleUnderReview:", dbErr);
+            triggerToast("Database Error: " + dbErr.message, "error");
+            return;
+          }
+        }
+
+        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Under Review" } : s));
+        updateWallet(sub.user_id, sub.review_status, "Under Review", sub.amount);
         setNotifications([...notifications, newNotif]);
         triggerToast("Task marked as Under Review.", "success");
         setReviewModal(null);
       };
 
-      const handleReject = (sub) => {
+      const handleReject = async (sub) => {
         if (!rejectionReason.trim()) {
           triggerToast("Please provide a rejection reason.", "error");
           return;
         }
-        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Rejected", rejection_reason: rejectionReason } : s));
-        updateWallet(sub.user_id, sub.review_status, "Rejected", sub.amount);
-        
+
+        const client = getSupabaseClient();
         const newNotif = {
           id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: sub.user_id,
@@ -2350,20 +2579,60 @@
           message: `Your task submission (SUB-${sub.id.toUpperCase()}) was rejected: "${rejectionReason}"`,
           date: new Date().toISOString().split('T')[0]
         };
+
+        if (client) {
+          try {
+            const { error: subErr } = await client.from("krv_submissions").update({
+              review_status: "Rejected",
+              rejection_reason: rejectionReason
+            }).eq("id", sub.id);
+            if (subErr) throw subErr;
+
+            const candidateUser = users.find(u => u.id === sub.user_id);
+            if (candidateUser) {
+              const prev = (sub.review_status || "").trim().toLowerCase();
+              const val = parseFloat(sub.amount) || 0;
+              if (prev !== "rejected") {
+                let walletDiff = 0;
+                let pendingDiff = 0;
+                if (prev === "approved") walletDiff = -val;
+                else if (prev === "pending" || prev === "under review") pendingDiff = -val;
+
+                if (walletDiff !== 0 || pendingDiff !== 0) {
+                  const nextWallet = Math.max(0, (candidateUser.wallet_balance || 0) + walletDiff);
+                  const nextPending = Math.max(0, (candidateUser.earnings_pending || 0) + pendingDiff);
+                  const { error: userErr } = await client.from("krv_users").update({
+                    wallet_balance: nextWallet,
+                    earnings_pending: nextPending
+                  }).eq("id", sub.user_id);
+                  if (userErr) throw userErr;
+                }
+              }
+            }
+
+            await client.from("krv_notifications").insert(newNotif);
+          } catch (dbErr) {
+            console.error("Direct Supabase update failed in handleReject:", dbErr);
+            triggerToast("Database Error: " + dbErr.message, "error");
+            return;
+          }
+        }
+
+        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Rejected", rejection_reason: rejectionReason } : s));
+        updateWallet(sub.user_id, sub.review_status, "Rejected", sub.amount);
         setNotifications([...notifications, newNotif]);
         triggerToast("Submission rejected with remark details.");
         setReviewModal(null);
         setRejectionReason("");
       };
 
-      const handleReSubmit = (sub) => {
+      const handleReSubmit = async (sub) => {
         if (!rejectionReason.trim()) {
           triggerToast("Please provide a reason why this task needs to be re-submitted.", "error");
           return;
         }
-        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Re-Submit", rejection_reason: rejectionReason } : s));
-        updateWallet(sub.user_id, sub.review_status, "Re-Submit", sub.amount);
-        
+
+        const client = getSupabaseClient();
         const newNotif = {
           id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: sub.user_id,
@@ -2371,6 +2640,47 @@
           message: `Your task submission (SUB-${sub.id.toUpperCase()}) requires re-submission: "${rejectionReason}"`,
           date: new Date().toISOString().split('T')[0]
         };
+
+        if (client) {
+          try {
+            const { error: subErr } = await client.from("krv_submissions").update({
+              review_status: "Re-Submit",
+              rejection_reason: rejectionReason
+            }).eq("id", sub.id);
+            if (subErr) throw subErr;
+
+            const candidateUser = users.find(u => u.id === sub.user_id);
+            if (candidateUser) {
+              const prev = (sub.review_status || "").trim().toLowerCase();
+              const val = parseFloat(sub.amount) || 0;
+              if (prev !== "re-submit") {
+                let walletDiff = 0;
+                let pendingDiff = 0;
+                if (prev === "approved") walletDiff = -val;
+                else if (prev === "pending" || prev === "under review") pendingDiff = -val;
+
+                if (walletDiff !== 0 || pendingDiff !== 0) {
+                  const nextWallet = Math.max(0, (candidateUser.wallet_balance || 0) + walletDiff);
+                  const nextPending = Math.max(0, (candidateUser.earnings_pending || 0) + pendingDiff);
+                  const { error: userErr } = await client.from("krv_users").update({
+                    wallet_balance: nextWallet,
+                    earnings_pending: nextPending
+                  }).eq("id", sub.user_id);
+                  if (userErr) throw userErr;
+                }
+              }
+            }
+
+            await client.from("krv_notifications").insert(newNotif);
+          } catch (dbErr) {
+            console.error("Direct Supabase update failed in handleReSubmit:", dbErr);
+            triggerToast("Database Error: " + dbErr.message, "error");
+            return;
+          }
+        }
+
+        setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: "Re-Submit", rejection_reason: rejectionReason } : s));
+        updateWallet(sub.user_id, sub.review_status, "Re-Submit", sub.amount);
         setNotifications([...notifications, newNotif]);
         triggerToast("Re-Submit request sent successfully to candidate!");
         setReviewModal(null);
@@ -2678,10 +2988,8 @@
 
       const filteredKyc = useMemo(() => kycRecords.filter(k => k.status === filterStatus), [kycRecords, filterStatus]);
 
-      const handleApproveKyc = (kyc) => {
-        setKycRecords(prev => prev.map(k => k.id === kyc.id ? { ...k, status: "Approved" } : k));
-        setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Approved" } : u));
-
+      const handleApproveKyc = async (kyc) => {
+        const client = getSupabaseClient();
         const newNotif = {
           id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: kyc.user_id,
@@ -2689,18 +2997,36 @@
           message: "Congratulations! Your bank details and verification selfie are approved. You can now browse tasks.",
           date: new Date().toISOString().split('T')[0]
         };
+
+        if (client) {
+          try {
+            const { error: kycErr } = await client.from("krv_kyc").update({ status: "Approved" }).eq("id", kyc.id);
+            if (kycErr) throw kycErr;
+
+            const { error: userErr } = await client.from("krv_users").update({ kyc_status: "Approved" }).eq("id", kyc.user_id);
+            if (userErr) throw userErr;
+
+            await client.from("krv_notifications").insert(newNotif);
+          } catch (err) {
+            console.error("Direct KYC approve failed:", err);
+            triggerToast("Database Error: " + err.message, "error");
+            return;
+          }
+        }
+
+        setKycRecords(prev => prev.map(k => k.id === kyc.id ? { ...k, status: "Approved" } : k));
+        setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Approved" } : u));
         setNotifications([...notifications, newNotif]);
         triggerToast("Candidate KYC approved successfully!");
       };
 
-      const handleRejectKyc = (kyc) => {
+      const handleRejectKyc = async (kyc) => {
         if (!rejectReason) {
           triggerToast("Please enter a rejection reason.", "error");
           return;
         }
-        setKycRecords(prev => prev.map(k => k.id === kyc.id ? { ...k, status: "Rejected", rejection_reason: rejectReason } : k));
-        setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Rejected" } : u));
 
+        const client = getSupabaseClient();
         const newNotif = {
           id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: kyc.user_id,
@@ -2708,6 +3034,25 @@
           message: `Your identity KYC was rejected: "${rejectReason}"`,
           date: new Date().toISOString().split('T')[0]
         };
+
+        if (client) {
+          try {
+            const { error: kycErr } = await client.from("krv_kyc").update({ status: "Rejected", rejection_reason: rejectReason }).eq("id", kyc.id);
+            if (kycErr) throw kycErr;
+
+            const { error: userErr } = await client.from("krv_users").update({ kyc_status: "Rejected" }).eq("id", kyc.user_id);
+            if (userErr) throw userErr;
+
+            await client.from("krv_notifications").insert(newNotif);
+          } catch (err) {
+            console.error("Direct KYC reject failed:", err);
+            triggerToast("Database Error: " + err.message, "error");
+            return;
+          }
+        }
+
+        setKycRecords(prev => prev.map(k => k.id === kyc.id ? { ...k, status: "Rejected", rejection_reason: rejectReason } : k));
+        setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Rejected" } : u));
         setNotifications([...notifications, newNotif]);
         triggerToast("KYC Rejected successfully.");
         setRejectModal(null);

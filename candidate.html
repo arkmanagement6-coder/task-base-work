@@ -865,7 +865,7 @@
         }
       };
 
-      const handleSubmission = (e) => {
+      const handleSubmission = async (e) => {
         e.preventDefault();
         
         if (currentUser.kyc_status !== "Approved") {
@@ -879,6 +879,63 @@
         }
 
         const existingSub = submissions.find(s => String(s.task_id) === String(submitDrawer.id) && s.user_id === currentUser.id);
+        if (existingSub && existingSub.review_status !== "Re-Submit") {
+          triggerToast("You have already submitted this task. Re-submission is only allowed if requested by the admin.", "error");
+          setSubmitDrawer(null);
+          return;
+        }
+
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            if (existingSub) {
+              const updatedSub = {
+                id: existingSub.id,
+                user_id: currentUser.id,
+                task_id: submitDrawer.id,
+                submitted_link: formProof.link,
+                screenshot: screenshotFile,
+                video: existingSub.video || "",
+                remarks: formProof.remarks,
+                review_status: "Pending",
+                amount: submitDrawer.amount,
+                date: new Date().toISOString().split('T')[0]
+              };
+              const { error } = await client.from("krv_submissions").upsert(updatedSub);
+              if (error) throw error;
+
+              // Re-increment pending earnings in user table directly
+              if (existingSub.review_status === "Re-Submit" || existingSub.review_status === "Rejected") {
+                const nextPending = Math.max(0, (currentUser.earnings_pending || 0) + submitDrawer.amount);
+                const { error: userErr } = await client.from("krv_users").update({ earnings_pending: nextPending }).eq("id", currentUser.id);
+                if (userErr) throw userErr;
+              }
+            } else {
+              const newSub = {
+                id: "s" + Date.now(),
+                user_id: currentUser.id,
+                task_id: submitDrawer.id,
+                submitted_link: formProof.link,
+                screenshot: screenshotFile,
+                video: "",
+                remarks: formProof.remarks,
+                review_status: "Pending",
+                amount: submitDrawer.amount,
+                date: new Date().toISOString().split('T')[0]
+              };
+              const { error } = await client.from("krv_submissions").insert(newSub);
+              if (error) throw error;
+
+              const nextPending = Math.max(0, (currentUser.earnings_pending || 0) + submitDrawer.amount);
+              const { error: userErr } = await client.from("krv_users").update({ earnings_pending: nextPending }).eq("id", currentUser.id);
+              if (userErr) throw userErr;
+            }
+          } catch (dbErr) {
+            console.error("Direct task submission failed:", dbErr);
+            triggerToast("Submission Failed: " + dbErr.message, "error");
+            return;
+          }
+        }
 
         if (existingSub) {
           const updatedSub = {
@@ -891,7 +948,7 @@
           };
           setSubmissions(prev => prev.map(s => s.id === existingSub.id ? updatedSub : s));
           
-          // Re-increment pending earnings since it goes back to 'Pending' validation
+          // Re-increment pending earnings locally
           if (existingSub.review_status === "Re-Submit" || existingSub.review_status === "Rejected") {
             setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount } : u));
           }
@@ -913,7 +970,6 @@
         }
         
         if (submitDrawer.category === "Application Review Provide by Brand" && setTasks) {
-          const client = getSupabaseClient();
           if (client && submitDrawer.imported_reviews) {
             const nextReviews = submitDrawer.imported_reviews.map(r => 
               r.assigned_to === currentUser.id ? { ...r, status: "Used" } : r
