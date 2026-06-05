@@ -200,6 +200,20 @@
       return null;
     };
 
+    const formatDateTime = (dateObj) => {
+      if (!dateObj) return "";
+      const yyyy = dateObj.getFullYear();
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(dateObj.getDate()).padStart(2, '0');
+      let hours = dateObj.getHours();
+      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+      const strTime = String(hours).padStart(2, '0') + ':' + minutes + ' ' + ampm;
+      return `${yyyy}-${mm}-${dd} ${strTime}`;
+    };
+
     // Custom SVG Icon Component
     const Icon = ({ name, className = "w-5 h-5", ...props }) => {
       const icons = {
@@ -2411,8 +2425,9 @@
       const filteredPendingSub = useMemo(() => {
         const list = pendingSub.filter(s => {
           // Date Range Filter
-          if (startDate && s.date && s.date < startDate) return false;
-          if (endDate && s.date && s.date > endDate) return false;
+          const sDateOnly = s.date ? s.date.substring(0, 10) : "";
+          if (startDate && sDateOnly && sDateOnly < startDate) return false;
+          if (endDate && sDateOnly && sDateOnly > endDate) return false;
 
           const worker = users.find(u => u.id === s.user_id);
           const term = searchTerm.trim().toLowerCase();
@@ -3299,8 +3314,9 @@
           
           // Date ranges
           let matchDate = true;
-          if (startDate) matchDate = matchDate && (s.date >= startDate);
-          if (endDate) matchDate = matchDate && (s.date <= endDate);
+          const sDateOnly = s.date ? s.date.substring(0, 10) : "";
+          if (startDate) matchDate = matchDate && (sDateOnly >= startDate);
+          if (endDate) matchDate = matchDate && (sDateOnly <= endDate);
           
           return matchStatus && matchCandidate && matchTask && matchDate && matchActivity;
         });
@@ -3935,8 +3951,9 @@
             }
           }
 
-          if (startDate && s.date && s.date < startDate) return false;
-          if (endDate && s.date && s.date > endDate) return false;
+          const sDateOnly = s.date ? s.date.substring(0, 10) : "";
+          if (startDate && sDateOnly && sDateOnly < startDate) return false;
+          if (endDate && sDateOnly && sDateOnly > endDate) return false;
 
           return matchStatus && matchCandidate && matchTask;
         });
@@ -4012,8 +4029,9 @@
               matchTask = false;
             }
           }
-          if (startDate && s.date && s.date < startDate) return false;
-          if (endDate && s.date && s.date > endDate) return false;
+          const sDateOnly = s.date ? s.date.substring(0, 10) : "";
+          if (startDate && sDateOnly && sDateOnly < startDate) return false;
+          if (endDate && sDateOnly && sDateOnly > endDate) return false;
           return matchStatus && matchCandidate && matchTask;
         });
 
