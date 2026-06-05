@@ -5855,9 +5855,9 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
               if (r.status === "Assigned" && r.assigned_to && r.assigned_at) {
                 const assignedTime = new Date(r.assigned_at).getTime();
                 const currentTime = new Date().getTime();
-                const tenMinutes = 10 * 60 * 1000;
+                const thirtyMinutes = 30 * 60 * 1000;
                 
-                if (currentTime - assignedTime > tenMinutes) {
+                if (currentTime - assignedTime > thirtyMinutes) {
                   // Check if this user has submitted a proof for this task
                   const hasSubmitted = submissions.some(s => s.user_id === r.assigned_to && String(s.task_id) === String(t.id));
                   if (!hasSubmitted) {
