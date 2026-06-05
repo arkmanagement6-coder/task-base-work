@@ -1495,6 +1495,15 @@
       const [selectedTask, setSelectedTask] = useState(null);
       const [form, setForm] = useState({ title: "", category: "Google Review", links: "", amount: "", remarks: "", deadline: "", status: "Active" });
 
+      useEffect(() => {
+        if (selectedTask) {
+          const updated = tasks.find(t => t.id === selectedTask.id);
+          if (updated && JSON.stringify(updated) !== JSON.stringify(selectedTask)) {
+            setSelectedTask(updated);
+          }
+        }
+      }, [tasks, selectedTask]);
+
       const handleViewSubScreenshot = async (sub) => {
         if (!sub) return;
         if (sub.screenshot) {
@@ -5490,10 +5499,11 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
                   const hasSubmitted = submissions.some(s => s.user_id === r.assigned_to && String(s.task_id) === String(t.id));
                   if (!hasSubmitted) {
                     taskUpdated = true;
-                    const { assigned_to, assigned_at, ...cleanReview } = r;
                     return {
-                      ...cleanReview,
-                      status: "Unused"
+                      ...r,
+                      status: "Unused",
+                      assigned_to: null,
+                      assigned_at: null
                     };
                   }
                 }
