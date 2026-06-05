@@ -1689,6 +1689,13 @@
       const handleFormSubmit = (e) => {
         e.preventDefault();
         
+        const isPast = form.deadline && form.deadline < new Date().toISOString().split('T')[0];
+        if (isPast && (form.status || "Active") === "Active") {
+          if (!confirm(`Warning: The selected deadline (${form.deadline}) is in the past. Saving it as Active will cause it to be automatically stopped immediately. Do you want to proceed?`)) {
+            return;
+          }
+        }
+        
         if (editingTaskId) {
           setTasks(prev => prev.map(t => {
             if (t.id === editingTaskId) {
@@ -1799,6 +1806,24 @@
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Deadline</label>
                     <input required type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white" />
+                    {form.deadline && (
+                      <span className={`block text-[11px] mt-1.5 font-semibold ${form.deadline < new Date().toISOString().split('T')[0] ? 'text-rose-400' : 'text-slate-400'}`}>
+                        Selected: {(() => {
+                          try {
+                            const d = new Date(form.deadline);
+                            if (isNaN(d.getTime())) return "Invalid Date";
+                            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                            const day = String(d.getDate()).padStart(2, '0');
+                            const month = months[d.getMonth()];
+                            const year = d.getFullYear();
+                            const isPast = form.deadline < new Date().toISOString().split('T')[0];
+                            return `${day} ${month} ${year} ${isPast ? '⚠️ (PAST DATE - WILL BE STOPPED)' : '✅'}`;
+                          } catch (e) {
+                            return "";
+                          }
+                        })()}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Task Status</label>
