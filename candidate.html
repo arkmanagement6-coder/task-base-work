@@ -146,6 +146,59 @@
       return null;
     };
 
+    function ReviewTimer({ assignedAt, limitMinutes, onExpire }) {
+      const [timeLeft, setTimeLeft] = useState("");
+      const [isExpired, setIsExpired] = useState(false);
+
+      useEffect(() => {
+        const calculateTime = () => {
+          if (!assignedAt) {
+            setTimeLeft("10:00");
+            return true;
+          }
+          const assignedTime = new Date(assignedAt).getTime();
+          const currentTime = new Date().getTime();
+          const totalMs = limitMinutes * 60 * 1000;
+          const diff = assignedTime + totalMs - currentTime;
+
+          if (diff <= 0) {
+            setTimeLeft("00:00");
+            setIsExpired(true);
+            onExpire && onExpire();
+            return false;
+          }
+
+          const minutes = Math.floor(diff / (60 * 1000));
+          const seconds = Math.floor((diff % (60 * 1000)) / 1000);
+          const pad = (num) => num.toString().padStart(2, '0');
+          setTimeLeft(`${pad(minutes)}:${pad(seconds)}`);
+          return true;
+        };
+
+        const active = calculateTime();
+        if (!active) return;
+
+        const interval = setInterval(() => {
+          const active = calculateTime();
+          if (!active) {
+            clearInterval(interval);
+          }
+        }, 1000);
+
+        return () => clearInterval(interval);
+      }, [assignedAt, limitMinutes]);
+
+      return (
+        <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${
+          isExpired 
+            ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' 
+            : 'bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse'
+        }`}>
+          ⏳ {timeLeft}
+        </span>
+      );
+    }
+
     const formatDateTime = (dateObj) => {
       if (!dateObj) return "";
       const yyyy = dateObj.getFullYear();
@@ -746,7 +799,12 @@
                     const disableCopy = isSubmittedAndLocked || !isActive;
                     return (
                       <div className="p-2.5 rounded bg-slate-150/40 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800/80 text-xs text-slate-650 dark:text-slate-300 mb-4 mt-2">
-                        <span className="block text-[9px] uppercase font-bold text-slate-400 mb-1">Your Assigned Review (S.No {myReview.sno})</span>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="block text-[9px] uppercase font-bold text-slate-400 font-extrabold">Your Assigned Review (S.No {myReview.sno})</span>
+                          {!disableCopy && (
+                            <ReviewTimer assignedAt={myReview.assigned_at} limitMinutes={10} onExpire={() => handleLocalReviewExpire(t.id, myReview.id)} />
+                          )}
+                        </div>
                         <p className={`font-semibold text-slate-700 dark:text-slate-200 text-[11px] mb-2 leading-relaxed ${disableCopy ? 'select-none opacity-50' : 'select-all'}`}>{myReview.text}</p>
                         {disableCopy ? (
                           <button type="button" disabled className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-slate-900/40 text-slate-500 border border-slate-800 rounded text-[10px] font-bold uppercase cursor-not-allowed select-none">
@@ -769,20 +827,21 @@
                     if (firstUnused) {
                       const disableCopy = isSubmittedAndLocked || !isActive;
                       return (
-                        <div className="p-2.5 rounded bg-slate-150/40 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800/80 text-xs text-slate-650 dark:text-slate-300 mb-4 mt-2">
-                          <span className="block text-[9px] uppercase font-bold text-blue-500 mb-1">Available Review (S.No {firstUnused.sno})</span>
-                          <p className={`font-semibold text-slate-700 dark:text-slate-200 text-[11px] mb-2 leading-relaxed opacity-95 ${disableCopy ? 'select-none opacity-50' : 'select-all'}`}>{firstUnused.text}</p>
+                        <div className="p-3.5 rounded-xl border border-slate-750 bg-slate-900/40 text-center text-xs text-slate-400 mb-4 mt-2 flex flex-col gap-2.5 items-center justify-center">
+                          <Icon name="lock" className="w-5 h-5 text-slate-500 opacity-60" />
+                          <span className="font-bold text-[10px] uppercase text-slate-450 tracking-wider">Review Text Locked</span>
+                          <p className="font-medium text-[11px] leading-relaxed text-slate-500">You must claim a review text to copy and start this task.</p>
                           {disableCopy ? (
-                            <button type="button" disabled className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-slate-900/40 text-slate-500 border border-slate-800 rounded text-[10px] font-bold uppercase cursor-not-allowed select-none">
-                              <Icon name="lock" className="w-3 h-3 shrink-0 opacity-40" />
-                              <span>Review Text Locked</span>
+                            <button type="button" disabled className="w-full mt-1.5 py-2 bg-slate-900/40 text-slate-500 border border-slate-800 rounded text-[10px] font-bold uppercase cursor-not-allowed select-none">
+                              <Icon name="lock" className="w-3.5 h-3.5 shrink-0 opacity-40" />
+                              <span>Unavailable</span>
                             </button>
                           ) : (
                             <button type="button" onClick={() => {
                               autoAssignTaskReview(t.id, currentUser.id, firstUnused.id);
-                            }} className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 dark:text-blue-400 rounded text-[10px] font-bold uppercase transition cursor-pointer">
-                              <Icon name="copy" className="w-3 h-3 shrink-0" />
-                              <span>Copy Review Text</span>
+                            }} className="w-full mt-1.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-[10px] font-extrabold uppercase transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm">
+                              <Icon name="key" className="w-3.5 h-3.5 shrink-0" />
+                              <span>Claim Available Review</span>
                             </button>
                           )}
                         </div>
@@ -3070,6 +3129,25 @@
           }
         } catch (err) {
           console.error("autoAssignTaskReview critical error:", err);
+        }
+      };
+      
+      const handleLocalReviewExpire = async (taskId, reviewId) => {
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            const { data: latestTask, error } = await client.from("krv_tasks").select("imported_reviews").eq("id", taskId).single();
+            if (!error && latestTask) {
+              const nextReviews = (latestTask.imported_reviews || []).map(r => 
+                r.id === reviewId ? { ...r, status: "Unused", assigned_to: null, assigned_at: null } : r
+              );
+              await client.from("krv_tasks").update({ imported_reviews: nextReviews }).eq("id", taskId);
+              setTasks(prev => prev.map(t => t.id === taskId ? { ...t, imported_reviews: nextReviews } : t));
+              triggerToast("Your review reservation has expired and was released.", "warning");
+            }
+          } catch (e) {
+            console.error("Local review expiration release failed: ", e);
+          }
         }
       };
 
