@@ -883,7 +883,7 @@
           }
         } else {
           const newSub = {
-            id: "s" + (submissions.length + 1),
+            id: "s" + Date.now(),
             user_id: currentUser.id,
             task_id: submitDrawer.id,
             submitted_link: formProof.link,
@@ -1160,7 +1160,7 @@
         }
 
         const newKyc = {
-          id: myKyc ? myKyc.id : "k" + (kycRecords.length + 1),
+          id: myKyc ? myKyc.id : "k" + Date.now(),
           user_id: currentUser.id,
           account_holder: bankForm.holder,
           account_number: bankForm.accNumber,
@@ -1373,7 +1373,7 @@
         }
 
         const newKyc = {
-          id: myKyc ? myKyc.id : "k" + (kycRecords.length + 1),
+          id: myKyc ? myKyc.id : "k" + Date.now(),
           user_id: currentUser.id,
           account_holder: form.holder,
           account_number: form.accNumber,
@@ -1808,7 +1808,7 @@
       const handleRaiseTicket = (e) => {
         e.preventDefault();
         const newTk = {
-          id: "tk" + (tickets.length + 1),
+          id: "tk" + Date.now(),
           user_id: currentUser.id,
           subject: form.subject,
           category: form.category,

@@ -584,7 +584,7 @@
         }
 
         const newNotif = {
-          id: "n" + (notifications.length + 1),
+          id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: sub.user_id,
           title: notifTitle,
           message: notifMsg,
@@ -2308,7 +2308,7 @@
         updateWallet(sub.user_id, sub.review_status, "Approved", sub.amount);
 
         const newNotif = {
-          id: "n" + (notifications.length + 1),
+          id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: sub.user_id,
           title: "Task Submission Approved!",
           message: `Your task submission (SUB-${sub.id.toUpperCase()}) was verified successfully. ₹${sub.amount} added to wallet.`,
@@ -2324,7 +2324,7 @@
         updateWallet(sub.user_id, sub.review_status, "Under Review", sub.amount);
 
         const newNotif = {
-          id: "n" + (notifications.length + 1),
+          id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: sub.user_id,
           title: "Task Submission Under Review",
           message: `Your task submission (SUB-${sub.id.toUpperCase()}) is now under review by our auditing team.`,
@@ -2344,7 +2344,7 @@
         updateWallet(sub.user_id, sub.review_status, "Rejected", sub.amount);
         
         const newNotif = {
-          id: "n" + (notifications.length + 1),
+          id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: sub.user_id,
           title: "Task Submission Rejected",
           message: `Your task submission (SUB-${sub.id.toUpperCase()}) was rejected: "${rejectionReason}"`,
@@ -2365,7 +2365,7 @@
         updateWallet(sub.user_id, sub.review_status, "Re-Submit", sub.amount);
         
         const newNotif = {
-          id: "n" + (notifications.length + 1),
+          id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: sub.user_id,
           title: "Re-Submit Requested for Task",
           message: `Your task submission (SUB-${sub.id.toUpperCase()}) requires re-submission: "${rejectionReason}"`,
@@ -2683,7 +2683,7 @@
         setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Approved" } : u));
 
         const newNotif = {
-          id: "n" + (notifications.length + 1),
+          id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: kyc.user_id,
           title: "KYC Verified Successfully!",
           message: "Congratulations! Your bank details and verification selfie are approved. You can now browse tasks.",
@@ -2702,7 +2702,7 @@
         setUsers(prev => prev.map(u => u.id === kyc.user_id ? { ...u, kyc_status: "Rejected" } : u));
 
         const newNotif = {
-          id: "n" + (notifications.length + 1),
+          id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: kyc.user_id,
           title: "KYC Rejected!",
           message: `Your identity KYC was rejected: "${rejectReason}"`,
@@ -4378,7 +4378,7 @@
         setTickets(prev => prev.map(t => t.id === selectedTicket.id ? { ...t, replies: updatedReplies } : t));
         
         const newNotif = {
-          id: "n" + (notifications.length + 1),
+          id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: selectedTicket.user_id,
           title: `Support Reply: TK-${selectedTicket.id.toUpperCase()}`,
           message: `Admin replied: "${replyText.trim().substring(0, 60)}${replyText.trim().length > 60 ? '...' : ''}"`,
@@ -4397,7 +4397,7 @@
         setTickets(prev => prev.map(t => t.id === selectedTicket.id ? { ...t, status: newStatus } : t));
         
         const newNotif = {
-          id: "n" + (notifications.length + 1),
+          id: "n" + Date.now() + "_" + Math.floor(Math.random() * 1000),
           user_id: selectedTicket.user_id,
           title: `Ticket Status Update: TK-${selectedTicket.id.toUpperCase()}`,
           message: `Your ticket has been marked as ${newStatus}.`,
