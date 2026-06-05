@@ -638,6 +638,10 @@
         const sub = getTaskSubmission(t.id);
         const isSubmittedAndLocked = sub && sub.review_status !== "Re-Submit";
         const isActive = isTaskActive(t);
+        const isReviewTask = t.category === "Application Review Provide by Brand";
+        const hasAssigned = t.imported_reviews && t.imported_reviews.some(r => r.assigned_to === currentUser.id);
+        const hasUnused = t.imported_reviews && t.imported_reviews.some(r => r.status === "Unused" && !r.assigned_to);
+        const noReviewsLeft = isReviewTask && !hasAssigned && !hasUnused;
 
         return (
           <div key={t.id} className={`rounded-2xl glass-card p-6 flex flex-col justify-between hover:scale-[1.02] transition-transform ${!isActive ? 'opacity-80' : ''}`}>
@@ -695,6 +699,11 @@
                 <div className="flex items-center justify-center gap-2 w-full py-2.5 mb-4 rounded-xl font-extrabold uppercase text-[10px] tracking-wider bg-slate-900/40 border border-slate-850 text-slate-650 cursor-not-allowed shadow-none select-none">
                   <Icon name="lock" className="w-3.5 h-3.5 opacity-30" />
                   <span>Open Link (Expired)</span>
+                </div>
+              ) : noReviewsLeft ? (
+                <div className="flex items-center justify-center gap-2 w-full py-2.5 mb-4 rounded-xl font-extrabold uppercase text-[10px] tracking-wider bg-slate-900/40 border border-slate-800 text-slate-500 cursor-not-allowed shadow-none select-none" title="All reviews for this task are completed or assigned.">
+                  <Icon name="lock" className="w-3.5 h-3.5 opacity-40" />
+                  <span>Open Link (No Reviews Left)</span>
                 </div>
               ) : (
                 <a
@@ -821,6 +830,11 @@
                 <button disabled className="w-full py-2.5 rounded-lg border border-slate-800 bg-slate-900/40 text-xs font-bold text-slate-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed">
                   <Icon name="lock" className="w-4 h-4 text-slate-650" />
                   <span>Campaign Closed</span>
+                </button>
+              ) : noReviewsLeft ? (
+                <button disabled className="w-full py-2.5 rounded-lg border border-slate-800 bg-slate-900/40 text-xs font-bold text-slate-500 text-center uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-not-allowed">
+                  <Icon name="lock" className="w-4 h-4 text-slate-650" />
+                  <span>No Reviews Available</span>
                 </button>
               ) : (
                 <button onClick={() => setSubmitDrawer(t)} className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-semibold text-white shadow-md transition uppercase tracking-wider cursor-pointer">
