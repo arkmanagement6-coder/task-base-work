@@ -5469,6 +5469,61 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
         }
       }, [submissions, withdrawals, users, isDbLoading]);
 
+      // Auto-release expired review assignments (older than 10 minutes with no submissions)
+      useEffect(() => {
+        if (isDbLoading) return;
+
+        const checkAndReleaseExpired = () => {
+          let needsUpdate = false;
+          const nextTasks = tasks.map(t => {
+            if (t.category !== "Application Review Provide by Brand" || !t.imported_reviews) return t;
+
+            let taskUpdated = false;
+            const updatedReviews = t.imported_reviews.map(r => {
+              if (r.status === "Assigned" && r.assigned_to && r.assigned_at) {
+                const assignedTime = new Date(r.assigned_at).getTime();
+                const currentTime = new Date().getTime();
+                const tenMinutes = 10 * 60 * 1000;
+                
+                if (currentTime - assignedTime > tenMinutes) {
+                  // Check if this user has submitted a proof for this task
+                  const hasSubmitted = submissions.some(s => s.user_id === r.assigned_to && String(s.task_id) === String(t.id));
+                  if (!hasSubmitted) {
+                    taskUpdated = true;
+                    const { assigned_to, assigned_at, ...cleanReview } = r;
+                    return {
+                      ...cleanReview,
+                      status: "Unused"
+                    };
+                  }
+                }
+              }
+              return r;
+            });
+
+            if (taskUpdated) {
+              needsUpdate = true;
+              return {
+                ...t,
+                imported_reviews: updatedReviews
+              };
+            }
+            return t;
+          });
+
+          if (needsUpdate) {
+            setTasks(nextTasks);
+          }
+        };
+
+        // Run check immediately
+        checkAndReleaseExpired();
+
+        // Check periodically every 15 seconds
+        const interval = setInterval(checkAndReleaseExpired, 15000);
+        return () => clearInterval(interval);
+      }, [tasks, submissions, isDbLoading]);
+
       // Background cloud sync
       useEffect(() => {
         const saveSecureDb = async () => {
