@@ -514,6 +514,7 @@
       const [formProof, setFormProof] = useState({ link: "", remarks: "" });
       const [screenshotFile, setScreenshotFile] = useState(null);
       const [instructionModalTask, setInstructionModalTask] = useState(null);
+      const [isSubmitting, setIsSubmitting] = useState(false);
 
       const formatInstructions = (remarks) => {
         if (!remarks) return [];
@@ -867,6 +868,7 @@
 
       const handleSubmission = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
         
         if (currentUser.kyc_status !== "Approved") {
           triggerToast("You must complete and approve KYC verification to submit tasks.", "error");
@@ -885,9 +887,30 @@
           return;
         }
 
+        setIsSubmitting(true);
         const client = getSupabaseClient();
-        if (client) {
-          try {
+        const subId = "s" + Date.now();
+        const nextDate = new Date().toISOString().split('T')[0];
+
+        try {
+          if (client) {
+            // Second-layer database check to completely prevent concurrent race conditions
+            const { data: dbCheck, error: dbCheckErr } = await client
+              .from("krv_submissions")
+              .select("id, review_status")
+              .eq("user_id", currentUser.id)
+              .eq("task_id", submitDrawer.id);
+
+            if (!dbCheckErr && dbCheck && dbCheck.length > 0) {
+              const activeSub = dbCheck[0];
+              if (activeSub.review_status !== "Re-Submit") {
+                triggerToast("You have already submitted this task. Re-submission is only allowed if requested by the admin.", "error");
+                setSubmitDrawer(null);
+                setIsSubmitting(false);
+                return;
+              }
+            }
+
             if (existingSub) {
               const updatedSub = {
                 id: existingSub.id,
@@ -899,7 +922,7 @@
                 remarks: formProof.remarks,
                 review_status: "Pending",
                 amount: submitDrawer.amount,
-                date: new Date().toISOString().split('T')[0]
+                date: nextDate
               };
               const { error } = await client.from("krv_submissions").upsert(updatedSub);
               if (error) throw error;
@@ -912,7 +935,7 @@
               }
             } else {
               const newSub = {
-                id: "s" + Date.now(),
+                id: subId,
                 user_id: currentUser.id,
                 task_id: submitDrawer.id,
                 submitted_link: formProof.link,
@@ -921,7 +944,7 @@
                 remarks: formProof.remarks,
                 review_status: "Pending",
                 amount: submitDrawer.amount,
-                date: new Date().toISOString().split('T')[0]
+                date: nextDate
               };
               const { error } = await client.from("krv_submissions").insert(newSub);
               if (error) throw error;
@@ -930,61 +953,59 @@
               const { error: userErr } = await client.from("krv_users").update({ earnings_pending: nextPending }).eq("id", currentUser.id);
               if (userErr) throw userErr;
             }
-          } catch (dbErr) {
-            console.error("Direct task submission failed:", dbErr);
-            triggerToast("Submission Failed: " + dbErr.message, "error");
-            return;
           }
-        }
 
-        if (existingSub) {
-          const updatedSub = {
-            ...existingSub,
-            submitted_link: formProof.link,
-            screenshot: screenshotFile,
-            remarks: formProof.remarks,
-            review_status: "Pending",
-            date: new Date().toISOString().split('T')[0]
-          };
-          setSubmissions(prev => prev.map(s => s.id === existingSub.id ? updatedSub : s));
-          
-          // Re-increment pending earnings locally
-          if (existingSub.review_status === "Re-Submit" || existingSub.review_status === "Rejected") {
+          if (existingSub) {
+            const updatedSub = {
+              ...existingSub,
+              submitted_link: formProof.link,
+              screenshot: screenshotFile,
+              remarks: formProof.remarks,
+              review_status: "Pending",
+              date: nextDate
+            };
+            setSubmissions(prev => prev.map(s => s.id === existingSub.id ? updatedSub : s));
+            
+            if (existingSub.review_status === "Re-Submit" || existingSub.review_status === "Rejected") {
+              setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount } : u));
+            }
+          } else {
+            const newSub = {
+              id: subId,
+              user_id: currentUser.id,
+              task_id: submitDrawer.id,
+              submitted_link: formProof.link,
+              screenshot: screenshotFile,
+              video: "",
+              remarks: formProof.remarks,
+              review_status: "Pending",
+              amount: submitDrawer.amount,
+              date: nextDate
+            };
+            setSubmissions([...submissions, newSub]);
             setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount } : u));
           }
-        } else {
-          const newSub = {
-            id: "s" + Date.now(),
-            user_id: currentUser.id,
-            task_id: submitDrawer.id,
-            submitted_link: formProof.link,
-            screenshot: screenshotFile,
-            video: "",
-            remarks: formProof.remarks,
-            review_status: "Pending",
-            amount: submitDrawer.amount,
-            date: new Date().toISOString().split('T')[0]
-          };
-          setSubmissions([...submissions, newSub]);
-          setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount } : u));
-        }
-        
-        if (submitDrawer.category === "Application Review Provide by Brand" && setTasks) {
-          if (client && submitDrawer.imported_reviews) {
-            const nextReviews = submitDrawer.imported_reviews.map(r => 
-              r.assigned_to === currentUser.id ? { ...r, status: "Used" } : r
-            );
-            client.from("krv_tasks").update({ imported_reviews: nextReviews }).eq("id", submitDrawer.id).then(({ error }) => {
-              if (error) console.error("Failed to mark review as Used in Supabase:", error);
-            });
-            setTasks(prev => prev.map(t => t.id === submitDrawer.id ? { ...t, imported_reviews: nextReviews } : t));
+          
+          if (submitDrawer.category === "Application Review Provide by Brand" && setTasks) {
+            if (client && submitDrawer.imported_reviews) {
+              const nextReviews = submitDrawer.imported_reviews.map(r => 
+                r.assigned_to === currentUser.id ? { ...r, status: "Used" } : r
+              );
+              await client.from("krv_tasks").update({ imported_reviews: nextReviews }).eq("id", submitDrawer.id);
+              setTasks(prev => prev.map(t => t.id === submitDrawer.id ? { ...t, imported_reviews: nextReviews } : t));
+            }
           }
+          
+          triggerToast("Task proof submitted successfully!");
+          setSubmitDrawer(null);
+          setFormProof({ link: "", remarks: "" });
+          setScreenshotFile(null);
+        } catch (dbErr) {
+          console.error("Direct task submission failed:", dbErr);
+          triggerToast("Submission Failed: " + dbErr.message, "error");
+        } finally {
+          setIsSubmitting(false);
         }
-        
-        triggerToast("Task proof submitted successfully!");
-        setSubmitDrawer(null);
-        setFormProof({ link: "", remarks: "" });
-        setScreenshotFile(null);
       };
 
       if (currentUser.kyc_status !== "Approved") {
@@ -1089,7 +1110,7 @@
           {submitDrawer && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
               <div className="w-full max-w-lg glass-card rounded-2xl p-6 relative">
-                <button onClick={() => setSubmitDrawer(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><Icon name="x-circle" className="w-5 h-5" /></button>
+                <button onClick={() => !isSubmitting && setSubmitDrawer(null)} disabled={isSubmitting} className={`absolute top-4 right-4 text-slate-400 hover:text-white ${isSubmitting ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}><Icon name="x-circle" className="w-5 h-5" /></button>
                 
                 <h3 className="text-lg font-bold mb-2 text-white">Submit Proof: {submitDrawer.title}</h3>
                 <p className="text-xs text-slate-400 mb-6">Enter proof link and screenshots confirming task completion.</p>
@@ -1112,7 +1133,7 @@
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Screenshot Upload (Required)</label>
                     <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative bg-white/5">
-                      <input type="file" accept="image/*" onChange={handleImageMockUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                      <input type="file" accept="image/*" disabled={isSubmitting} onChange={handleImageMockUpload} className={`absolute inset-0 opacity-0 ${isSubmitting ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
                       {screenshotFile === "loading" ? (
                         <div className="space-y-2 py-4">
                           <svg className="animate-spin h-6 w-6 mx-auto text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1135,13 +1156,25 @@
 
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Remarks</label>
-                    <textarea rows="3" value={formProof.remarks} onChange={(e) => setFormProof({ ...formProof, remarks: e.target.value })} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Name or email details used..."></textarea>
+                    <textarea rows="3" disabled={isSubmitting} value={formProof.remarks} onChange={(e) => setFormProof({ ...formProof, remarks: e.target.value })} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="Name or email details used..."></textarea>
                   </div>
 
-                  <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition uppercase tracking-wider cursor-pointer">
-                    Submit Proof
+                  <button type="submit" disabled={isSubmitting} className={`w-full py-3.5 text-sm font-bold text-white rounded-xl shadow-lg transition uppercase tracking-wider flex items-center justify-center gap-2 ${
+                    isSubmitting ? "bg-blue-600/60 cursor-not-allowed opacity-80" : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                  }`}>
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      "Submit Proof"
+                    )}
                   </button>
-                  <button type="button" onClick={() => setSubmitDrawer(null)} className="w-full mt-3 py-2.5 text-xs font-bold bg-slate-805 dark:bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-xl border border-slate-750 uppercase tracking-wider cursor-pointer transition">
+                  <button type="button" onClick={() => !isSubmitting && setSubmitDrawer(null)} disabled={isSubmitting} className={`w-full mt-3 py-2.5 text-xs font-bold bg-slate-850 dark:bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-xl border border-slate-750 uppercase tracking-wider transition ${isSubmitting ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                     Cancel & Close
                   </button>
                 </form>
@@ -1191,6 +1224,7 @@
     // 3. Earnings
     function CandidateEarnings({ currentUser, withdrawals, setWithdrawals, myKyc, triggerToast, setUsers, kycRecords, setKycRecords, submissions, tasks }) {
       const [isEditingBank, setIsEditingBank] = useState(false);
+      const [isSubmitting, setIsSubmitting] = useState(false);
       const mySubmissions = useMemo(() => submissions.filter(s => s.user_id === currentUser.id), [submissions, currentUser]);
       
       const stats = useMemo(() => {
@@ -1222,12 +1256,16 @@
         }
       }, [myKyc]);
 
-      const handleSaveBank = (e) => {
+      const handleSaveBank = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
+
         if (!bankForm.holder || !bankForm.accNumber || !bankForm.bank || !bankForm.ifsc) {
           triggerToast("All bank details are required.", "error");
           return;
         }
+
+        setIsSubmitting(true);
 
         const newKyc = {
           id: myKyc ? myKyc.id : "k" + Date.now(),
@@ -1242,6 +1280,22 @@
           status: "Pending"
         };
 
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            const { error: kycErr } = await client.from("krv_kyc").upsert(newKyc);
+            if (kycErr) throw kycErr;
+
+            const { error: userErr } = await client.from("krv_users").update({ kyc_status: "Pending" }).eq("id", currentUser.id);
+            if (userErr) throw userErr;
+          } catch (dbErr) {
+            console.error("Direct bank edit save failed:", dbErr);
+            triggerToast("Save Failed: " + dbErr.message, "error");
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
         if (myKyc) {
           setKycRecords(prev => prev.map(k => k.id === myKyc.id ? newKyc : k));
         } else {
@@ -1251,6 +1305,7 @@
         setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, kyc_status: "Pending" } : u));
         triggerToast("Bank details saved & submitted for audit!");
         setIsEditingBank(false);
+        setIsSubmitting(false);
       };
 
       return (
@@ -1294,29 +1349,41 @@
                 <form onSubmit={handleSaveBank} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Account Holder Name</label>
-                    <input required type="text" value={bankForm.holder} onChange={(e) => setBankForm({ ...bankForm, holder: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="John Doe" />
+                    <input required type="text" disabled={isSubmitting} value={bankForm.holder} onChange={(e) => setBankForm({ ...bankForm, holder: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50" placeholder="John Doe" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Account Number</label>
-                    <input required type="text" value={bankForm.accNumber} onChange={(e) => setBankForm({ ...bankForm, accNumber: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="998877665544" />
+                    <input required type="text" disabled={isSubmitting} value={bankForm.accNumber} onChange={(e) => setBankForm({ ...bankForm, accNumber: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50" placeholder="998877665544" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Name</label>
-                      <input required type="text" value={bankForm.bank} onChange={(e) => setBankForm({ ...bankForm, bank: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="HDFC Bank" />
+                      <input required type="text" disabled={isSubmitting} value={bankForm.bank} onChange={(e) => setBankForm({ ...bankForm, bank: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50" placeholder="HDFC Bank" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">IFSC Code</label>
-                      <input required type="text" value={bankForm.ifsc} onChange={(e) => setBankForm({ ...bankForm, ifsc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="HDFC0001234" />
+                      <input required type="text" disabled={isSubmitting} value={bankForm.ifsc} onChange={(e) => setBankForm({ ...bankForm, ifsc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50" placeholder="HDFC0001234" />
                     </div>
                   </div>
 
                   <div className="flex gap-3 pt-2">
-                    <button type="button" onClick={() => setIsEditingBank(false)} className="w-1/2 py-2.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer">
+                    <button type="button" disabled={isSubmitting} onClick={() => !isSubmitting && setIsEditingBank(false)} className={`w-1/2 py-2.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-330 rounded-lg transition ${isSubmitting ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                       Cancel
                     </button>
-                    <button type="submit" className="w-1/2 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow transition cursor-pointer">
-                      Save & Verify
+                    <button type="submit" disabled={isSubmitting} className={`w-1/2 py-2.5 text-xs font-bold text-white rounded-lg shadow transition flex items-center justify-center gap-1.5 ${
+                      isSubmitting ? "bg-emerald-600/60 cursor-not-allowed opacity-80" : "bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
+                    }`}>
+                      {isSubmitting ? (
+                        <>
+                          <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        "Save & Verify"
+                      )}
                     </button>
                   </div>
                 </form>
@@ -1412,6 +1479,7 @@
       });
 
       const [previews, setPreviews] = useState({ selfie: null });
+      const [isSubmitting, setIsSubmitting] = useState(false);
 
       useEffect(() => {
         if (myKyc) {
@@ -1435,12 +1503,16 @@
         }
       };
 
-      const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
+
         if (!previews.selfie) {
           triggerToast("Please upload your Verification Selfie.", "error");
           return;
         }
+
+        setIsSubmitting(true);
 
         const newKyc = {
           id: myKyc ? myKyc.id : "k" + Date.now(),
@@ -1454,6 +1526,24 @@
           selfie: previews.selfie,
           status: "Pending"
         };
+
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            // Write directly to Supabase table krv_kyc
+            const { error: kycErr } = await client.from("krv_kyc").upsert(newKyc);
+            if (kycErr) throw kycErr;
+
+            // Update user status directly in Supabase table krv_users
+            const { error: userErr } = await client.from("krv_users").update({ kyc_status: "Pending" }).eq("id", currentUser.id);
+            if (userErr) throw userErr;
+          } catch (dbErr) {
+            console.error("Direct KYC submission failed:", dbErr);
+            triggerToast("KYC Submission Failed: " + dbErr.message, "error");
+            setIsSubmitting(false);
+            return;
+          }
+        }
 
         if (myKyc) {
           setKycRecords(prev => prev.map(k => k.id === myKyc.id ? newKyc : k));
@@ -1471,6 +1561,7 @@
         }));
 
         triggerToast("KYC details submitted for admin review.");
+        setIsSubmitting(false);
       };
 
       if ((currentUser.kyc_status === "Pending" || currentUser.kyc_status === "Approved") && myKyc) {
@@ -1575,8 +1666,8 @@
                 ].map(item => (
                   <div key={item.field} className="space-y-2">
                     <label className="block text-xs font-bold uppercase text-slate-400">{item.label}</label>
-                    <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative h-36 flex items-center justify-center bg-white/5">
-                      <input disabled={currentUser.kyc_status === "Approved"} type="file" accept="image/*" onChange={(e) => handleFilePreview(e, item.field)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    <div className="border border-dashed border-slate-700 rounded-xl p-4 text-center cursor-pointer hover:border-blue-500 relative h-36 flex items-center justify-center bg-white/5 animate-pulse-slow">
+                      <input disabled={currentUser.kyc_status === "Approved" || isSubmitting} type="file" accept="image/*" onChange={(e) => handleFilePreview(e, item.field)} className={`absolute inset-0 opacity-0 ${isSubmitting ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
                       {previews[item.field] && previews[item.field] !== "assets/krv_logo.png" ? (
                         <img src={previews[item.field]} className="max-h-full max-w-full rounded object-cover" />
                       ) : (
@@ -1595,26 +1686,38 @@
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Account Holder Name</label>
-                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.holder} onChange={(e) => setForm({ ...form, holder: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="John Doe" />
+                    <input disabled={currentUser.kyc_status === "Approved" || isSubmitting} required type="text" value={form.holder} onChange={(e) => setForm({ ...form, holder: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="John Doe" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Account Number</label>
-                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.accNumber} onChange={(e) => setForm({ ...form, accNumber: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="998877665544" />
+                    <input disabled={currentUser.kyc_status === "Approved" || isSubmitting} required type="text" value={form.accNumber} onChange={(e) => setForm({ ...form, accNumber: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="998877665544" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank Name</label>
-                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.bank} onChange={(e) => setForm({ ...form, bank: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="e.g. HDFC Bank" />
+                    <input disabled={currentUser.kyc_status === "Approved" || isSubmitting} required type="text" value={form.bank} onChange={(e) => setForm({ ...form, bank: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="e.g. HDFC Bank" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Bank IFSC Code</label>
-                    <input disabled={currentUser.kyc_status === "Approved"} required type="text" value={form.ifsc} onChange={(e) => setForm({ ...form, ifsc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="HDFC0001234" />
+                    <input disabled={currentUser.kyc_status === "Approved" || isSubmitting} required type="text" value={form.ifsc} onChange={(e) => setForm({ ...form, ifsc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="HDFC0001234" />
                   </div>
                 </div>
               </div>
 
               {currentUser.kyc_status !== "Approved" && (
-                <button type="submit" className="w-full py-3.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg transition cursor-pointer">
-                  Submit KYC Verification Details
+                <button type="submit" disabled={isSubmitting} className={`w-full py-3.5 text-sm font-bold text-white rounded-xl shadow-lg transition flex items-center justify-center gap-2 ${
+                  isSubmitting ? "bg-blue-600/60 cursor-not-allowed opacity-80" : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                }`}>
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Submitting KYC...</span>
+                    </>
+                  ) : (
+                    "Submit KYC Verification Details"
+                  )}
                 </button>
               )}
             </form>
@@ -1874,9 +1977,14 @@
     function CandidateSupport({ currentUser, tickets, setTickets, triggerToast }) {
       const [form, setForm] = useState({ subject: "", category: "Payments", desc: "" });
       const [showNewTicket, setShowNewTicket] = useState(false);
+      const [isSubmitting, setIsSubmitting] = useState(false);
 
-      const handleRaiseTicket = (e) => {
+      const handleRaiseTicket = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return;
+
+        setIsSubmitting(true);
+
         const newTk = {
           id: "tk" + Date.now(),
           user_id: currentUser.id,
@@ -1886,17 +1994,33 @@
           status: "Open",
           replies: []
         };
+
+        const client = getSupabaseClient();
+        if (client) {
+          try {
+            // Write directly to Supabase table krv_tickets
+            const { error } = await client.from("krv_tickets").insert(newTk);
+            if (error) throw error;
+          } catch (dbErr) {
+            console.error("Direct support ticket creation failed:", dbErr);
+            triggerToast("Failed to raise ticket: " + dbErr.message, "error");
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
         setTickets([...tickets, newTk]);
         triggerToast("Support ticket raised successfully!");
         setForm({ subject: "", category: "Payments", desc: "" });
         setShowNewTicket(false);
+        setIsSubmitting(false);
       };
 
       return (
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">Internal Ticket Support</h3>
-            <button onClick={() => setShowNewTicket(!showNewTicket)} className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow cursor-pointer">
+            <button onClick={() => !isSubmitting && setShowNewTicket(!showNewTicket)} disabled={isSubmitting} className={`px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition ${isSubmitting ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
               {showNewTicket ? "Cancel" : "Raise New Ticket"}
             </button>
           </div>
@@ -1908,11 +2032,11 @@
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Subject</label>
-                    <input required type="text" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Brief issue heading" />
+                    <input required type="text" disabled={isSubmitting} value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="Brief issue heading" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Issue Category</label>
-                    <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white">
+                    <select disabled={isSubmitting} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50">
                       <option value="Payments">Payments & Wallet</option>
                       <option value="KYC Support">KYC Upload Issue</option>
                       <option value="Task Query">Task Submission Query</option>
@@ -1922,10 +2046,22 @@
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Detailed Description</label>
-                  <textarea required rows="4" value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white" placeholder="Describe the problem..."></textarea>
+                  <textarea required rows="4" disabled={isSubmitting} value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="Describe the problem..."></textarea>
                 </div>
-                <button type="submit" className="w-full py-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition cursor-pointer">
-                  Submit Support Ticket
+                <button type="submit" disabled={isSubmitting} className={`w-full py-3 text-xs font-bold text-white rounded-lg shadow transition flex items-center justify-center gap-2 ${
+                  isSubmitting ? "bg-blue-600/60 cursor-not-allowed opacity-80" : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                }`}>
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Submitting Ticket...</span>
+                    </>
+                  ) : (
+                    "Submit Support Ticket"
+                  )}
                 </button>
               </form>
             </div>
