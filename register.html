@@ -146,7 +146,11 @@
         if (client) {
           client.from("krv_users").select("*").eq("role", "agent").then(({ data, error }) => {
             if (!error && data) {
-              setAgents(data);
+              // Filter out agents who are blocked or inactive
+              const activeAgents = data.filter(
+                a => a.status !== "Blocked" && a.kyc_status !== "Blocked" && a.status !== "Inactive"
+              );
+              setAgents(activeAgents);
             }
           });
         }
