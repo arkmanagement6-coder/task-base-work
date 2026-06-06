@@ -2979,12 +2979,20 @@
 
       const filteredCandidates = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
-        if (!query) return candidates;
-        return candidates.filter(c =>
-          c.name.toLowerCase().includes(query) ||
-          c.id.toLowerCase().includes(query) ||
-          (c.email && c.email.toLowerCase().includes(query))
-        );
+        let list = candidates;
+        if (query) {
+          list = candidates.filter(c =>
+            c.name.toLowerCase().includes(query) ||
+            c.id.toLowerCase().includes(query) ||
+            (c.email && c.email.toLowerCase().includes(query))
+          );
+        }
+        // Sort from higher to lower total generated earnings
+        return [...list].sort((a, b) => {
+          const totalA = (a.wallet_balance || 0) + (a.earnings_pending || 0) + (a.earnings_paid || 0);
+          const totalB = (b.wallet_balance || 0) + (b.earnings_pending || 0) + (b.earnings_paid || 0);
+          return totalB - totalA;
+        });
       }, [candidates, searchQuery]);
 
       return (
