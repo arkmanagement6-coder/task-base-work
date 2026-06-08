@@ -2690,14 +2690,14 @@
       const [showNotice, setShowNotice] = useState(false);
 
       useEffect(() => {
-        const isClosed = localStorage.getItem("krv-candidate-notice-closed");
+        const isClosed = localStorage.getItem("krv-candidate-dashboard-notice-closed");
         if (!isClosed) {
           setShowNotice(true);
         }
       }, []);
 
       const handleCloseNotice = () => {
-        localStorage.setItem("krv-candidate-notice-closed", "true");
+        localStorage.setItem("krv-candidate-dashboard-notice-closed", "true");
         setShowNotice(false);
       };
 
@@ -3209,7 +3209,7 @@
           />
 
           {showNotice && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-955/80 backdrop-blur-md transition-opacity duration-300">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md transition-opacity duration-300">
               <div className="w-full max-w-lg bg-slate-900/95 border border-amber-500/30 rounded-2xl p-6 md:p-8 space-y-6 shadow-2xl relative backdrop-blur-xl">
                 
                 {/* Header */}
