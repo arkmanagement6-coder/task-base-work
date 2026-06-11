@@ -134,28 +134,16 @@ async function runVerificationEngine() {
           sub.matchedRating = bestMatch.scrapedRating;
           sub.matchedDate = bestMatch.scrapedDate;
 
-          // Determine status: Auto-Approve if above threshold, else Review Found
-          if (highestScore >= autoApproveThreshold) {
-            sub.status = 'Verified';
-            console.log(`[Verifier] Auto-approving submission ${sub.id} (Score ${highestScore}% >= Threshold ${autoApproveThreshold}%)`);
-            
-            await ReviewLog.create({
-              action: 'SCRAPER_MATCHED',
-              performedBy: 'SYSTEM_CRON',
-              submissionId: sub.id,
-              details: `Auto-verified review matching display name "${bestMatch.scrapedReviewerName}" with score ${highestScore}%`
-            });
-          } else {
-            sub.status = 'Review Found';
-            console.log(`[Verifier] Match flagged for manual verification: submission ${sub.id} (Score: ${highestScore}%)`);
+          // Flag as Review Found for manual admin audit (Approve & Payout)
+          sub.status = 'Review Found';
+          console.log(`[Verifier] Match found: submission ${sub.id} (Score: ${highestScore}%). Flagged for admin audit.`);
 
-            await ReviewLog.create({
-              action: 'SCRAPER_MATCHED',
-              performedBy: 'SYSTEM_CRON',
-              submissionId: sub.id,
-              details: `Flagged match: Display name "${bestMatch.scrapedReviewerName}" with score ${highestScore}%`
-            });
-          }
+          await ReviewLog.create({
+            action: 'SCRAPER_MATCHED',
+            performedBy: 'SYSTEM_CRON',
+            submissionId: sub.id,
+            details: `Matched review: Display name "${bestMatch.scrapedReviewerName}" with score ${highestScore}%. Awaiting admin approval.`
+          });
 
           await sub.save();
 
