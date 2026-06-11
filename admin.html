@@ -5408,7 +5408,8 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
     // MODULE 7.5: PLAY STORE REVIEW VERIFICATION MODULE
     // ==========================================
 
-    const MERN_API_URL = "http://localhost:5000/api/reviews";
+    const MERN_BASE_URL = "https://krv-backend.onrender.com";
+    const MERN_API_URL = `${MERN_BASE_URL}/api/reviews`;
 
     // A. Review Verification Component
     function AdminReviewVerification({ submissions, setSubmissions, users, setUsers, setNotifications, notifications, triggerToast, updateWallet, setPreviewImage, tasks }) {
@@ -5423,7 +5424,7 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
 
       const checkBackend = async () => {
         try {
-          const res = await fetch("http://localhost:5000/ping");
+          const res = await fetch(`${MERN_BASE_URL}/ping`);
           if (res.ok) {
             const data = await res.json();
             if (data.status === "online") {
@@ -5964,7 +5965,7 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
 
       const fetchAnalytics = async () => {
         try {
-          const res = await fetch("http://localhost:5000/api/reviews/analytics");
+          const res = await fetch(`${MERN_BASE_URL}/api/reviews/analytics`);
           if (res.ok) {
             const data = await res.json();
             setAnalyticsData(data);
@@ -6147,7 +6148,7 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
       const fetchLogs = async () => {
         setLoading(true);
         try {
-          const ping = await fetch("http://localhost:5000/ping");
+          const ping = await fetch(`${MERN_BASE_URL}/ping`);
           if (ping.ok) {
             setIsBackendOnline(true);
             const res = await fetch(`${MERN_API_URL}/logs`);

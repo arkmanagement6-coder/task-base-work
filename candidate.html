@@ -994,13 +994,14 @@
         const subId = existingSub ? existingSub.id : "s" + Date.now();
         const nextDate = formatDateTime(new Date());
         const isReviewTask = submitDrawer.category && submitDrawer.category.toLowerCase().includes("review");
+        const MERN_BASE_URL = "https://krv-backend.onrender.com";
 
         // 1. Check if MERN Backend is reachable
         let isBackendOnline = false;
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 1000);
-          const pingRes = await fetch("http://localhost:5000/ping", { signal: controller.signal });
+          const pingRes = await fetch(`${MERN_BASE_URL}/ping`, { signal: controller.signal });
           clearTimeout(timeoutId);
           if (pingRes.ok) {
             const pingData = await pingRes.json();
@@ -1026,7 +1027,7 @@
             formData.append("starRating", formStarRating);
             formData.append("screenshot", screenshotRawFile);
 
-            const response = await fetch("http://localhost:5000/api/reviews/submit", {
+            const response = await fetch(`${MERN_BASE_URL}/api/reviews/submit`, {
               method: "POST",
               body: formData
             });
