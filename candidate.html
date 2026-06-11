@@ -1036,21 +1036,76 @@
               throw new Error(result.error || "Failed to upload to MERN backend.");
             }
 
+            const subRemarks = `Google Play Display Name: ${formReviewerName}\nStar Rating: ${formStarRating}★\nReview Text: ${formReviewText}`;
+            const subLink = submitDrawer.links || "https://play.google.com";
+
             // Sync with local state
             const backendSub = {
               id: result.submission.id,
               user_id: currentUser.id,
               task_id: submitDrawer.id,
-              submitted_link: submitDrawer.links,
+              submitted_link: subLink,
               screenshot: result.submission.screenshot,
               reviewerName: formReviewerName,
               reviewText: formReviewText,
               starRating: formStarRating,
-              remarks: formProof.remarks || `Reviewer: ${formReviewerName}`,
-              review_status: result.submission.status, // e.g. Pending or Auto-Verified
+              remarks: subRemarks,
+              review_status: "Pending", // MERN backend review submissions start as Pending
               amount: submitDrawer.amount,
               date: nextDate
             };
+
+            // Sync with Supabase Database
+            const client = getSupabaseClient();
+            if (client) {
+              try {
+                if (existingSub) {
+                  const { error } = await client.from("krv_submissions").upsert(backendSub);
+                  if (error) {
+                    console.warn("MERN sync upsert failed with new columns. Retrying with legacy columns:", error);
+                    const legacySub = { ...backendSub };
+                    delete legacySub.reviewerName;
+                    delete legacySub.reviewText;
+                    delete legacySub.starRating;
+                    const { error: retryErr } = await client.from("krv_submissions").upsert(legacySub);
+                    if (retryErr) throw retryErr;
+                  }
+                } else {
+                  const { error } = await client.from("krv_submissions").insert(backendSub);
+                  if (error) {
+                    console.warn("MERN sync insert failed with new columns. Retrying with legacy columns:", error);
+                    const legacySub = { ...backendSub };
+                    delete legacySub.reviewerName;
+                    delete legacySub.reviewText;
+                    delete legacySub.starRating;
+                    const { error: retryErr } = await client.from("krv_submissions").insert(legacySub);
+                    if (retryErr) throw retryErr;
+                  }
+                }
+
+                // Update imported review status to 'Used'
+                if (submitDrawer.category === "Application Review Provide by Brand") {
+                  const { data: latestTask, error: taskErr } = await client
+                    .from("krv_tasks")
+                    .select("imported_reviews")
+                    .eq("id", submitDrawer.id)
+                    .single();
+
+                  if (!taskErr && latestTask) {
+                    const dbReviews = latestTask.imported_reviews || [];
+                    const nextReviews = dbReviews.map(r => 
+                      r.assigned_to === currentUser.id ? { ...r, status: "Used" } : r
+                    );
+                    const { error: updateErr } = await client.from("krv_tasks").update({ imported_reviews: nextReviews }).eq("id", submitDrawer.id);
+                    if (!updateErr && setTasks) {
+                      setTasks(prev => prev.map(t => t.id === submitDrawer.id ? { ...t, imported_reviews: nextReviews } : t));
+                    }
+                  }
+                }
+              } catch (dbErr) {
+                console.warn("Sync to Supabase database failed:", dbErr.message);
+              }
+            }
 
             if (existingSub) {
               setSubmissions(prev => prev.map(s => s.id === existingSub.id ? backendSub : s));

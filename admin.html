@@ -5446,6 +5446,26 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
             if (res.ok) {
               const data = await res.json();
               setBackendSubmissions(data);
+
+              // Auto-sync status updates from MongoDB to local state (which syncs to Supabase)
+              let hasChanges = false;
+              const nextSubmissions = submissions.map(s => {
+                const mongoSub = data.find(m => m.id === s.id);
+                if (mongoSub) {
+                  const mongoStatus = mongoSub.status === "Verified" ? "Approved" : mongoSub.status === "Rejected" ? "Rejected" : s.review_status;
+                  if (mongoStatus !== s.review_status) {
+                    hasChanges = true;
+                    // Also trigger wallet update if status changed
+                    updateWallet(s.user_id, s.review_status, mongoStatus, s.amount);
+                    return { ...s, review_status: mongoStatus, rejection_reason: mongoSub.rejectionReason || "" };
+                  }
+                }
+                return s;
+              });
+
+              if (hasChanges && setSubmissions) {
+                setSubmissions(nextSubmissions);
+              }
             }
           } catch (err) {
             console.error("Error fetching MERN submissions:", err);
