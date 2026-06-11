@@ -70,7 +70,9 @@ async function runVerificationEngine() {
         storeReviews = await gplay.reviews({
           appId: appId,
           sort: gplay.sort.NEWEST,
-          num: 100
+          num: 120,
+          country: 'in',
+          lang: 'en'
         });
       } catch (scrapeErr) {
         console.error(`[Verifier] Failed to scrape reviews for App ID ${appId}:`, scrapeErr.message);

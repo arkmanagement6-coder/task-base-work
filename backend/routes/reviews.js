@@ -62,8 +62,9 @@ router.post('/submit', upload.single('screenshot'), async (req, res) => {
       return res.status(400).json({ error: 'Screenshot proof file is required.' });
     }
 
-    // Save screenshot path/URL
-    const screenshotPath = `${req.protocol}://${req.get('host')}/${uploadDir}/${req.file.filename}`;
+    // Save screenshot path/URL (supporting reverse proxies like Render using x-forwarded-proto)
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const screenshotPath = `${protocol}://${req.get('host')}/${uploadDir}/${req.file.filename}`;
 
     const submissionId = 's' + Date.now();
     const todayDate = new Date().toISOString().split('T')[0];
