@@ -33,12 +33,13 @@ const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/krv_portal'
 mongoose.connect(mongoUri)
   .then(() => {
     console.log('[MERN] Connected to MongoDB database successfully.');
-    // Start Server
-    app.listen(PORT, () => {
-      console.log(`[MERN] Server running on port ${PORT}`);
-      console.log(`[MERN] Upload directory served at: /${uploadDir}`);
-    });
   })
   .catch((err) => {
     console.error('[MERN] MongoDB connection failed:', err.message);
   });
+
+// Start Server
+app.listen(PORT, () => {
+  console.log(`[MERN] Server running on port ${PORT}`);
+  console.log(`[MERN] Upload directory served at: /${uploadDir}`);
+});
