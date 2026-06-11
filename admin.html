@@ -1879,7 +1879,9 @@
           triggerToast("Workforce task updated successfully!");
           setEditingTaskId(null);
         } else {
-          const nextIdVal = Math.max(0, ...tasks.map(t => parseInt(t.id.replace("t", "")) || 0)) + 1;
+          const maxTaskVal = Math.max(0, ...tasks.map(t => parseInt(String(t.id).replace(/t/i, "")) || 0));
+          const maxSubVal = Math.max(0, ...(submissions || []).map(s => parseInt(String(s.task_id).replace(/t/i, "")) || 0));
+          const nextIdVal = Math.max(maxTaskVal, maxSubVal) + 1;
           const newTask = {
             id: "t" + nextIdVal,
             title: form.title,
