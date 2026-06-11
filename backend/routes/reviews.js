@@ -249,6 +249,9 @@ router.get('/debug-scrape', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+// 8. Test Version Endpoint to verify deployment
+router.get('/test-version', (req, res) => {
+  res.json({ version: "v1.1.2-review-found-no-auto-approve" });
 });
 
 module.exports = router;
