@@ -575,11 +575,15 @@
       );
     }
     // 2. Tasks
-    function CandidateTasks({ currentUser, tasks, setTasks, submissions, setSubmissions, triggerToast, setUsers, setCurrentPage, autoAssignTaskReview }) {
+    function CandidateTasks({ currentUser, tasks, setTasks, submissions, setSubmissions, triggerToast, setUsers, setCurrentPage, autoAssignTaskReview, handleLocalReviewExpire }) {
       const [filterCategory, setFilterCategory] = useState("All");
       const [submitDrawer, setSubmitDrawer] = useState(null);
       const [formProof, setFormProof] = useState({ link: "", remarks: "" });
       const [screenshotFile, setScreenshotFile] = useState(null);
+      const [screenshotRawFile, setScreenshotRawFile] = useState(null);
+      const [formReviewerName, setFormReviewerName] = useState("");
+      const [formReviewText, setFormReviewText] = useState("");
+      const [formStarRating, setFormStarRating] = useState(5);
       const [instructionModalTask, setInstructionModalTask] = useState(null);
       const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -640,6 +644,13 @@
               link: prevSub.submitted_link || "",
               remarks: prevSub.remarks || ""
             });
+            setFormReviewerName(prevSub.reviewerName || "");
+            
+            // Pre-fill review text (fallback to claimed review if previous submission had empty reviewText)
+            const myReview = submitDrawer.imported_reviews ? submitDrawer.imported_reviews.find(r => r.assigned_to === currentUser.id) : null;
+            setFormReviewText(prevSub.reviewText || (myReview ? myReview.text : ""));
+            
+            setFormStarRating(prevSub.starRating || 5);
             if (prevSub.screenshot) {
               setScreenshotFile(prevSub.screenshot);
             } else {
@@ -663,10 +674,22 @@
           } else {
             setFormProof({ link: "", remarks: "" });
             setScreenshotFile(null);
+            setScreenshotRawFile(null);
+            setFormReviewerName("");
+            
+            // Auto-fill review text with the user's claimed/assigned review if available
+            const myReview = submitDrawer.imported_reviews ? submitDrawer.imported_reviews.find(r => r.assigned_to === currentUser.id) : null;
+            setFormReviewText(myReview ? myReview.text : "");
+            
+            setFormStarRating(5);
           }
         } else {
           setFormProof({ link: "", remarks: "" });
           setScreenshotFile(null);
+          setScreenshotRawFile(null);
+          setFormReviewerName("");
+          setFormReviewText("");
+          setFormStarRating(5);
         }
         return () => {
           isCancelled = true;
@@ -796,12 +819,13 @@
                 (() => {
                   const myReview = t.imported_reviews ? t.imported_reviews.find(r => r.assigned_to === currentUser.id) : null;
                   if (myReview) {
-                    const disableCopy = isSubmittedAndLocked || !isActive;
+                    const hasSubmitted = !!sub;
+                    const disableCopy = (sub && sub.review_status !== "Re-Submit") || !isActive;
                     return (
                       <div className="p-2.5 rounded bg-slate-150/40 dark:bg-slate-950/20 border border-slate-200 dark:border-slate-800/80 text-xs text-slate-650 dark:text-slate-300 mb-4 mt-2">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="block text-[9px] uppercase font-bold text-slate-400 font-extrabold">Your Assigned Review (S.No {myReview.sno})</span>
-                          {!disableCopy && (
+                          {!disableCopy && !hasSubmitted && (
                             <ReviewTimer assignedAt={myReview.assigned_at} limitMinutes={10} onExpire={() => handleLocalReviewExpire(t.id, myReview.id)} />
                           )}
                         </div>
@@ -933,6 +957,7 @@
       const handleImageMockUpload = (e) => {
         const file = e.target.files[0];
         if (file) {
+          setScreenshotRawFile(file);
           const reader = new FileReader();
           reader.readAsDataURL(file);
           reader.onload = () => {
@@ -966,103 +991,215 @@
         }
 
         setIsSubmitting(true);
-        const client = getSupabaseClient();
-        const subId = "s" + Date.now();
+        const subId = existingSub ? existingSub.id : "s" + Date.now();
         const nextDate = formatDateTime(new Date());
+        const isReviewTask = submitDrawer.category && submitDrawer.category.toLowerCase().includes("review");
 
+        // 1. Check if MERN Backend is reachable
+        let isBackendOnline = false;
         try {
-          if (client) {
-            // Validate that the candidate has assigned themselves a review if it's a review task
-            if (submitDrawer.category === "Application Review Provide by Brand") {
-              const { data: taskCheck, error: taskCheckErr } = await client
-                .from("krv_tasks")
-                .select("imported_reviews")
-                .eq("id", submitDrawer.id)
-                .single();
-              
-              if (taskCheckErr || !taskCheck) {
-                triggerToast("Failed to verify task reviews. Please try again.", "error");
-                setIsSubmitting(false);
-                return;
-              }
-
-              const reviews = taskCheck.imported_reviews || [];
-              const hasAssigned = reviews.some(r => r.assigned_to === currentUser.id);
-              if (!hasAssigned) {
-                triggerToast("You must claim an available review text before submitting this task.", "error");
-                setSubmitDrawer(null);
-                setIsSubmitting(false);
-                return;
-              }
-            }
-
-            // Second-layer database check to completely prevent concurrent race conditions
-            const { data: dbCheck, error: dbCheckErr } = await client
-              .from("krv_submissions")
-              .select("id, review_status")
-              .eq("user_id", currentUser.id)
-              .eq("task_id", submitDrawer.id);
-
-            if (!dbCheckErr && dbCheck && dbCheck.length > 0) {
-              const activeSub = dbCheck[0];
-              if (activeSub.review_status !== "Re-Submit") {
-                triggerToast("You have already submitted this task. Re-submission is only allowed if requested by the admin.", "error");
-                setSubmitDrawer(null);
-                setIsSubmitting(false);
-                return;
-              }
-            }
-
-            if (existingSub) {
-              const updatedSub = {
-                id: existingSub.id,
-                user_id: currentUser.id,
-                task_id: submitDrawer.id,
-                submitted_link: formProof.link,
-                screenshot: screenshotFile,
-                video: existingSub.video || "",
-                remarks: formProof.remarks,
-                review_status: "Pending",
-                amount: submitDrawer.amount,
-                date: nextDate
-              };
-              const { error } = await client.from("krv_submissions").upsert(updatedSub);
-              if (error) throw error;
-
-              // Re-increment pending earnings in user table directly
-              if (existingSub.review_status === "Re-Submit" || existingSub.review_status === "Rejected") {
-                const nextPending = Math.max(0, (currentUser.earnings_pending || 0) + submitDrawer.amount);
-                const { error: userErr } = await client.from("krv_users").update({ earnings_pending: nextPending }).eq("id", currentUser.id);
-                if (userErr) throw userErr;
-              }
-            } else {
-              const newSub = {
-                id: subId,
-                user_id: currentUser.id,
-                task_id: submitDrawer.id,
-                submitted_link: formProof.link,
-                screenshot: screenshotFile,
-                video: "",
-                remarks: formProof.remarks,
-                review_status: "Pending",
-                amount: submitDrawer.amount,
-                date: nextDate
-              };
-              const { error } = await client.from("krv_submissions").insert(newSub);
-              if (error) throw error;
-
-              const nextPending = Math.max(0, (currentUser.earnings_pending || 0) + submitDrawer.amount);
-              const { error: userErr } = await client.from("krv_users").update({ earnings_pending: nextPending }).eq("id", currentUser.id);
-              if (userErr) throw userErr;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1000);
+          const pingRes = await fetch("http://localhost:5000/ping", { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (pingRes.ok) {
+            const pingData = await pingRes.json();
+            if (pingData.status === "online") {
+              isBackendOnline = true;
             }
           }
+        } catch (pingErr) {
+          isBackendOnline = false;
+        }
+
+        if (isBackendOnline && isReviewTask && screenshotRawFile) {
+          // A. MERN Backend Upload
+          try {
+            const formData = new FormData();
+            formData.append("candidateId", currentUser.id);
+            formData.append("candidateName", currentUser.name);
+            formData.append("taskId", submitDrawer.id);
+            formData.append("applicationName", submitDrawer.title);
+            formData.append("playStoreUrl", submitDrawer.links || "https://play.google.com/store");
+            formData.append("reviewerName", formReviewerName);
+            formData.append("reviewText", formReviewText);
+            formData.append("starRating", formStarRating);
+            formData.append("screenshot", screenshotRawFile);
+
+            const response = await fetch("http://localhost:5000/api/reviews/submit", {
+              method: "POST",
+              body: formData
+            });
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.error || "Failed to upload to MERN backend.");
+            }
+
+            // Sync with local state
+            const backendSub = {
+              id: result.submission.id,
+              user_id: currentUser.id,
+              task_id: submitDrawer.id,
+              submitted_link: submitDrawer.links,
+              screenshot: result.submission.screenshot,
+              reviewerName: formReviewerName,
+              reviewText: formReviewText,
+              starRating: formStarRating,
+              remarks: formProof.remarks || `Reviewer: ${formReviewerName}`,
+              review_status: result.submission.status, // e.g. Pending or Auto-Verified
+              amount: submitDrawer.amount,
+              date: nextDate
+            };
+
+            if (existingSub) {
+              setSubmissions(prev => prev.map(s => s.id === existingSub.id ? backendSub : s));
+            } else {
+              setSubmissions([...submissions, backendSub]);
+              setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, earnings_pending: u.earnings_pending + submitDrawer.amount } : u));
+            }
+
+            triggerToast("Task review submitted successfully to verification engine!");
+            setSubmitDrawer(null);
+            setFormProof({ link: "", remarks: "" });
+            setScreenshotFile(null);
+            setScreenshotRawFile(null);
+            setFormReviewerName("");
+            setFormReviewText("");
+            setFormStarRating(5);
+            setIsSubmitting(false);
+            return;
+          } catch (backendErr) {
+            console.warn("MERN upload failed, falling back to local workflow:", backendErr.message);
+          }
+        }
+
+        // B. Fallback to Original Supabase/LocalStorage logic
+        try {
+          const client = getSupabaseClient();
+          if (client) {
+            try {
+              if (submitDrawer.category === "Application Review Provide by Brand") {
+                const { data: taskCheck, error: taskCheckErr } = await client
+                  .from("krv_tasks")
+                  .select("imported_reviews")
+                  .eq("id", submitDrawer.id)
+                  .single();
+                
+                if (taskCheckErr || !taskCheck) {
+                  console.warn("Failed to check task reviews from Supabase. Proceeding anyway.");
+                } else {
+                  const reviews = taskCheck.imported_reviews || [];
+                  const hasAssigned = reviews.some(r => r.assigned_to === currentUser.id);
+                  if (!hasAssigned) {
+                    triggerToast("You must claim an available review text before submitting this task.", "error");
+                    setSubmitDrawer(null);
+                    setIsSubmitting(false);
+                    return;
+                  }
+                }
+              }
+
+              const { data: dbCheck, error: dbCheckErr } = await client
+                .from("krv_submissions")
+                .select("id, review_status")
+                .eq("user_id", currentUser.id)
+                .eq("task_id", submitDrawer.id);
+
+              if (!dbCheckErr && dbCheck && dbCheck.length > 0) {
+                const activeSub = dbCheck[0];
+                if (activeSub.review_status !== "Re-Submit") {
+                  triggerToast("You have already submitted this task. Re-submission is only allowed if requested by the admin.", "error");
+                  setSubmitDrawer(null);
+                  setIsSubmitting(false);
+                  return;
+                }
+              }
+
+              const subRemarks = isReviewTask 
+                ? `Google Play Display Name: ${formReviewerName}\nStar Rating: ${formStarRating}★\nReview Text: ${formReviewText}` 
+                : formProof.remarks;
+              const subLink = isReviewTask ? (submitDrawer.links || "https://play.google.com") : formProof.link;
+
+              if (existingSub) {
+                const updatedSub = {
+                  id: existingSub.id,
+                  user_id: currentUser.id,
+                  task_id: submitDrawer.id,
+                  submitted_link: subLink,
+                  screenshot: screenshotFile,
+                  video: existingSub.video || "",
+                  remarks: subRemarks,
+                  reviewerName: isReviewTask ? formReviewerName : undefined,
+                  reviewText: isReviewTask ? formReviewText : undefined,
+                  starRating: isReviewTask ? formStarRating : undefined,
+                  review_status: "Pending",
+                  amount: submitDrawer.amount,
+                  date: nextDate
+                };
+                const { error } = await client.from("krv_submissions").upsert(updatedSub);
+                if (error) {
+                  console.warn("Supabase upsert failed with new columns. Retrying with legacy columns:", error);
+                  const legacySub = { ...updatedSub };
+                  delete legacySub.reviewerName;
+                  delete legacySub.reviewText;
+                  delete legacySub.starRating;
+                  const { error: retryErr } = await client.from("krv_submissions").upsert(legacySub);
+                  if (retryErr) throw retryErr;
+                }
+
+                if (existingSub.review_status === "Re-Submit" || existingSub.review_status === "Rejected") {
+                  const nextPending = Math.max(0, (currentUser.earnings_pending || 0) + submitDrawer.amount);
+                  await client.from("krv_users").update({ earnings_pending: nextPending }).eq("id", currentUser.id);
+                }
+              } else {
+                const newSub = {
+                  id: subId,
+                  user_id: currentUser.id,
+                  task_id: submitDrawer.id,
+                  submitted_link: subLink,
+                  screenshot: screenshotFile,
+                  video: "",
+                  remarks: subRemarks,
+                  reviewerName: isReviewTask ? formReviewerName : undefined,
+                  reviewText: isReviewTask ? formReviewText : undefined,
+                  starRating: isReviewTask ? formStarRating : undefined,
+                  review_status: "Pending",
+                  amount: submitDrawer.amount,
+                  date: nextDate
+                };
+                const { error } = await client.from("krv_submissions").insert(newSub);
+                if (error) {
+                  console.warn("Supabase insert failed with new columns. Retrying with legacy columns:", error);
+                  const legacySub = { ...newSub };
+                  delete legacySub.reviewerName;
+                  delete legacySub.reviewText;
+                  delete legacySub.starRating;
+                  const { error: retryErr } = await client.from("krv_submissions").insert(legacySub);
+                  if (retryErr) throw retryErr;
+                }
+
+                const nextPending = Math.max(0, (currentUser.earnings_pending || 0) + submitDrawer.amount);
+                await client.from("krv_users").update({ earnings_pending: nextPending }).eq("id", currentUser.id);
+              }
+            } catch (supabaseErr) {
+              console.warn("Supabase operations failed. Falling back to local state sync:", supabaseErr);
+            }
+          }
+
+          const localSubRemarks = isReviewTask 
+            ? `Google Play Display Name: ${formReviewerName}\nStar Rating: ${formStarRating}★\nReview Text: ${formReviewText}` 
+            : formProof.remarks;
+          const localSubLink = isReviewTask ? (submitDrawer.links || "https://play.google.com") : formProof.link;
 
           if (existingSub) {
             const updatedSub = {
               ...existingSub,
-              submitted_link: formProof.link,
+              submitted_link: localSubLink,
               screenshot: screenshotFile,
-              remarks: formProof.remarks,
+              remarks: localSubRemarks,
+              reviewerName: isReviewTask ? formReviewerName : undefined,
+              reviewText: isReviewTask ? formReviewText : undefined,
+              starRating: isReviewTask ? formStarRating : undefined,
               review_status: "Pending",
               date: nextDate
             };
@@ -1076,10 +1213,13 @@
               id: subId,
               user_id: currentUser.id,
               task_id: submitDrawer.id,
-              submitted_link: formProof.link,
+              submitted_link: localSubLink,
               screenshot: screenshotFile,
               video: "",
-              remarks: formProof.remarks,
+              remarks: localSubRemarks,
+              reviewerName: isReviewTask ? formReviewerName : undefined,
+              reviewText: isReviewTask ? formReviewText : undefined,
+              starRating: isReviewTask ? formStarRating : undefined,
               review_status: "Pending",
               amount: submitDrawer.amount,
               date: nextDate
@@ -1113,6 +1253,10 @@
           setSubmitDrawer(null);
           setFormProof({ link: "", remarks: "" });
           setScreenshotFile(null);
+          setScreenshotRawFile(null);
+          setFormReviewerName("");
+          setFormReviewText("");
+          setFormStarRating(5);
         } catch (dbErr) {
           console.error("Direct task submission failed:", dbErr);
           triggerToast("Submission Failed: " + dbErr.message, "error");
@@ -1221,8 +1365,8 @@
           </div>
 
           {submitDrawer && (
-            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-              <div className="w-full max-w-lg glass-card rounded-2xl p-6 relative">
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 overflow-y-auto">
+              <div className="w-full max-w-lg glass-card rounded-2xl p-6 relative my-8 max-h-[90vh] overflow-y-auto">
                 <button onClick={() => !isSubmitting && setSubmitDrawer(null)} disabled={isSubmitting} className={`absolute top-4 right-4 text-slate-400 hover:text-white ${isSubmitting ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}><Icon name="x-circle" className="w-5 h-5" /></button>
                 
                 <h3 className="text-lg font-bold mb-2 text-white">Submit Proof: {submitDrawer.title}</h3>
@@ -1267,10 +1411,44 @@
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Remarks</label>
-                    <textarea rows="3" disabled={isSubmitting} value={formProof.remarks} onChange={(e) => setFormProof({ ...formProof, remarks: e.target.value })} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="Name or email details used..."></textarea>
-                  </div>
+                  {submitDrawer && submitDrawer.category && submitDrawer.category.toLowerCase().includes("review") ? (
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Google Play Store URL</label>
+                        <input type="text" readOnly value={submitDrawer.links} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-250 dark:border-slate-800 bg-slate-900/40 text-slate-450 focus:outline-none cursor-not-allowed font-medium" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Google Play Display Name (Required)</label>
+                        <input type="text" required disabled={isSubmitting} value={formReviewerName} onChange={(e) => setFormReviewerName(e.target.value)} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="e.g. Rahul Sharma" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Your Rating</label>
+                        <div className="flex gap-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button key={star} type="button" disabled={isSubmitting} onClick={() => setFormStarRating(star)} className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs border transition ${
+                              formStarRating === star 
+                                ? "bg-amber-500 border-amber-400 text-slate-950 shadow-md" 
+                                : "bg-slate-900/40 border-slate-800 text-slate-400 hover:bg-slate-800/80 disabled:opacity-50"
+                            }`}>
+                              {star} ★
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Review Text (Exact text posted on Playstore)</label>
+                        <textarea rows="3" required disabled={isSubmitting} value={formReviewText} onChange={(e) => setFormReviewText(e.target.value)} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="Paste the exact text of your review..."></textarea>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-slate-400 mb-2">Remarks</label>
+                      <textarea rows="3" disabled={isSubmitting} value={formProof.remarks} onChange={(e) => setFormProof({ ...formProof, remarks: e.target.value })} className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white disabled:opacity-50" placeholder="Name or email details used..."></textarea>
+                    </div>
+                  )}
 
                   <button type="submit" disabled={isSubmitting} className={`w-full py-3.5 text-sm font-bold text-white rounded-xl shadow-lg transition uppercase tracking-wider flex items-center justify-center gap-2 ${
                     isSubmitting ? "bg-blue-600/60 cursor-not-allowed opacity-80" : "bg-blue-600 hover:bg-blue-700 cursor-pointer"
@@ -2249,7 +2427,8 @@
     function CandidatePanel({
       currentPage, setCurrentPage, currentUser, setCurrentUser, users, setUsers, tasks, setTasks,
       submissions, setSubmissions, kycRecords, setKycRecords, withdrawals, setWithdrawals,
-      tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, autoAssignTaskReview
+      tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, autoAssignTaskReview,
+      handleLocalReviewExpire
     }) {
       const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
       const [notificationDropdown, setNotificationDropdown] = useState(false);
@@ -2536,6 +2715,7 @@
                       setUsers={setUsers}
                       setCurrentPage={setCurrentPage}
                       autoAssignTaskReview={autoAssignTaskReview}
+                      handleLocalReviewExpire={handleLocalReviewExpire}
                     />
                   )}
 
@@ -2764,7 +2944,13 @@
               }
 
               // 3. Fetch Submissions
-              const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("id,user_id,task_id,submitted_link,video,remarks,review_status,amount,date,rejection_reason").eq("user_id", user.id);
+              let { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("id,user_id,task_id,submitted_link,video,remarks,review_status,amount,date,rejection_reason,reviewerName,reviewText,starRating").eq("user_id", user.id);
+              if (subsErr) {
+                console.warn("Fetch submissions with new columns failed, retrying with legacy columns:", subsErr);
+                const legacyRes = await client.from("krv_submissions").select("id,user_id,task_id,submitted_link,video,remarks,review_status,amount,date,rejection_reason").eq("user_id", user.id);
+                dbSubs = legacyRes.data;
+                subsErr = legacyRes.error;
+              }
               if (!subsErr && dbSubs) {
                 setSubmissions(dbSubs);
                 prevSubmissionsRef.current = dbSubs;
@@ -3206,6 +3392,7 @@
             setTheme={setTheme}
             triggerToast={triggerToast}
             autoAssignTaskReview={autoAssignTaskReview}
+            handleLocalReviewExpire={handleLocalReviewExpire}
           />
 
           {showNotice && (

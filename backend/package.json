@@ -1,0 +1,19 @@
+{
+  "name": "krv-verification-backend",
+  "version": "1.0.0",
+  "description": "Backend services for KRV Review Verification Module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "google-play-scraper": "^9.4.1",
+    "mongoose": "^8.3.1",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "string-similarity": "^4.0.4"
+  }
+}

@@ -602,9 +602,7 @@
               }
             }
           } catch (dbErr) {
-            console.error("Direct Supabase update failed in handleAuditAction:", dbErr);
-            triggerToast("Database Error: " + dbErr.message, "error");
-            return;
+            console.warn("Supabase update failed in handleAuditAction, continuing locally:", dbErr);
           }
         }
         
@@ -1386,9 +1384,26 @@
                                           )}
 
                                           <div>
-                                            <span className="text-slate-500 block text-[9px] uppercase font-bold mb-0.5">Candidate Submission Remarks</span>
-                                            <p className="text-slate-300 bg-slate-900/30 p-2.5 rounded border border-slate-850 italic text-[11px]">{submission.remarks || "No remarks entered."}</p>
+                                            <span className="text-slate-500 block text-[9px] uppercase font-bold mb-0.5">Candidate Submission Remarks / Details</span>
+                                            <p className="text-slate-300 bg-slate-900/30 p-2.5 rounded border border-slate-850 italic text-[11px] whitespace-pre-wrap">{submission.remarks || "No remarks entered."}</p>
                                           </div>
+
+                                          {submission.reviewerName && (
+                                            <div className="mt-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-850 space-y-2 text-left">
+                                              <div className="flex justify-between py-1 border-b border-slate-900">
+                                                <span className="text-slate-500 text-[9px] uppercase font-bold">Google Play Name</span>
+                                                <span className="text-blue-450 font-bold font-mono">{submission.reviewerName}</span>
+                                              </div>
+                                              <div className="flex justify-between py-1 border-b border-slate-900">
+                                                <span className="text-slate-500 text-[9px] uppercase font-bold">Star Rating</span>
+                                                <span className="text-amber-500 font-bold">{submission.starRating} ★</span>
+                                              </div>
+                                              <div>
+                                                <span className="text-slate-500 text-[9px] uppercase font-bold block mb-1">Google Play Review Text</span>
+                                                <p className="text-slate-300 font-medium leading-relaxed">"{submission.reviewText}"</p>
+                                              </div>
+                                            </div>
+                                          )}
 
                                           {submission.rejection_reason && (
                                             <div className="p-2.5 rounded border border-rose-500/20 bg-rose-500/5 text-rose-450">
@@ -2526,9 +2541,7 @@
 
             await client.from("krv_notifications").insert(newNotif);
           } catch (dbErr) {
-            console.error("Direct Supabase update failed in handleApprove:", dbErr);
-            triggerToast("Database Error: " + dbErr.message, "error");
-            return;
+            console.warn("Supabase update failed in handleApprove, continuing locally:", dbErr);
           }
         }
 
@@ -2580,9 +2593,7 @@
 
             await client.from("krv_notifications").insert(newNotif);
           } catch (dbErr) {
-            console.error("Direct Supabase update failed in handleUnderReview:", dbErr);
-            triggerToast("Database Error: " + dbErr.message, "error");
-            return;
+            console.warn("Supabase update failed in handleUnderReview, continuing locally:", dbErr);
           }
         }
 
@@ -2640,9 +2651,7 @@
 
             await client.from("krv_notifications").insert(newNotif);
           } catch (dbErr) {
-            console.error("Direct Supabase update failed in handleReject:", dbErr);
-            triggerToast("Database Error: " + dbErr.message, "error");
-            return;
+            console.warn("Supabase update failed in handleReject, continuing locally:", dbErr);
           }
         }
 
@@ -2701,9 +2710,7 @@
 
             await client.from("krv_notifications").insert(newNotif);
           } catch (dbErr) {
-            console.error("Direct Supabase update failed in handleReSubmit:", dbErr);
-            triggerToast("Database Error: " + dbErr.message, "error");
-            return;
+            console.warn("Supabase update failed in handleReSubmit, continuing locally:", dbErr);
           }
         }
 
@@ -5398,6 +5405,887 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
     }
 
     // ==========================================
+    // MODULE 7.5: PLAY STORE REVIEW VERIFICATION MODULE
+    // ==========================================
+
+    const MERN_API_URL = "http://localhost:5000/api/reviews";
+
+    // A. Review Verification Component
+    function AdminReviewVerification({ submissions, setSubmissions, users, setUsers, setNotifications, notifications, triggerToast, updateWallet, setPreviewImage, tasks }) {
+      const [backendSubmissions, setBackendSubmissions] = useState([]);
+      const [loading, setLoading] = useState(false);
+      const [verifierRunning, setVerifierRunning] = useState(false);
+      const [selectedSub, setSelectedSub] = useState(null);
+      const [auditReason, setAuditReason] = useState("");
+      const [statusFilter, setStatusFilter] = useState("All");
+      const [searchQuery, setSearchQuery] = useState("");
+      const [isBackendOnline, setIsBackendOnline] = useState(false);
+
+      const checkBackend = async () => {
+        try {
+          const res = await fetch("http://localhost:5000/ping");
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === "online") {
+              setIsBackendOnline(true);
+              return true;
+            }
+          }
+        } catch (e) {}
+        setIsBackendOnline(false);
+        return false;
+      };
+
+      const fetchSubmissions = async () => {
+        setLoading(true);
+        const online = await checkBackend();
+        if (online) {
+          try {
+            const res = await fetch(`${MERN_API_URL}/submissions`);
+            if (res.ok) {
+              const data = await res.json();
+              setBackendSubmissions(data);
+            }
+          } catch (err) {
+            console.error("Error fetching MERN submissions:", err);
+          }
+        }
+        setLoading(false);
+      };
+
+      useEffect(() => {
+        fetchSubmissions();
+      }, []);
+
+      // Filter reviews (MERN data if online, else filter local submissions where category has 'review')
+      const displaySubmissions = useMemo(() => {
+        let rawList = [];
+        if (isBackendOnline) {
+          rawList = backendSubmissions;
+        } else {
+          // Fallback to local storage submissions that are Play Store reviews
+          rawList = submissions.filter(s => {
+            const task = tasks.find(t => String(t.id) === String(s.task_id));
+            const taskCategory = String(task?.category || "").toLowerCase();
+            return (
+              s.reviewerName || 
+              taskCategory.includes("review") ||
+              String(s.submitted_link || "").toLowerCase().includes("play.google") || 
+              String(s.remarks || "").toLowerCase().includes("reviewer") ||
+              String(s.remarks || "").toLowerCase().includes("display name")
+            );
+          });
+        }
+
+        let list = rawList.map(s => {
+          const worker = users.find(u => u.id === s.user_id);
+          const task = tasks.find(t => t.id === s.task_id);
+          
+          let reviewerName = s.reviewerName;
+          let starRating = s.starRating;
+          let reviewText = s.reviewText;
+
+          // If reviewerName is missing but we have remarks, try to parse
+          if ((!reviewerName || reviewerName === "N/A") && s.remarks) {
+            const remarksStr = String(s.remarks || "");
+            const nameMatch = remarksStr.match(/Google Play Display Name:\s*([^\n]+)/i);
+            const ratingMatch = remarksStr.match(/Star Rating:\s*(\d)/i);
+            const textMatch = remarksStr.match(/Review Text:\s*([\s\S]+)/i);
+
+            if (nameMatch) reviewerName = nameMatch[1].trim();
+            if (ratingMatch) starRating = parseInt(ratingMatch[1].trim(), 10);
+            if (textMatch) reviewText = textMatch[1].trim();
+          }
+
+          return {
+            ...s,
+            candidateName: s.candidateName || (worker ? worker.name : `Candidate ${s.user_id}`),
+            candidateId: s.candidateId || s.user_id,
+            applicationName: s.applicationName || (task ? task.title : `Task ${s.task_id}`),
+            reviewerName: reviewerName || "N/A",
+            starRating: starRating || 5,
+            reviewText: reviewText || ""
+          };
+        });
+
+        // Apply filters
+        if (statusFilter !== "All") {
+          list = list.filter(s => {
+            const status = s.review_status || s.status || "";
+            return String(status).toLowerCase() === statusFilter.toLowerCase();
+          });
+        }
+
+        if (searchQuery.trim() !== "") {
+          const q = searchQuery.toLowerCase();
+          list = list.filter(s => 
+            String(s.candidateName || "").toLowerCase().includes(q) || 
+            String(s.candidateId || "").toLowerCase().includes(q) ||
+            String(s.applicationName || "").toLowerCase().includes(q) ||
+            String(s.reviewerName || "").toLowerCase().includes(q)
+          );
+        }
+
+        return list;
+      }, [isBackendOnline, backendSubmissions, submissions, statusFilter, searchQuery, users, tasks]);
+
+      const handleRunVerifier = async () => {
+        setVerifierRunning(true);
+        const online = await checkBackend();
+        if (!online) {
+          triggerToast("MERN Backend is offline. Verification engine requires Node/Express server running.", "error");
+          setVerifierRunning(false);
+          return;
+        }
+        try {
+          const res = await fetch(`${MERN_API_URL}/trigger-verify`, { method: "POST" });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            triggerToast(`Verifier run complete. Processed ${data.processedCount} pending reviews!`, "success");
+            fetchSubmissions();
+          } else {
+            triggerToast(`Verifier failed: ${data.error || "Unknown error"}`, "error");
+          }
+        } catch (err) {
+          triggerToast("Failed to run automated verifier: " + err.message, "error");
+        } finally {
+          setVerifierRunning(false);
+        }
+      };
+
+      const handleAuditAction = async (sub, newStatus, reason = "") => {
+        if (newStatus === "Rejected" && !reason.trim()) {
+          triggerToast("Please enter a rejection reason.", "error");
+          return;
+        }
+
+        const online = await checkBackend();
+        if (online) {
+          try {
+            const res = await fetch(`${MERN_API_URL}/audit`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                submissionId: sub.id,
+                status: newStatus === "Approved" ? "Verified" : "Rejected",
+                rejectionReason: reason,
+                adminId: "admin"
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to update review status.");
+            
+            triggerToast(`Review ${newStatus === "Approved" ? "verified" : "rejected"} successfully in MongoDB!`, "success");
+            fetchSubmissions();
+          } catch (err) {
+            triggerToast("Database Error: " + err.message, "error");
+            return;
+          }
+        }
+
+        // Apply local changes for sync/fallback compatibility
+        const mappedStatus = newStatus === "Approved" ? "Approved" : "Rejected";
+        setSubmissions && setSubmissions(prev => prev.map(s => {
+          if (s.id === sub.id) {
+            return { ...s, review_status: mappedStatus, rejection_reason: reason };
+          }
+          return s;
+        }));
+
+        // Wallet balance payouts (Approved only)
+        updateWallet(sub.candidateId || sub.user_id, sub.review_status || sub.status, mappedStatus, sub.amount);
+
+        // Notifications dispatch
+        const notifTitle = newStatus === "Approved" ? "Play Store Review Verified!" : "Review Verification Rejected";
+        const notifMsg = newStatus === "Approved" 
+          ? `Your review submission for "${sub.applicationName}" has been successfully verified. Payout of ₹${sub.amount} has been added to your wallet.`
+          : `Your review submission for "${sub.applicationName}" was rejected: "${reason}"`;
+
+        const newNotif = {
+          id: "n" + Date.now(),
+          user_id: sub.candidateId || sub.user_id,
+          title: notifTitle,
+          message: notifMsg,
+          date: new Date().toISOString().split('T')[0]
+        };
+
+        setNotifications && setNotifications([...notifications, newNotif]);
+        setSelectedSub(null);
+        setAuditReason("");
+      };
+
+      const handleExportCSV = () => {
+        let csvContent = "sep=,\nSubmission ID,Candidate ID,Candidate Name,Application Name,Reviewer Display Name,Submitted Rating,Match Score,Matched PlayStore Name,Status,Date Submitted\n";
+        
+        displaySubmissions.forEach(s => {
+          const status = s.review_status || s.status;
+          const cleanVal = (val) => `"${String(val || "").replace(/"/g, '""')}"`;
+          csvContent += [
+            cleanVal(s.id),
+            cleanVal(s.candidateId || s.user_id),
+            cleanVal(s.candidateName),
+            cleanVal(s.applicationName),
+            cleanVal(s.reviewerName || "N/A"),
+            s.starRating || s.amount,
+            s.matchScore || 0,
+            cleanVal(s.matchedReviewerName || "N/A"),
+            cleanVal(status),
+            cleanVal(s.date || s.createdAt)
+          ].join(",") + "\n";
+        });
+
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `krv_review_verifications_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        triggerToast("Verification report exported to CSV!");
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800 pb-5">
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                Play Store Review Verifier
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                  isBackendOnline ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse"
+                }`}>
+                  {isBackendOnline ? "MERN Database Active" : "LocalStorage Mode"}
+                </span>
+              </h2>
+              <p className="text-xs text-slate-400">Match submitted candidate reviews with live Google Play Store listings.</p>
+            </div>
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={handleRunVerifier} 
+                disabled={verifierRunning} 
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center gap-2 shadow"
+              >
+                {verifierRunning ? (
+                  <>
+                    <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Running Engine...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>⚡ Run Auto Verifier</span>
+                  </>
+                )}
+              </button>
+              <button onClick={handleExportCSV} className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider border border-slate-700 flex items-center gap-2 transition cursor-pointer">
+                Download CSV Report
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <input 
+              type="text" 
+              placeholder="Search Candidate, App, or Reviewer Name..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-grow px-4 py-3 text-sm rounded-xl border border-slate-800 bg-slate-900/60 focus:outline-none focus:border-blue-500 text-white"
+            />
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-3 text-sm rounded-xl border border-slate-800 bg-slate-900/60 focus:outline-none focus:border-blue-500 text-white min-w-[160px]"
+            >
+              <option value="All">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Review Found">Review Found</option>
+              <option value="Verified">Verified / Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+
+          <div className="glass-card rounded-2xl overflow-hidden border border-slate-800">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-950/20 text-slate-450 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-4">Candidate Details</th>
+                    <th className="p-4">Application</th>
+                    <th className="p-4">Display Name</th>
+                    <th className="p-4">Rating</th>
+                    <th className="p-4">Match Score</th>
+                    <th className="p-4">Verification Status</th>
+                    <th className="p-4 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-850 font-medium">
+                  {loading ? (
+                    <tr>
+                      <td colSpan="7" className="p-10 text-center text-slate-500">
+                        <svg className="animate-spin h-6 w-6 mx-auto text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Loading submissions from server...
+                      </td>
+                    </tr>
+                  ) : displaySubmissions.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="p-10 text-center text-slate-500">No review submissions found matching the criteria.</td>
+                    </tr>
+                  ) : (
+                    displaySubmissions.map(sub => {
+                      const status = sub.review_status || sub.status;
+                      const score = sub.matchScore || 0;
+                      let scoreColor = "text-slate-500 bg-slate-950";
+                      if (score >= 90) scoreColor = "text-emerald-400 bg-emerald-950/20 border border-emerald-500/20";
+                      else if (score >= 70) scoreColor = "text-amber-400 bg-amber-950/20 border border-amber-500/20";
+                      else if (score > 0) scoreColor = "text-rose-400 bg-rose-950/20 border border-rose-500/20";
+
+                      return (
+                        <tr key={sub.id} className="hover:bg-slate-900/20 transition-colors">
+                          <td className="p-4">
+                            <span className="block text-white font-bold">{sub.candidateName}</span>
+                            <span className="block text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">USER-{String(sub.candidateId || sub.user_id).toUpperCase()}</span>
+                          </td>
+                          <td className="p-4 text-slate-300 font-semibold">{sub.applicationName}</td>
+                          <td className="p-4 font-mono text-slate-350">{sub.reviewerName || "N/A"}</td>
+                          <td className="p-4 text-amber-500 font-bold">{sub.starRating || 5} ★</td>
+                          <td className="p-4">
+                            {score > 0 ? (
+                              <span className={`px-2.5 py-1 rounded-lg font-extrabold text-[10px] uppercase ${scoreColor}`}>
+                                {score}% Match
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 italic text-[11px]">No Match Yet</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
+                              status === "Verified" || status === "Approved" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                              status === "Review Found" ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 animate-pulse font-bold" :
+                              status === "Rejected" ? "bg-rose-500/10 text-rose-500 border border-rose-500/20" :
+                              "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                            }`}>
+                              {status === "Approved" ? "Verified" : status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center">
+                            <button 
+                              onClick={() => setSelectedSub(sub)} 
+                              className="px-3.5 py-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white border border-blue-500/20 hover:border-transparent text-xs font-bold transition cursor-pointer"
+                            >
+                              Audit Review
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Audit Modal Comparison View */}
+          {selectedSub && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-6 overflow-y-auto">
+              <div className="w-full max-w-4xl glass-card rounded-2xl p-6 relative border border-slate-800">
+                <button onClick={() => { setSelectedSub(null); setAuditReason(""); }} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer">
+                  <Icon name="x-circle" className="w-6 h-6" />
+                </button>
+                
+                <h3 className="text-base font-extrabold text-white mb-6 uppercase tracking-wider border-b border-slate-800 pb-3 flex items-center gap-2">
+                  Review Submission Auditor
+                  {selectedSub.matchScore > 0 && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase border border-emerald-500/20">
+                      Auto-Matched Review Found ({selectedSub.matchScore}%)
+                    </span>
+                  )}
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  {/* Left Column: Candidate Submission Proof */}
+                  <div className="bg-slate-950/20 p-5 rounded-2xl border border-slate-850 space-y-4">
+                    <h4 className="text-xs font-extrabold text-blue-400 uppercase tracking-widest border-b border-slate-850 pb-2 flex justify-between items-center">
+                      <span>Candidate Submission Proof</span>
+                      <span className="text-[10px] text-slate-400 normal-case font-medium">{selectedSub.date || selectedSub.createdAt}</span>
+                    </h4>
+                    
+                    <div className="space-y-2.5 text-xs">
+                      <div className="flex justify-between py-1 border-b border-slate-900">
+                        <span className="text-slate-450 font-bold">Candidate:</span>
+                        <span className="text-white font-semibold">{selectedSub.candidateName} (ID: {selectedSub.candidateId || selectedSub.user_id})</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-900">
+                        <span className="text-slate-450 font-bold">App Name:</span>
+                        <span className="text-white font-semibold">{selectedSub.applicationName}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-900">
+                        <span className="text-slate-450 font-bold">Google Play Display Name:</span>
+                        <span className="text-blue-400 font-mono font-bold">{selectedSub.reviewerName || "N/A"}</span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-900">
+                        <span className="text-slate-450 font-bold">Submitted Star Rating:</span>
+                        <span className="text-amber-500 font-bold">{selectedSub.starRating || 5} ★</span>
+                      </div>
+                      <div className="py-1">
+                        <span className="text-slate-450 font-bold block mb-1">Submitted Review Text:</span>
+                        <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-slate-300 font-medium leading-relaxed italic">
+                          "{selectedSub.reviewText}"
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-slate-450 font-bold block mb-2">Submitted Proof Screenshot:</span>
+                        <div 
+                          onClick={() => setPreviewImage({ url: selectedSub.screenshot, title: `${selectedSub.candidateName} - Playstore Review Screenshot` })}
+                          className="border border-slate-850 rounded-xl overflow-hidden bg-slate-950/40 p-2 cursor-zoom-in max-h-48 flex items-center justify-center relative hover:scale-[1.01] transition-transform"
+                        >
+                          <img 
+                            src={selectedSub.screenshot} 
+                            alt="Screenshot Proof" 
+                            onError={(e) => { e.target.src = "assets/krv_logo.png"; }}
+                            className="max-h-40 rounded object-contain"
+                          />
+                          <div className="absolute inset-0 bg-slate-950/10 hover:bg-slate-950/0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                            <span className="px-3 py-1 bg-blue-600 text-white font-bold text-[9px] rounded-lg uppercase tracking-wider shadow-md">Click to Zoom</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Google Play Scraper Match */}
+                  <div className="bg-slate-950/20 p-5 rounded-2xl border border-slate-850 space-y-4 flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-xs font-extrabold text-emerald-400 uppercase tracking-widest border-b border-slate-850 pb-2 flex justify-between items-center">
+                        <span>Google Play Store Scraped Match</span>
+                        {selectedSub.matchedDate && (
+                          <span className="text-[10px] text-slate-400 normal-case font-medium">
+                            {new Date(selectedSub.matchedDate).toLocaleDateString()}
+                          </span>
+                        )}
+                      </h4>
+
+                      {selectedSub.matchScore > 0 ? (
+                        <div className="space-y-4 mt-4 text-xs">
+                          <div className="flex justify-between py-1 border-b border-slate-900">
+                            <span className="text-slate-450 font-bold">Scraped Reviewer Name:</span>
+                            <span className="text-emerald-400 font-mono font-bold">{selectedSub.matchedReviewerName}</span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-900">
+                            <span className="text-slate-450 font-bold">Scraped Star Rating:</span>
+                            <span className="text-amber-500 font-bold">{selectedSub.matchedRating} ★</span>
+                          </div>
+                          <div className="py-1">
+                            <span className="text-slate-450 font-bold block mb-1">Scraped Review Text:</span>
+                            <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 text-slate-350 font-medium leading-relaxed italic">
+                              "{selectedSub.matchedReviewText}"
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-900/30 p-3 rounded-xl border border-slate-850">
+                            <span className="block text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Automated Match Score Breakdown</span>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-grow h-2.5 rounded-full bg-slate-950 border border-slate-800 overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    selectedSub.matchScore >= 90 ? "bg-emerald-500" :
+                                    selectedSub.matchScore >= 70 ? "bg-amber-500" : "bg-rose-500"
+                                  }`} 
+                                  style={{ width: `${selectedSub.matchScore}%` }}
+                                ></div>
+                              </div>
+                              <span className="font-extrabold text-sm text-white">{selectedSub.matchScore}%</span>
+                            </div>
+                            <span className="block text-[9px] text-slate-450 mt-1.5 font-bold leading-normal uppercase">
+                              {selectedSub.matchScore >= 90 ? "✓ High Confidence Match: display name matches and review text is highly similar." :
+                               selectedSub.matchScore >= 70 ? "⚠ Medium Confidence: review text matches but reviewer name has variance." :
+                               "✗ Low Match Confidence: Verify display name or text details manually."}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-12 text-center h-48 border border-dashed border-slate-800 rounded-2xl bg-white/2 space-y-2.5">
+                          <Icon name="x-circle" className="w-8 h-8 text-slate-500 opacity-60" />
+                          <span className="font-bold text-xs text-slate-400 uppercase tracking-wider">No Store Match Found</span>
+                          <p className="text-[11px] text-slate-500 max-w-xs leading-normal">The automated scraper run could not find a review with this display name, rating, or text. Please review the screenshot and details manually.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Verification Actions */}
+                    <div className="pt-6 border-t border-slate-850">
+                      <div className="mb-4">
+                        <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2">Audit Comment / Rejection Reason</label>
+                        <input 
+                          type="text" 
+                          value={auditReason}
+                          onChange={(e) => setAuditReason(e.target.value)}
+                          placeholder="Required only for rejection audits..."
+                          className="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-800 bg-slate-900/60 focus:outline-none focus:border-blue-500 text-white"
+                        />
+                      </div>
+                      
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={() => handleAuditAction(selectedSub, "Approved")}
+                          className="flex-grow py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Icon name="check-circle" className="w-4 h-4" />
+                          <span>Approve & Payout</span>
+                        </button>
+                        <button 
+                          onClick={() => handleAuditAction(selectedSub, "Rejected", auditReason)}
+                          className="flex-grow py-3 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Icon name="x-circle" className="w-4 h-4" />
+                          <span>Reject Review</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // B. Review Analytics Component
+    function AdminReviewAnalytics({ submissions, users }) {
+      const chartRef1 = useRef(null);
+      const chartRef2 = useRef(null);
+      const chartRef3 = useRef(null);
+      const [analyticsData, setAnalyticsData] = useState(null);
+
+      const fetchAnalytics = async () => {
+        try {
+          const res = await fetch("http://localhost:5000/api/reviews/analytics");
+          if (res.ok) {
+            const data = await res.json();
+            setAnalyticsData(data);
+          }
+        } catch (e) {
+          console.warn("MERN analytics API unreachable. Using client computations.");
+        }
+      };
+
+      useEffect(() => {
+        fetchAnalytics();
+      }, [submissions]);
+
+      // Calculate stats locally if backend data is offline
+      const computedStats = useMemo(() => {
+        if (analyticsData) {
+          return {
+            summary: analyticsData.summary,
+            dailyTrend: analyticsData.dailyTrend,
+            ratings: analyticsData.ratings
+          };
+        }
+
+        // Fallback calculations
+        const reviewSubs = submissions.filter(s => s.reviewerName || s.submitted_link?.toLowerCase().includes("play.google") || s.remarks?.toLowerCase().includes("reviewer"));
+        const total = reviewSubs.length;
+        const verified = reviewSubs.filter(s => (s.review_status || s.status) === "Approved" || (s.review_status || s.status) === "Verified").length;
+        const rejected = reviewSubs.filter(s => (s.review_status || s.status) === "Rejected").length;
+        const found = reviewSubs.filter(s => (s.review_status || s.status) === "Review Found").length;
+        const pending = reviewSubs.filter(s => (s.review_status || s.status) === "Pending" || (s.review_status || s.status) === "Under Review").length;
+
+        // Daily submissions
+        const trend = {};
+        reviewSubs.forEach(s => {
+          trend[s.date] = (trend[s.date] || 0) + 1;
+        });
+
+        // Ratings
+        const ratingCount = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+        reviewSubs.forEach(s => {
+          const r = String(s.starRating || 5);
+          if (ratingCount[r] !== undefined) ratingCount[r]++;
+        });
+
+        return {
+          summary: { totalSubmitted: total, verified, rejected, pending, found },
+          dailyTrend: trend,
+          ratings: ratingCount
+        };
+      }, [analyticsData, submissions]);
+
+      useEffect(() => {
+        let chart1, chart2, chart3;
+
+        if (chartRef1.current) {
+          const ctx = chartRef1.current.getContext('2d');
+          const labels = Object.keys(computedStats.dailyTrend).slice(-7);
+          const data = labels.map(l => computedStats.dailyTrend[l]);
+
+          chart1 = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: labels.length > 0 ? labels : ['No Data'],
+              datasets: [{
+                label: 'Playstore Submissions',
+                data: data.length > 0 ? data : [0],
+                borderColor: '#4F46E5',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                tension: 0.4,
+                fill: true
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+
+        if (chartRef2.current) {
+          const ctx = chartRef2.current.getContext('2d');
+          const summary = computedStats.summary;
+          
+          chart2 = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: ['Pending', 'Review Found', 'Verified', 'Rejected'],
+              datasets: [{
+                label: 'Verification Statuses',
+                data: [summary.pending, summary.found, summary.verified, summary.rejected],
+                backgroundColor: ['#F59E0B', '#6366F1', '#10B981', '#EF4444']
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' } }, x: { grid: { display: false } } }
+            }
+          });
+        }
+
+        if (chartRef3.current) {
+          const ctx = chartRef3.current.getContext('2d');
+          const ratings = computedStats.ratings;
+
+          chart3 = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: ['5 Star', '4 Star', '3 Star', '2 Star', '1 Star'],
+              datasets: [{
+                data: [ratings['5'], ratings['4'], ratings['3'], ratings['2'], ratings['1']],
+                backgroundColor: ['#10B981', '#10B981', '#F59E0B', '#EF4444', '#EF4444'],
+                borderWidth: 1,
+                borderColor: '#0f172a'
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } } }
+            }
+          });
+        }
+
+        return () => {
+          if (chart1) chart1.destroy();
+          if (chart2) chart2.destroy();
+          if (chart3) chart3.destroy();
+        };
+      }, [computedStats]);
+
+      return (
+        <div className="space-y-6">
+          <div className="border-b border-slate-800 pb-5">
+            <h2 className="text-lg font-bold text-white tracking-tight">Review Analytics</h2>
+            <p className="text-xs text-slate-400">Visual stats and verification metrics for app reviews.</p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            {[
+              { label: "Submitted Reviews", val: computedStats.summary.totalSubmitted, color: "text-blue-500" },
+              { label: "Pending Engine", val: computedStats.summary.pending, color: "text-amber-500" },
+              { label: "Reviews Found", val: computedStats.summary.found, color: "text-indigo-400 animate-pulse" },
+              { label: "Verified Payouts", val: computedStats.summary.verified, color: "text-emerald-500" },
+              { label: "Rejected Reviews", val: computedStats.summary.rejected, color: "text-rose-500" }
+            ].map((s, idx) => (
+              <div key={idx} className="p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/40 glass-card text-center">
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</span>
+                <span className={`text-2xl font-extrabold mt-1 block ${s.color}`}>{s.val}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="glass-card rounded-2xl p-6 md:col-span-2 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-white">Daily Submission Volumes</h3>
+              <canvas ref={chartRef1} height="120"></canvas>
+            </div>
+            <div className="glass-card rounded-2xl p-6 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-white">Review Star Ratings</h3>
+              <canvas ref={chartRef3} height="120"></canvas>
+            </div>
+          </div>
+
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-white">Verification Status Distribution</h3>
+            <canvas ref={chartRef2} height="80"></canvas>
+          </div>
+        </div>
+      );
+    }
+
+    // C. Verification Logs Component
+    function AdminReviewLogs({ triggerToast }) {
+      const [logs, setLogs] = useState([]);
+      const [loading, setLoading] = useState(false);
+      const [searchQuery, setSearchQuery] = useState("");
+      const [isBackendOnline, setIsBackendOnline] = useState(false);
+
+      const fetchLogs = async () => {
+        setLoading(true);
+        try {
+          const ping = await fetch("http://localhost:5000/ping");
+          if (ping.ok) {
+            setIsBackendOnline(true);
+            const res = await fetch(`${MERN_API_URL}/logs`);
+            if (res.ok) {
+              const data = await res.json();
+              setLogs(data);
+            }
+          }
+        } catch (e) {
+          setIsBackendOnline(false);
+        }
+        setLoading(false);
+      };
+
+      useEffect(() => {
+        fetchLogs();
+      }, []);
+
+      const filteredLogs = useMemo(() => {
+        if (searchQuery.trim() === "") return logs;
+        const q = searchQuery.toLowerCase();
+        return logs.filter(l => 
+          l.action.toLowerCase().includes(q) ||
+          l.performedBy.toLowerCase().includes(q) ||
+          l.details.toLowerCase().includes(q) ||
+          (l.submissionId && l.submissionId.toLowerCase().includes(q))
+        );
+      }, [logs, searchQuery]);
+
+      const handleExportCSV = () => {
+        let csvContent = "sep=,\nLog ID,Timestamp,Action,Performed By,Submission ID,Details,IP Address\n";
+        filteredLogs.forEach(l => {
+          const cleanVal = (val) => `"${String(val || "").replace(/"/g, '""')}"`;
+          csvContent += [
+            cleanVal(l._id),
+            cleanVal(new Date(l.timestamp).toISOString()),
+            cleanVal(l.action),
+            cleanVal(l.performedBy),
+            cleanVal(l.submissionId || "N/A"),
+            cleanVal(l.details),
+            cleanVal(l.ipAddress || "N/A")
+          ].join(",") + "\n";
+        });
+
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `krv_verification_audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        triggerToast("Audit logs exported successfully!");
+      };
+
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center border-b border-slate-800 pb-5">
+            <div>
+              <h2 className="text-lg font-bold text-white tracking-tight">Verification Logs</h2>
+              <p className="text-xs text-slate-400">Date-wise system audits and actions for review approvals.</p>
+            </div>
+            {isBackendOnline && (
+              <button onClick={handleExportCSV} className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider border border-slate-700 transition cursor-pointer">
+                Export Logs to CSV
+              </button>
+            )}
+          </div>
+
+          {!isBackendOnline ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center border border-slate-800 rounded-2xl bg-white/2 space-y-3">
+              <Icon name="clock" className="w-10 h-10 text-slate-500 opacity-60" />
+              <span className="font-bold text-xs text-slate-400 uppercase tracking-wider">Audit Logs Unavailable</span>
+              <p className="text-[11px] text-slate-500 max-w-sm leading-normal">Auditing requires connection to MongoDB database. Please start the MERN Express Server to check log histories.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <input 
+                type="text" 
+                placeholder="Search audit actions, details, submission IDs..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 text-sm rounded-xl border border-slate-800 bg-slate-900/60 focus:outline-none focus:border-blue-500 text-white"
+              />
+
+              <div className="glass-card rounded-2xl overflow-hidden border border-slate-800">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-950/20 text-slate-450 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="p-4">Timestamp</th>
+                      <th className="p-4">Performed By</th>
+                      <th className="p-4">Action Type</th>
+                      <th className="p-4">Submission ID</th>
+                      <th className="p-4">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-850 font-medium">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="5" className="p-8 text-center text-slate-500">Loading audit records...</td>
+                      </tr>
+                    ) : filteredLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="p-8 text-center text-slate-500">No logs found.</td>
+                      </tr>
+                    ) : (
+                      filteredLogs.map(l => (
+                        <tr key={l._id} className="hover:bg-slate-900/10 transition-colors">
+                          <td className="p-4 text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                            {new Date(l.timestamp).toLocaleString()}
+                          </td>
+                          <td className="p-4 text-white">
+                            <span className="font-bold">{l.performedBy}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase ${
+                              l.action.includes("APPROVED") || l.action.includes("VERIFIED") ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                              l.action.includes("REJECTED") ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                              l.action.includes("CREATED") ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                              "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                            }`}>
+                              {l.action}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-300 font-mono">{l.submissionId || "N/A"}</td>
+                          <td className="p-4 text-slate-350 leading-relaxed max-w-xs break-words">{l.details}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
     // MODULE 8: ADMIN CONTROL PANEL
     // ==========================================
     function AdminPanel({
@@ -5415,6 +6303,9 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
         { id: "admin-agents", icon: "shield", label: "Agent Control" },
         { id: "admin-tasks", icon: "tasks", label: "Task CRUD" },
         { id: "admin-reviews", icon: "check-circle", label: "Task Reviews" },
+        { id: "admin-review-verification", icon: "check-circle", label: "Review Verification" },
+        { id: "admin-review-analytics", icon: "reports", label: "Review Analytics" },
+        { id: "admin-review-logs", icon: "clock", label: "Verification Logs" },
         { id: "admin-earnings", icon: "earnings", label: "Earnings Control" },
         { id: "admin-kyc", icon: "kyc", label: "KYC Documents" },
         { id: "admin-reports", icon: "reports", label: "Reports Export" },
@@ -5613,6 +6504,34 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
                 />
               )}
 
+              {currentPage === "admin-review-verification" && (
+                <AdminReviewVerification 
+                  submissions={submissions}
+                  setSubmissions={setSubmissions}
+                  users={users}
+                  setUsers={setUsers}
+                  setNotifications={setNotifications}
+                  notifications={notifications}
+                  triggerToast={triggerToast}
+                  updateWallet={updateWallet}
+                  setPreviewImage={setPreviewImage}
+                  tasks={tasks}
+                />
+              )}
+
+              {currentPage === "admin-review-analytics" && (
+                <AdminReviewAnalytics 
+                  submissions={submissions}
+                  users={users}
+                />
+              )}
+
+              {currentPage === "admin-review-logs" && (
+                <AdminReviewLogs 
+                  triggerToast={triggerToast}
+                />
+              )}
+
               {currentPage === "admin-proofs" && (
                 <AdminProofs 
                   users={users} 
@@ -5783,7 +6702,13 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
               }
 
               // 3. Fetch Submissions
-              const { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("id,user_id,task_id,submitted_link,video,remarks,review_status,amount,date,rejection_reason");
+              let { data: dbSubs, error: subsErr } = await client.from("krv_submissions").select("id,user_id,task_id,submitted_link,video,remarks,review_status,amount,date,rejection_reason,reviewerName,reviewText,starRating");
+              if (subsErr) {
+                console.warn("Fetch submissions with new columns failed, retrying with legacy columns:", subsErr);
+                const legacyRes = await client.from("krv_submissions").select("id,user_id,task_id,submitted_link,video,remarks,review_status,amount,date,rejection_reason");
+                dbSubs = legacyRes.data;
+                subsErr = legacyRes.error;
+              }
               if (!subsErr && dbSubs) {
                 setSubmissions(dbSubs);
                 prevSubmissionsRef.current = dbSubs;
