@@ -68,12 +68,13 @@ async function runVerificationEngine() {
       
       let storeReviews = [];
       try {
-        storeReviews = await gplay.reviews({
+        const scrapeRes = await gplay.reviews({
           appId: appId,
           num: 120,
           country: 'in',
           lang: 'en'
         });
+        storeReviews = Array.isArray(scrapeRes) ? scrapeRes : (scrapeRes && scrapeRes.data ? scrapeRes.data : []);
       } catch (scrapeErr) {
         console.error(`[Verifier] Failed to scrape reviews for App ID ${appId}:`, scrapeErr.message);
         // Skip this app group for this run (will retry next run)
