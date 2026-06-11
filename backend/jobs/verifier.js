@@ -71,6 +71,7 @@ async function runVerificationEngine() {
         const scrapeRes = await gplay.reviews({
           appId: appId,
           num: 120,
+          sort: gplay.sort.NEWEST,
           country: 'in',
           lang: 'en'
         });
