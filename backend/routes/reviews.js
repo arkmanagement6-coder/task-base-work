@@ -229,7 +229,8 @@ router.post('/trigger-verify', async (req, res) => {
 router.get('/debug-scrape', async (req, res) => {
   try {
     const { appId, country, lang } = req.query;
-    const gplay = require('google-play-scraper');
+    const gplayModule = require('google-play-scraper');
+    const gplay = gplayModule.default || gplayModule;
     const storeReviews = await gplay.reviews({
       appId: appId || 'com.spinny.android',
       num: 100,

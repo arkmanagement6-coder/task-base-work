@@ -1,4 +1,5 @@
-const gplay = require('google-play-scraper');
+const gplayModule = require('google-play-scraper');
+const gplay = gplayModule.default || gplayModule;
 const cron = require('node-cron');
 const stringSimilarity = require('string-similarity');
 const ReviewSubmission = require('../models/ReviewSubmission');
