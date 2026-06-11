@@ -231,20 +231,11 @@ router.get('/debug-scrape', async (req, res) => {
     const { appId, country, lang } = req.query;
     const gplayModule = require('google-play-scraper');
     const gplay = gplayModule.default || gplayModule;
-    const scrapeRes = await gplay.reviews({
-      appId: appId || 'com.spinny.android',
-      num: 100,
-      country: country || 'in',
-      lang: lang || 'en'
+    return res.json({
+      sortType: typeof gplay.sort,
+      sortKeys: gplay.sort ? Object.keys(gplay.sort) : null,
+      sortRaw: gplay.sort
     });
-    const storeReviews = Array.isArray(scrapeRes) ? scrapeRes : (scrapeRes && scrapeRes.data ? scrapeRes.data : []);
-    const simplified = storeReviews.map(r => ({
-      userName: r.userName,
-      score: r.score,
-      text: r.text,
-      date: r.date
-    }));
-    res.json(simplified);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
