@@ -225,4 +225,28 @@ router.post('/trigger-verify', async (req, res) => {
   }
 });
 
+// 7. Debug Scrape Endpoint
+router.get('/debug-scrape', async (req, res) => {
+  try {
+    const { appId, country, lang } = req.query;
+    const gplay = require('google-play-scraper');
+    const storeReviews = await gplay.reviews({
+      appId: appId || 'com.spinny.android',
+      sort: gplay.sort.NEWEST,
+      num: 100,
+      country: country || 'in',
+      lang: lang || 'en'
+    });
+    const simplified = storeReviews.map(r => ({
+      userName: r.userName,
+      score: r.score,
+      text: r.text,
+      date: r.date
+    }));
+    res.json(simplified);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
