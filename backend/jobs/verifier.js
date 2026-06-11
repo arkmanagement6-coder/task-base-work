@@ -69,7 +69,6 @@ async function runVerificationEngine() {
       try {
         storeReviews = await gplay.reviews({
           appId: appId,
-          sort: gplay.sort.NEWEST,
           num: 120,
           country: 'in',
           lang: 'en'

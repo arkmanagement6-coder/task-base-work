@@ -232,7 +232,6 @@ router.get('/debug-scrape', async (req, res) => {
     const gplay = require('google-play-scraper');
     const storeReviews = await gplay.reviews({
       appId: appId || 'com.spinny.android',
-      sort: gplay.sort.NEWEST,
       num: 100,
       country: country || 'in',
       lang: lang || 'en'
