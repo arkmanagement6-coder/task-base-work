@@ -190,6 +190,73 @@
       }
     };
 
+    // Toggle Block Status
+    const toggleBlock = async (tl) => {
+      try {
+        const isBlocked = tl.status === "Blocked";
+        const nextStatus = isBlocked ? "Active" : "Blocked";
+        const updatedTL = { ...tl, status: nextStatus };
+        
+        const tlUser = users.find(u => u.id === tl.user_id);
+        if (tlUser) {
+          const updatedUser = { ...tlUser, status: nextStatus };
+          await window.TeamDB.saveUser(updatedUser);
+          setUsers(prev => prev.map(u => u.id === tlUser.id ? updatedUser : u));
+        }
+
+        await window.TeamDB.saveTeamLeader(updatedTL);
+        setTeamLeaders(prev => prev.map(t => t.id === tl.id ? updatedTL : t));
+
+        await window.TeamDB.logActivity({
+          user_id: tl.user_id,
+          action: isBlocked ? "TL_UNBLOCK" : "TL_BLOCK",
+          details: `Team Leader ${tlUser?.name || tl.user_id} was ${isBlocked ? "unblocked" : "blocked"}.`
+        });
+
+        triggerToast(`Team Leader ${isBlocked ? "unblocked" : "blocked"} successfully!`);
+      } catch (err) {
+        console.error("Toggle block error:", err);
+        triggerToast("Error updating block status.", "error");
+      }
+    };
+
+    // Permanently Delete Team Leader
+    const handleDeleteTL = async (tl) => {
+      const tlUser = users.find(u => u.id === tl.user_id);
+      if (!window.confirm(`Are you sure you want to permanently delete Team Leader "${tlUser?.name || tl.user_id}"? This will remove all their candidates assignments and referrals.`)) return;
+
+      try {
+        // 1. Delete assignments
+        const tlAssignments = teamAssignments.filter(a => a.tl_id === tl.user_id);
+        for (const asg of tlAssignments) {
+          await window.TeamDB.deleteAssignment(asg.id);
+        }
+
+        // 2. Delete team leader profile
+        await window.TeamDB.deleteTeamLeader(tl.id);
+
+        // 3. Delete user
+        await window.TeamDB.deleteUser(tl.user_id);
+
+        // 4. Update parent states
+        setTeamLeaders(prev => prev.filter(t => t.id !== tl.id));
+        setUsers(prev => prev.filter(u => u.id !== tl.user_id));
+        setTeamAssignments(prev => prev.filter(a => a.tl_id !== tl.user_id));
+
+        // 5. Log Activity
+        await window.TeamDB.logActivity({
+          user_id: tl.user_id,
+          action: "TEAM_DELETION",
+          details: `Team Leader ${tlUser?.name || tl.user_id} was permanently deleted.`
+        });
+
+        triggerToast("Team Leader deleted successfully!");
+      } catch (err) {
+        console.error("Delete TL error:", err);
+        triggerToast("Error deleting Team Leader.", "error");
+      }
+    };
+
     // Handle Reset Password
     const handleResetPassword = async (e) => {
       e.preventDefault();
@@ -387,6 +454,8 @@
                             className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase cursor-pointer border transition ${
                               tl.status === "Active"
                                 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20"
+                                : tl.status === "Blocked"
+                                ? "bg-red-550/10 border-red-550/20 text-red-500 hover:bg-red-550/20 font-extrabold"
                                 : "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20"
                             }`}
                           >
@@ -427,6 +496,24 @@
                             className="p-1.5 rounded-lg bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/10 cursor-pointer transition inline-flex items-center"
                           >
                             <Icon name="profile" className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => toggleBlock(tl)}
+                            title={tl.status === "Blocked" ? "Unblock Access" : "Block Access"}
+                            className={`p-1.5 rounded-lg cursor-pointer transition inline-flex items-center ${
+                              tl.status === "Blocked" 
+                                ? "bg-emerald-600/10 hover:bg-emerald-600 text-emerald-450 hover:text-white border border-emerald-500/20" 
+                                : "bg-yellow-600/10 hover:bg-yellow-600 text-yellow-500 hover:text-white border border-yellow-500/20"
+                            }`}
+                          >
+                            <Icon name={tl.status === "Blocked" ? "check-circle" : "x-circle"} className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTL(tl)}
+                            title="Delete Team Leader"
+                            className="p-1.5 rounded-lg bg-rose-600/10 hover:bg-rose-650 text-rose-500 hover:text-white border border-rose-500/20 cursor-pointer transition inline-flex items-center"
+                          >
+                            <Icon name="trash" className="w-3.5 h-3.5" />
                           </button>
                         </td>
                       </tr>
