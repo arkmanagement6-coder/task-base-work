@@ -6344,6 +6344,7 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
       const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
       const [teamLeaderMenuOpen, setTeamLeaderMenuOpen] = useState(() => currentPage.startsWith("admin-team-"));
       const [reviewMenuOpen, setReviewMenuOpen] = useState(() => currentPage.startsWith("admin-review-"));
+      const [taskMenuOpen, setTaskMenuOpen] = useState(() => currentPage === "admin-tasks" || currentPage === "admin-reviews");
       const [previewImage, setPreviewImage] = useState(null);
 
       const menuItems = [
@@ -6455,22 +6456,42 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
                   )}
                 </div>
 
-                {menuItems.slice(3, 5).map(item => (
+                {/* Task Management Dropdown */}
+                <div className="space-y-1">
                   <button 
-                    key={item.id}
-                    onClick={() => setCurrentPage(item.id)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
-                      currentPage === item.id 
-                        ? "bg-blue-600 text-white shadow-lg" 
-                        : "hover:bg-slate-800 hover:text-white"
+                    onClick={() => setTaskMenuOpen(!taskMenuOpen)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer hover:bg-slate-800 hover:text-white whitespace-nowrap ${
+                      currentPage === "admin-tasks" || currentPage === "admin-reviews" ? "text-blue-500 font-bold bg-slate-800/55 text-white" : ""
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
-                      <span className="whitespace-nowrap">{item.label}</span>
+                      <Icon name="tasks" className="w-4 h-4 shrink-0 text-blue-500" />
+                      <span className="whitespace-nowrap text-slate-350">Task Management</span>
                     </div>
+                    <Icon name={taskMenuOpen ? "chevron-up" : "chevron-down"} className="w-3.5 h-3.5 text-slate-400" />
                   </button>
-                ))}
+
+                  {taskMenuOpen && (
+                    <div className="pl-4 space-y-1 border-l border-slate-800 ml-6">
+                      {[
+                        { id: "admin-tasks", label: "Task CRUD" },
+                        { id: "admin-reviews", label: "Task Reviews" }
+                      ].map(sub => (
+                        <button 
+                          key={sub.id}
+                          onClick={() => setCurrentPage(sub.id)}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition cursor-pointer block ${
+                            currentPage === sub.id 
+                              ? "bg-blue-600/20 text-blue-400 border border-blue-600/30 font-bold" 
+                              : "hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          {sub.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Review Verification Dropdown */}
                 <div className="space-y-1">
