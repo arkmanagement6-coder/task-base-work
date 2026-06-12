@@ -32,6 +32,7 @@
     const [formData, setFormData] = useState({ name: "", email: "", mobile: "", password: "", tl_code: "" });
     const [newPassword, setNewPassword] = useState("");
     const [selectedCandidates, setSelectedCandidates] = useState([]);
+    const [assignSearchTerm, setAssignSearchTerm] = useState("");
 
     // Stats calculations
     const stats = useMemo(() => {
@@ -341,8 +342,13 @@
     // Unassigned Candidates
     const unassignedCandidates = useMemo(() => {
       const assignedIds = teamAssignments.map(a => a.candidate_id);
-      return users.filter(u => u.role === "candidate" && !assignedIds.includes(u.id));
-    }, [users, teamAssignments]);
+      const list = users.filter(u => u.role === "candidate" && !assignedIds.includes(u.id));
+      if (!assignSearchTerm.trim()) return list;
+      return list.filter(c => 
+        (c.name || "").toLowerCase().includes(assignSearchTerm.toLowerCase()) ||
+        (c.email || "").toLowerCase().includes(assignSearchTerm.toLowerCase())
+      );
+    }, [users, teamAssignments, assignSearchTerm]);
 
     // Team members of the selected TL
     const currentTeamMembers = useMemo(() => {
@@ -490,6 +496,7 @@
                               setSelectedTL(tl);
                               const assigned = teamAssignments.filter(a => a.tl_id === tl.user_id).map(a => a.candidate_id);
                               setSelectedCandidates(assigned);
+                              setAssignSearchTerm("");
                               setShowAssignModal(true);
                             }}
                             title="Assign Members"
@@ -619,6 +626,17 @@
               </h3>
               <div className="text-[10px] text-slate-400 shrink-0">
                 Configure candidate members assigned to this Team Leader. Check members to assign them. Unassigned members are shown separately.
+              </div>
+
+              <div className="relative w-full shrink-0">
+                <input
+                  type="text"
+                  placeholder="Search available candidates by Name or Email..."
+                  value={assignSearchTerm}
+                  onChange={(e) => setAssignSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white"
+                />
+                <Icon name="search" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               </div>
 
               <div className="flex-grow overflow-y-auto space-y-4 pr-1">
