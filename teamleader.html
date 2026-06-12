@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Leader Portal — KRV Management</title>
+  <!-- Tailwind CSS v4 Browser Compiler -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- React & ReactDOM 18 -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel Standalone -->
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+  <!-- Chart.js for Team Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Supabase JS Client via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style type="text/css">
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Outfit', sans-serif;
+    }
+    :root {
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #dbeafe 100%);
+      --glass-bg: rgba(255, 255, 255, 0.7);
+      --glass-border: rgba(15, 23, 42, 0.06);
+      --glass-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.08);
+      --text-main: #0f172a;
+    }
+    .dark {
+      --bg-gradient: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%);
+      --glass-bg: rgba(15, 23, 42, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.5);
+      --text-main: #f8fafc;
+    }
+    .app-bg {
+      background: var(--bg-gradient);
+    }
+    .glass-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--glass-shadow);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(37, 99, 235, 0.2);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(37, 99, 235, 0.4);
+    }
+    select option {
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+  </style>
+  <script src="team_db.js"></script>
+</head>
+<body class="app-bg min-h-screen text-[var(--text-main)] transition-colors duration-300">
+  
+  <div id="root"></div>
+
+  <!-- React code with Babel -->
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+
+    // SVG Icons
+    const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+      const icons = {
+        home: <g><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10" /></g>,
+        profile: <g><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /></g>,
+        tasks: <g><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></g>,
+        earnings: <g><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></g>,
+        reports: <g><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8" /></g>,
+        support: <g><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></g>,
+        logout: <g><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></g>,
+        bell: <g><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /></g>,
+        shield: <g><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></g>,
+        sun: <g><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></g>,
+        moon: <g><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></g>,
+        search: <g><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></g>,
+        "check-circle": <g><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3" /></g>,
+        "x-circle": <g><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></g>,
+        "alert-circle": <g><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></g>,
+        "chevron-down": <g><polyline points="6 9 12 15 18 9" /></g>,
+        "chevron-up": <g><polyline points="18 15 12 9 6 15" /></g>,
+        eye: <g><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></g>,
+        plus: <g><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></g>,
+        send: <g><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></g>
+      };
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+          {icons[name] || null}
+        </svg>
+      );
+    };
+
+    // Toast Notification Component
+    const Toast = ({ message, type = "success", onClose }) => {
+      useEffect(() => {
+        const timer = setTimeout(onClose, 3500);
+        return () => clearTimeout(timer);
+      }, [onClose]);
+      const colors = {
+        success: "bg-emerald-600 border-emerald-500",
+        error: "bg-rose-600 border-rose-500",
+        info: "bg-blue-600 border-blue-500"
+      };
+      return (
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg text-white animate-bounce ${colors[type]}`}>
+          <Icon name={type === "success" ? "check-circle" : type === "error" ? "x-circle" : "alert-circle"} className="w-5 h-5" />
+          <span className="text-sm font-medium">{message}</span>
+          <button onClick={onClose} className="hover:opacity-75"><Icon name="x-circle" className="w-4 h-4" /></button>
+        </div>
+      );
+    };
+
+    // Main App Component
+    function TeamLeaderPortal() {
+      const [theme, setTheme] = useState(() => localStorage.getItem("krv-theme") || "dark");
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [currentUser, setCurrentUser] = useState(null);
+      const [loginData, setLoginData] = useState({ email: "", password: "" });
+      const [toast, setToast] = useState(null);
+
+      // Core States
+      const [users, setUsers] = useState([]);
+      const [teamProfile, setTeamProfile] = useState(null);
+      const [assignments, setAssignments] = useState([]);
+      const [submissions, setSubmissions] = useState([]);
+      const [tasks, setTasks] = useState([]);
+      const [messages, setMessages] = useState([]);
+      const [incentives, setIncentives] = useState([]);
+      const [incentiveRules, setIncentiveRules] = useState([]);
+
+      // UI States
+      const [currentPage, setCurrentPage] = useState("dashboard");
+      const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+      const [selectedCandidate, setSelectedCandidate] = useState(null);
+      const [previewImage, setPreviewImage] = useState(null);
+
+      // Message Form State
+      const [newMsg, setNewMsg] = useState({ title: "", content: "" });
+
+      // Search & Filters
+      const [candSearch, setCandSearch] = useState("");
+      const [taskFilterStatus, setTaskFilterStatus] = useState("");
+      const [taskSearch, setTaskSearch] = useState("");
+
+      useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === "dark") root.classList.add("dark");
+        else root.classList.remove("dark");
+        localStorage.setItem("krv-theme", theme);
+      }, [theme]);
+
+      const triggerToast = (message, type = "success") => {
+        setToast({ message, type });
+      };
+
+      // Session Verification
+      const verifySession = async () => {
+        const stored = localStorage.getItem("krv-current-user-session");
+        if (stored) {
+          try {
+            const { user, signature } = JSON.parse(stored);
+            if (user && signature && user.role === "team_leader") {
+              const expectedSig = await window.TeamDB.signSession(user);
+              if (signature === expectedSig) {
+                setCurrentUser(user);
+                setIsLoggedIn(true);
+                await loadDashboardData(user.id);
+                // Log Login Activity
+                await window.TeamDB.logActivity({ user_id: user.id, action: "TL_LOGIN", details: `Team Leader logged in.` });
+                return;
+              }
+            }
+          } catch (e) {
+            console.error("Session verification error:", e);
+          }
+        }
+        setIsLoggedIn(false);
+      };
+
+      useEffect(() => {
+        verifySession();
+      }, []);
+
+      // Load Data
+      const loadDashboardData = async (tlUserId) => {
+        try {
+          const dbUsers = await window.TeamDB.getUsers();
+          setUsers(dbUsers);
+
+          const tls = await window.TeamDB.getTeamLeaders();
+          const profile = tls.find(t => t.user_id === tlUserId);
+          setTeamProfile(profile);
+
+          const asgs = await window.TeamDB.getAssignments();
+          setAssignments(asgs);
+
+          // Submissions
+          const client = window.TeamDB.getSupabaseClient();
+          if (client) {
+            let { data: dbSubs } = await client.from("krv_submissions").select("id,user_id,task_id,submitted_link,video,remarks,review_status,amount,date,rejection_reason");
+            if (dbSubs) setSubmissions(dbSubs);
+            let { data: dbTasks } = await client.from("krv_tasks").select("*");
+            if (dbTasks) setTasks(dbTasks);
+          } else {
+            setSubmissions(JSON.parse(localStorage.getItem("krv-submissions") || "[]"));
+            setTasks(JSON.parse(localStorage.getItem("krv-tasks") || "[]"));
+          }
+
+          const msgs = await window.TeamDB.getMessages();
+          setMessages(msgs);
+
+          const incs = await window.TeamDB.getIncentives();
+          setIncentives(incs);
+
+          const rules = await window.TeamDB.getIncentiveRules();
+          setIncentiveRules(rules);
+        } catch (e) {
+          console.error("Data load failed:", e);
+        }
+      };
+
+      // Handle Login Submit
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        try {
+          const dbUsers = await window.TeamDB.getUsers();
+          const matched = dbUsers.find(u => u.email.toLowerCase() === loginData.email.toLowerCase());
+
+          if (!matched || matched.role !== "team_leader") {
+            triggerToast("Invalid credentials or access denied.", "error");
+            return;
+          }
+
+          const saltedInput = await window.TeamDB.getSaltedHash(loginData.email, loginData.password);
+          if (matched.password !== saltedInput) {
+            triggerToast("Incorrect password.", "error");
+            return;
+          }
+
+          if (matched.status === "Inactive") {
+            triggerToast("Your account is currently deactivated by the admin.", "error");
+            return;
+          }
+
+          const signature = await window.TeamDB.signSession(matched);
+          localStorage.setItem("krv-current-user-session", JSON.stringify({ user: matched, signature }));
+          
+          setCurrentUser(matched);
+          setIsLoggedIn(true);
+          await loadDashboardData(matched.id);
+          triggerToast(`Welcome, ${matched.name}!`);
+
+          // Log Login Activity
+          await window.TeamDB.logActivity({ user_id: matched.id, action: "TL_LOGIN", details: `Team Leader logged in.` });
+        } catch (err) {
+          triggerToast("An error occurred during login.", "error");
+        }
+      };
+
+      // Logout
+      const handleLogout = () => {
+        localStorage.removeItem("krv-current-user-session");
+        setCurrentUser(null);
+        setIsLoggedIn(false);
+        triggerToast("Logged out successfully.");
+      };
+
+      // Assigned Team Candidate IDs
+      const teamCandidateIds = useMemo(() => {
+        if (!currentUser) return [];
+        return assignments.filter(a => a.tl_id === currentUser.id).map(a => a.candidate_id);
+      }, [assignments, currentUser]);
+
+      // Computed Stats Cards
+      const stats = useMemo(() => {
+        const teamCands = users.filter(u => teamCandidateIds.includes(u.id));
+        const activeMembers = teamCands.filter(u => u.status === "Active").length;
+        const inactiveMembers = teamCands.filter(u => u.status === "Inactive").length;
+
+        // Today's Active Members (logged in or active today)
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayActive = teamCands.filter(u => u.last_active === todayStr).length;
+
+        // Submissions
+        const teamSubs = submissions.filter(s => teamCandidateIds.includes(s.user_id));
+        const pending = teamSubs.filter(s => s.review_status === "Pending" || s.review_status === "Under Review").length;
+        const approved = teamSubs.filter(s => s.review_status === "Approved").length;
+        const rejected = teamSubs.filter(s => s.review_status === "Rejected").length;
+        const totalSubs = teamSubs.length;
+
+        // Score
+        const auditedTasksCount = approved + rejected;
+        const performanceScore = auditedTasksCount > 0 ? Math.round((approved / auditedTasksCount) * 100) : 0;
+
+        return {
+          totalMembers: teamCands.length,
+          activeMembers,
+          inactiveMembers,
+          todayActive,
+          pendingTasks: pending,
+          submittedTasks: totalSubs,
+          approvedTasks: approved,
+          rejectedTasks: rejected,
+          performanceScore
+        };
+      }, [users, teamCandidateIds, submissions]);
+
+      // Filtered Candidates
+      const filteredCandidates = useMemo(() => {
+        return users.filter(u => {
+          if (!teamCandidateIds.includes(u.id)) return false;
+          return (u.name || "").toLowerCase().includes(candSearch.toLowerCase()) || 
+                 (u.email || "").toLowerCase().includes(candSearch.toLowerCase());
+        });
+      }, [users, teamCandidateIds, candSearch]);
+
+      // Filtered Task Submissions
+      const filteredSubmissions = useMemo(() => {
+        return submissions.filter(sub => {
+          if (!teamCandidateIds.includes(sub.user_id)) return false;
+          
+          const candUser = users.find(u => u.id === sub.user_id) || {};
+          const taskObj = tasks.find(t => t.id === sub.task_id) || {};
+
+          const matchesStatus = !taskFilterStatus || sub.review_status === taskFilterStatus;
+          const matchesSearch = !taskSearch || 
+            (candUser.name || "").toLowerCase().includes(taskSearch.toLowerCase()) ||
+            (taskObj.title || "").toLowerCase().includes(taskSearch.toLowerCase());
+
+          return matchesStatus && matchesSearch;
+        });
+      }, [submissions, teamCandidateIds, users, tasks, taskFilterStatus, taskSearch]);
+
+      // Team Announcements Created by this TL
+      const announcements = useMemo(() => {
+        if (!currentUser) return [];
+        return messages.filter(m => m.sender_id === currentUser.id && m.type === "announcement");
+      }, [messages, currentUser]);
+
+      // Broadcasts from Admin to TLs
+      const adminBroadcasts = useMemo(() => {
+        return messages.filter(m => m.type === "broadcast_tl");
+      }, [messages]);
+
+      // Top Performers & Rankings (Based on approved tasks count)
+      const rankings = useMemo(() => {
+        return users.filter(u => teamCandidateIds.includes(u.id)).map(cand => {
+          const approvedCount = submissions.filter(s => s.user_id === cand.id && s.review_status === "Approved").length;
+          const rejectedCount = submissions.filter(s => s.user_id === cand.id && s.review_status === "Rejected").length;
+          return {
+            ...cand,
+            approvedCount,
+            rejectedCount
+          };
+        }).sort((a,b) => b.approvedCount - a.approvedCount);
+      }, [users, teamCandidateIds, submissions]);
+
+      const lowActivityMembers = useMemo(() => {
+        return rankings.filter(r => r.status === "Inactive" || r.approvedCount === 0);
+      }, [rankings]);
+
+      // Auto Alerts Calculations
+      const alerts = useMemo(() => {
+        const list = [];
+        const today = new Date();
+
+        rankings.forEach(cand => {
+          // 1. Inactive for 2+ days
+          if (cand.last_active) {
+            const diffTime = Math.abs(today - new Date(cand.last_active));
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays >= 2 && cand.status !== "Inactive") {
+              list.push({ type: "warning", message: `Candidate "${cand.name}" has been inactive for ${diffDays} days.` });
+            }
+          } else {
+            list.push({ type: "warning", message: `Candidate "${cand.name}" has never logged in yet.` });
+          }
+
+          // 2. Pending Tasks Alert
+          const pendingCount = submissions.filter(s => s.user_id === cand.id && s.review_status === "Pending").length;
+          if (pendingCount > 0) {
+            list.push({ type: "info", message: `Candidate "${cand.name}" has ${pendingCount} pending task submissions.` });
+          }
+
+          // 3. Multiple Rejections Alert
+          if (cand.rejectedCount >= 2) {
+            list.push({ type: "danger", message: `Candidate "${cand.name}" has ${cand.rejectedCount} task rejections.` });
+          }
+        });
+
+        return list;
+      }, [rankings, submissions]);
+
+      // Handle Claim Incentive
+      const handleClaimIncentive = async (ruleName, amount) => {
+        if (!currentUser) return;
+        try {
+          const claim = {
+            tl_id: currentUser.id,
+            rule_name: ruleName,
+            amount: parseFloat(amount)
+          };
+          await window.TeamDB.saveIncentive(claim);
+          
+          // Refresh incentives
+          const incs = await window.TeamDB.getIncentives();
+          setIncentives(incs);
+
+          triggerToast("Incentive claim sent to Admin for approval.");
+        } catch (e) {
+          triggerToast("Failed to claim incentive.", "error");
+        }
+      };
+
+      // Handle Send Announcement
+      const handleSendAnnouncement = async (e) => {
+        e.preventDefault();
+        if (!newMsg.title || !newMsg.content || !currentUser) {
+          triggerToast("Please enter title and content.", "error");
+          return;
+        }
+
+        try {
+          const msg = {
+            sender_id: currentUser.id,
+            type: "announcement",
+            title: newMsg.title,
+            content: newMsg.content
+          };
+          await window.TeamDB.saveMessage(msg);
+
+          // Create team notifications for all team members
+          for (const candId of teamCandidateIds) {
+            await window.TeamDB.saveNotification({
+              user_id: candId,
+              title: `Announcement from TL: ${newMsg.title}`,
+              message: newMsg.content
+            });
+          }
+
+          const msgs = await window.TeamDB.getMessages();
+          setMessages(msgs);
+
+          // Log Activity
+          await window.TeamDB.logActivity({
+            user_id: currentUser.id,
+            action: "TEAM_MESSAGE",
+            details: `Broadcast announcement: "${newMsg.title}"`
+          });
+
+          triggerToast("Announcement sent to team members successfully!");
+          setNewMsg({ title: "", content: "" });
+        } catch (e) {
+          triggerToast("Failed to send announcement.", "error");
+        }
+      };
+
+      // Candidate activity light helper
+      const getActivityColor = (cand) => {
+        if (cand.status === "Inactive") return "bg-rose-500 shadow-rose-500/50";
+        if (cand.status === "Blocked") return "bg-slate-700 shadow-slate-700/50";
+        
+        const today = new Date().toISOString().split('T')[0];
+        if (cand.last_active === today) return "bg-emerald-500 shadow-emerald-500/50";
+        
+        return "bg-yellow-500 shadow-yellow-500/50";
+      };
+
+      if (!isLoggedIn) {
+        return (
+          <div className="min-h-screen flex items-center justify-center p-6">
+            <div className="w-full max-w-md glass-card rounded-2xl p-8 space-y-6">
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-blue-500/20">TL</div>
+                <h2 className="text-2xl font-bold tracking-tight text-white mt-4">Team Leader Login</h2>
+                <p className="text-xs text-slate-400 mt-1">Access your candidate hierarchy & analytics portal</p>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4 text-xs font-semibold">
+                {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+                <div>
+                  <label className="block text-[10px] uppercase text-slate-450 mb-1.5">Email Address</label>
+                  <input required type="email" value={loginData.email} onChange={(e) => setLoginData({...loginData, email: e.target.value})} className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="tl1@krv.com" />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase text-slate-450 mb-1.5">Password</label>
+                  <input required type="password" value={loginData.password} onChange={(e) => setLoginData({...loginData, password: e.target.value})} className="w-full px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white/5 text-white focus:outline-none focus:border-blue-500" placeholder="••••••••" />
+                </div>
+                <button type="submit" className="w-full py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-lg shadow-blue-500/15 cursor-pointer">
+                  Authenticate Account
+                </button>
+              </form>
+              <div className="text-center text-[10px] text-slate-500">
+                Fallback Local sandbox credentials: <strong className="text-slate-400">tl1@krv.com / 123456</strong>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen flex">
+          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+          {/* Sidebar */}
+          {sidebarOpen && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden cursor-pointer" onClick={() => setSidebarOpen(false)} />
+          )}
+
+          <aside className={`bg-slate-900 border-r border-slate-800 text-slate-300 w-64 shrink-0 flex flex-col justify-between transition-all duration-300 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full md:w-0"
+          } fixed md:relative h-full md:h-auto z-30`}>
+            <div>
+              <div className="p-6 flex items-center justify-between border-b border-slate-800 bg-slate-950/20 whitespace-nowrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shrink-0">TL</div>
+                  <div>
+                    <span className="text-sm font-bold tracking-tight text-white block truncate">{currentUser.name}</span>
+                    <span className="block text-[8px] font-bold text-slate-500 uppercase tracking-widest truncate">TL Code: {teamProfile?.tl_code || "TL001"}</span>
+                  </div>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white"><Icon name="x-circle" className="w-4 h-4" /></button>
+              </div>
+
+              <nav className="p-4 space-y-1">
+                {[
+                  { id: "dashboard", label: "Dashboard Overview", icon: "home" },
+                  { id: "candidates", label: "My Candidates", icon: "profile" },
+                  { id: "tasks", label: "Submissions Monitor", icon: "tasks" },
+                  { id: "communication", label: "Team Announcements", icon: "support" },
+                  { id: "incentives", label: "My Incentives", icon: "earnings" }
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id)}
+                    className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <Icon name={item.icon} className="w-4 h-4 mr-3 shrink-0" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-950/15">
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold hover:bg-red-500/10 hover:text-red-400 transition cursor-pointer whitespace-nowrap">
+                <Icon name="logout" className="w-4 h-4 shrink-0" />
+                <span>Logout Portal</span>
+              </button>
+            </div>
+          </aside>
+
+          {/* Main Content Area */}
+          <div className="flex-grow flex flex-col min-h-screen overflow-x-hidden">
+            <header className="px-6 py-4 flex items-center justify-between bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/40 relative z-20">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-355 cursor-pointer">
+                  <Icon name="home" className="w-4 h-4" />
+                </button>
+                <h1 className="text-xl font-bold tracking-tight capitalize">{currentPage} Dashboard</h1>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                  Team Leader Account
+                </span>
+                <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer">
+                  <Icon name={theme === "dark" ? "sun" : "moon"} className="w-4 h-4" />
+                </button>
+              </div>
+            </header>
+
+            <div className="p-6 flex-grow overflow-y-auto">
+              
+              {/* PAGE 1: OVERVIEW */}
+              {currentPage === "dashboard" && (
+                <div className="space-y-6">
+                  {/* Stats Cards */}
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                    <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Team Size</span>
+                      <span className="text-3xl font-extrabold mt-2 text-white">{stats.totalMembers}</span>
+                      <span className="text-[10px] text-emerald-400 mt-2 font-semibold">{stats.activeMembers} active members</span>
+                    </div>
+                    <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Today</span>
+                      <span className="text-3xl font-extrabold mt-2 text-white">{stats.todayActive}</span>
+                      <span className="text-[10px] text-slate-400 mt-2 font-semibold">Candidates active today</span>
+                    </div>
+                    <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Audit</span>
+                      <span className="text-3xl font-extrabold mt-2 text-yellow-500">{stats.pendingTasks}</span>
+                      <span className="text-[10px] text-slate-400 mt-2 font-semibold">Tasks awaiting review</span>
+                    </div>
+                    <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Approved Reviews</span>
+                      <span className="text-3xl font-extrabold mt-2 text-emerald-400">{stats.approvedTasks}</span>
+                      <span className="text-[10px] text-rose-400 mt-2 font-semibold">{stats.rejectedTasks} rejections</span>
+                    </div>
+                    <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Team Performance</span>
+                      <span className="text-3xl font-extrabold mt-2 text-blue-400">{stats.performanceScore}%</span>
+                      <span className="text-[10px] text-slate-400 mt-2 font-semibold">Team approved task ratio</span>
+                    </div>
+                  </div>
+
+                  {/* Referral URL link box */}
+                  <div className="glass-card rounded-2xl p-6 border border-slate-800 bg-blue-600/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">My Referral Recruitment Link</h3>
+                      <p className="text-slate-400 text-xs leading-relaxed">Share this URL with candidates. Registering through this link auto-assigns candidates to your team hierarchy.</p>
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                      <input readOnly type="text" value={`${window.location.origin}/register.html?ref=${teamProfile?.tl_code || "TL001"}`} className="px-3 py-2 text-xs rounded-lg border border-slate-800 bg-slate-950/45 text-white w-full sm:w-64 focus:outline-none" />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/register.html?ref=${teamProfile?.tl_code || "TL001"}`);
+                          triggerToast("Referral link copied!");
+                        }}
+                        className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Rankings & Alerts Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Active Alerts */}
+                    <div className="glass-card rounded-2xl p-5 space-y-4">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">Automated Alerts ({alerts.length})</h3>
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {alerts.length === 0 ? (
+                          <div className="text-xs text-slate-500 italic p-4 text-center">No current warnings. All candidates active!</div>
+                        ) : (
+                          alerts.map((alert, idx) => (
+                            <div key={idx} className={`p-3 rounded-lg border flex gap-3 items-center text-xs font-semibold ${
+                              alert.type === "danger" 
+                                ? "bg-rose-500/10 border-rose-550/20 text-rose-400" 
+                                : alert.type === "warning"
+                                ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+                                : "bg-blue-500/10 border-blue-500/20 text-blue-450"
+                            }`}>
+                              <Icon name="alert-circle" className="w-4 h-4 shrink-0" />
+                              <span>{alert.message}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Team Members List quick overview */}
+                    <div className="glass-card rounded-2xl p-5 space-y-4">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">Top Candidates Performance</h3>
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {rankings.length === 0 ? (
+                          <div className="text-xs text-slate-500 italic p-4 text-center">No assigned candidates.</div>
+                        ) : (
+                          rankings.map((c, idx) => (
+                            <div key={c.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-800 bg-slate-950/20 text-xs">
+                              <div className="flex items-center gap-2.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${getActivityColor(c)}`}></span>
+                                <div>
+                                  <span className="font-bold text-white block leading-tight">{c.name}</span>
+                                  <span className="text-[10px] text-slate-500 font-semibold">{c.email}</span>
+                                </div>
+                              </div>
+                              <span className="font-extrabold text-blue-400">{c.approvedCount} approved reviews</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PAGE 2: CANDIDATES MANAGEMENT */}
+              {currentPage === "candidates" && (
+                <div className="space-y-6">
+                  {/* Search bar */}
+                  <div className="relative w-full max-w-md">
+                    <input
+                      type="text"
+                      placeholder="Search candidates by name, email..."
+                      value={candSearch}
+                      onChange={(e) => setCandSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white"
+                    />
+                    <Icon name="search" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  </div>
+
+                  {/* Candidates Table */}
+                  <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/5 dark:border-slate-800/40">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+                            <th className="p-4">Candidate Name</th>
+                            <th className="p-4">Contact</th>
+                            <th className="p-4">City / Pincode</th>
+                            <th className="p-4">Wallet Bal.</th>
+                            <th className="p-4">Submissions</th>
+                            <th className="p-4">Last Login</th>
+                            <th className="p-4 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/40 text-xs font-medium">
+                          {filteredCandidates.length === 0 ? (
+                            <tr>
+                              <td colSpan="7" className="p-8 text-center text-slate-500">No candidates assigned to your team matching search.</td>
+                            </tr>
+                          ) : (
+                            filteredCandidates.map(c => {
+                              const approvedCount = submissions.filter(s => s.user_id === c.id && s.review_status === "Approved").length;
+                              const pendingCount = submissions.filter(s => s.user_id === c.id && s.review_status === "Pending").length;
+                              
+                              return (
+                                <tr key={c.id} className="hover:bg-slate-800/20 text-slate-300">
+                                  <td className="p-4">
+                                    <button 
+                                      onClick={() => setSelectedCandidate(c)}
+                                      className="font-bold text-white block hover:text-blue-400 cursor-pointer text-left focus:outline-none"
+                                    >
+                                      {c.name}
+                                    </button>
+                                    <span className="text-[10px] text-slate-500 uppercase font-semibold">Registered {c.created_at || "N/A"}</span>
+                                  </td>
+                                  <td className="p-4">
+                                    <span className="block text-slate-400">{c.email}</span>
+                                    <span className="block text-slate-500">{c.mobile || "No Mobile"}</span>
+                                  </td>
+                                  <td className="p-4">{c.city || "N/A"} / {c.pincode || "N/A"}</td>
+                                  <td className="p-4 font-bold text-emerald-450">₹{c.wallet_balance || 0}</td>
+                                  <td className="p-4">
+                                    <span className="font-bold text-white">{approvedCount} Approved</span>
+                                    <span className="block text-[10px] text-yellow-500 font-semibold">{pendingCount} Pending</span>
+                                  </td>
+                                  <td className="p-4">{c.last_active || "Never"}</td>
+                                  <td className="p-4 text-center">
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <span className={`w-2 h-2 rounded-full ${getActivityColor(c)}`}></span>
+                                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-350">{c.status || "Active"}</span>
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PAGE 3: TASK MONITORING */}
+              {currentPage === "tasks" && (
+                <div className="space-y-6">
+                  {/* Search and Filters */}
+                  <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full sm:max-w-md">
+                      <input
+                        type="text"
+                        placeholder="Search submissions by candidate or task name..."
+                        value={taskSearch}
+                        onChange={(e) => setTaskSearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white/5 focus:outline-none focus:border-blue-500 text-white"
+                      />
+                      <Icon name="search" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    </div>
+                    <select
+                      value={taskFilterStatus}
+                      onChange={(e) => setTaskFilterStatus(e.target.value)}
+                      className="w-full sm:w-48 px-3.5 py-2.5 text-xs rounded-xl border border-slate-800 bg-slate-900 text-white cursor-pointer"
+                    >
+                      <option value="">-- All Statuses --</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Under Review">Under Review</option>
+                      <option value="Approved">Approved</option>
+                      <option value="Rejected">Rejected</option>
+                    </select>
+                  </div>
+
+                  {/* Tasks Table */}
+                  <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/5 dark:border-slate-800/40">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+                            <th className="p-4">Candidate</th>
+                            <th className="p-4">Task Name</th>
+                            <th className="p-4">Sub. Date / Link</th>
+                            <th className="p-4">Proof File</th>
+                            <th className="p-4">Remarks</th>
+                            <th className="p-4">Audit Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/40 text-xs font-medium">
+                          {filteredSubmissions.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" className="p-8 text-center text-slate-500">No submissions found.</td>
+                            </tr>
+                          ) : (
+                            filteredSubmissions.map(sub => {
+                              const candUser = users.find(u => u.id === sub.user_id) || {};
+                              const taskObj = tasks.find(t => t.id === sub.task_id) || {};
+                              return (
+                                <tr key={sub.id} className="hover:bg-slate-800/20 text-slate-300">
+                                  <td className="p-4">
+                                    <span className="font-bold text-white block">{candUser.name || "N/A"}</span>
+                                    <span className="text-[10px] text-slate-500">{candUser.email}</span>
+                                  </td>
+                                  <td className="p-4">
+                                    <span className="font-bold text-white block leading-tight">{taskObj.title || "Unknown Task"}</span>
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">{taskObj.category || "General"}</span>
+                                  </td>
+                                  <td className="p-4">
+                                    <span className="block text-slate-450 font-bold">{sub.date || "N/A"}</span>
+                                    {sub.submitted_link ? (
+                                      <a href={sub.submitted_link} target="_blank" className="text-[10px] text-blue-400 hover:underline inline-flex items-center gap-1">Open Link <Icon name="bell" className="w-2.5 h-2.5" /></a>
+                                    ) : (
+                                      <span className="text-[9px] text-slate-550 italic">No link</span>
+                                    )}
+                                  </td>
+                                  <td className="p-4">
+                                    {sub.screenshot ? (
+                                      <button 
+                                        onClick={() => setPreviewImage(sub.screenshot)} 
+                                        className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold hover:bg-blue-500/20 cursor-pointer"
+                                      >
+                                        View Proof
+                                      </button>
+                                    ) : sub.video ? (
+                                      <button 
+                                        onClick={() => setPreviewImage(sub.video)} 
+                                        className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold hover:bg-blue-500/20 cursor-pointer"
+                                      >
+                                        View Video
+                                      </button>
+                                    ) : (
+                                      <span className="text-slate-500 italic text-[10px]">No Proof</span>
+                                    )}
+                                  </td>
+                                  <td className="p-4">
+                                    <span className="block text-slate-400 max-w-xs truncate">{sub.remarks || "No remarks"}</span>
+                                    {sub.rejection_reason && (
+                                      <span className="block text-[9px] text-rose-400 font-bold">Reject Reason: "{sub.rejection_reason}"</span>
+                                    )}
+                                  </td>
+                                  <td className="p-4">
+                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase border ${
+                                      sub.review_status === "Approved"
+                                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                        : sub.review_status === "Rejected"
+                                        ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                                        : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+                                    }`}>
+                                      {sub.review_status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PAGE 4: ANNOUNCEMENTS */}
+              {currentPage === "communication" && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Create Announcement Form */}
+                  <div className="glass-card rounded-2xl p-5 space-y-4 font-semibold text-xs h-fit">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Create Team Announcement</h3>
+                    <form onSubmit={handleSendAnnouncement} className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] uppercase text-slate-400 mb-1">Subject</label>
+                        <input required type="text" value={newMsg.title} onChange={(e) => setNewMsg({...newMsg, title: e.target.value})} className="w-full px-3 py-2 text-xs rounded-lg border border-slate-800 bg-slate-900/60 text-white" placeholder="Announcement subject line..." />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase text-slate-400 mb-1">Message Content</label>
+                        <textarea required value={newMsg.content} onChange={(e) => setNewMsg({...newMsg, content: e.target.value})} className="w-full px-3 py-2 text-xs rounded-lg border border-slate-800 bg-slate-900/60 text-white resize-none" rows="4" placeholder="Type instructions or updates for your candidates..." />
+                      </div>
+                      <button type="submit" className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition flex items-center justify-center gap-2 cursor-pointer text-xs shadow-md">
+                        <Icon name="send" className="w-4 h-4" /> Broadcast Announcement
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Message Streams */}
+                  <div className="lg:col-span-2 space-y-6">
+                    {/* Admin Broadcasts */}
+                    <div className="glass-card rounded-2xl p-5 space-y-4">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 text-amber-500">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                        Admin Broadcast Messages to TLs
+                      </h3>
+                      <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                        {adminBroadcasts.length === 0 ? (
+                          <div className="text-xs text-slate-500 italic p-3 text-center">No broadcasts received from Administrator.</div>
+                        ) : (
+                          adminBroadcasts.map(b => (
+                            <div key={b.id} className="p-4 rounded-xl border border-amber-500/10 bg-amber-500/5 space-y-1 text-xs">
+                              <span className="font-extrabold text-amber-400 text-sm block leading-tight">{b.title}</span>
+                              <p className="text-slate-300 leading-relaxed text-[11px]">{b.content}</p>
+                              <span className="text-[9px] text-slate-500 block text-right font-bold uppercase tracking-wider">{b.created_at ? new Date(b.created_at).toLocaleDateString() : ""}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Announcement History */}
+                    <div className="glass-card rounded-2xl p-5 space-y-4">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">My Announcement History</h3>
+                      <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                        {announcements.length === 0 ? (
+                          <div className="text-xs text-slate-500 italic p-3 text-center">You have not created any announcements yet.</div>
+                        ) : (
+                          [...announcements].reverse().map(a => (
+                            <div key={a.id} className="p-4 rounded-xl border border-slate-800 bg-slate-950/20 space-y-1 text-xs">
+                              <span className="font-extrabold text-white text-sm block leading-tight">{a.title}</span>
+                              <p className="text-slate-400 leading-relaxed text-[11px]">{a.content}</p>
+                              <span className="text-[9px] text-slate-500 block text-right font-bold uppercase tracking-wider">{a.created_at ? new Date(a.created_at).toLocaleDateString() : ""}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* PAGE 5: MY INCENTIVES */}
+              {currentPage === "incentives" && (
+                <div className="space-y-6">
+                  {/* Performance Milestone Tracker */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Claim Panel */}
+                    <div className="glass-card rounded-2xl p-5 space-y-4">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider">Available Incentive Rules</h3>
+                      <div className="space-y-3">
+                        {incentiveRules.filter(r => r.active).map(rule => {
+                          // Check if TL qualifies
+                          const isClaimed = incentives.some(i => i.tl_id === currentUser.id && i.rule_name === rule.rule_name);
+                          
+                          return (
+                            <div key={rule.id} className="p-4 rounded-xl border border-slate-800 bg-slate-950/20 space-y-2 text-xs">
+                              <div className="flex justify-between items-start gap-4">
+                                <span className="font-extrabold text-white block text-sm">{rule.rule_name}</span>
+                                <span className="text-emerald-400 font-extrabold text-sm shrink-0">₹{rule.bonus_amount}</span>
+                              </div>
+                              <p className="text-slate-400 text-[11px] leading-relaxed">{rule.description}</p>
+                              <div className="pt-2 flex justify-between items-center">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Milestone: {rule.min_tasks} tasks</span>
+                                <button
+                                  disabled={isClaimed}
+                                  onClick={() => handleClaimIncentive(rule.rule_name, rule.bonus_amount)}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition cursor-pointer shadow-md ${
+                                    isClaimed 
+                                      ? "bg-slate-800 text-slate-500 border border-slate-850 cursor-not-allowed" 
+                                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                                  }`}
+                                >
+                                  {isClaimed ? "Claimed / Logged" : "Claim Incentive"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Stats Overview */}
+                    <div className="glass-card rounded-2xl p-5 flex flex-col justify-between space-y-6">
+                      <h3 className="text-sm font-bold text-white uppercase tracking-wider block">Incentives Earnings Summary</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 rounded-xl border border-slate-850 bg-slate-900/25">
+                          <span className="text-[10px] text-slate-450 uppercase font-bold tracking-wider">Earned & Credited</span>
+                          <span className="text-2xl font-extrabold text-emerald-450 block mt-1">
+                            ₹{incentives.filter(i => i.tl_id === currentUser.id && i.status === "Approved").reduce((sum, i) => sum + i.amount, 0)}
+                          </span>
+                        </div>
+                        <div className="p-4 rounded-xl border border-slate-850 bg-slate-900/25">
+                          <span className="text-[10px] text-slate-450 uppercase font-bold tracking-wider">Claims Pending Approval</span>
+                          <span className="text-2xl font-extrabold text-yellow-500 block mt-1">
+                            ₹{incentives.filter(i => i.tl_id === currentUser.id && i.status === "Pending").reduce((sum, i) => sum + i.amount, 0)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-slate-400 bg-slate-950/25 p-3 rounded-lg border border-slate-850/50 leading-relaxed font-semibold">
+                        ⚠️ Note: Incentives are claimed manually. Once a claim is verified by the administrator, the bonus amount will be approved and credited directly to your registered wallet balance.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Claims History */}
+                  <div className="space-y-4 pt-4 border-t border-slate-850">
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">My Incentive History</h3>
+                    <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/5 dark:border-slate-800/40">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+                              <th className="p-4">Milestone Target</th>
+                              <th className="p-4">Amount Claimed</th>
+                              <th className="p-4">Logged Date</th>
+                              <th className="p-4">Processed Date</th>
+                              <th className="p-4">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/40 text-xs font-medium">
+                            {incentives.filter(i => i.tl_id === currentUser.id).length === 0 ? (
+                              <tr>
+                                <td colSpan="5" className="p-8 text-center text-slate-500">No incentive history logged.</td>
+                              </tr>
+                            ) : (
+                              incentives.filter(i => i.tl_id === currentUser.id).map(inc => (
+                                <tr key={inc.id} className="hover:bg-slate-800/20 text-slate-300">
+                                  <td className="p-4 font-bold text-white">{inc.rule_name}</td>
+                                  <td className="p-4 text-emerald-400 font-extrabold">₹{inc.amount}</td>
+                                  <td className="p-4 text-slate-400">{inc.created_at || "N/A"}</td>
+                                  <td className="p-4 text-slate-450">{inc.approved_at || "Awaiting Admin"}</td>
+                                  <td className="p-4">
+                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase border ${
+                                      inc.status === "Approved"
+                                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                        : inc.status === "Rejected"
+                                        ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                                        : "bg-yellow-500/10 border-yellow-500/20 text-yellow-400"
+                                    }`}>
+                                      {inc.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+
+          {/* Modal: View Image Proof Preview */}
+          {previewImage && (
+            <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+              <div className="relative max-w-4xl max-h-[85vh] rounded-2xl overflow-hidden glass-card p-2 border border-slate-750">
+                <button onClick={() => setPreviewImage(null)} className="absolute top-4 right-4 p-2 rounded-full bg-black/70 hover:bg-black/90 text-white cursor-pointer transition z-10"><Icon name="x-circle" className="w-5 h-5" /></button>
+                <img src={previewImage} alt="Task proof" className="max-w-full max-h-[80vh] rounded-xl object-contain" />
+              </div>
+            </div>
+          )}
+
+          {/* Modal: View Candidate Profile */}
+          {selectedCandidate && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="glass-card rounded-2xl p-6 w-full max-w-md space-y-4 relative border border-slate-700/50 text-xs font-semibold">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2 shrink-0">
+                  <Icon name="profile" className="text-blue-500" /> Candidate Profile Details
+                </h3>
+
+                <div className="space-y-3 pt-2">
+                  <div className="grid grid-cols-2 gap-4 border-b border-slate-800 pb-2.5">
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Candidate ID</span>
+                      <span className="text-xs text-white block mt-0.5 font-bold">{selectedCandidate.id}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Status</span>
+                      <span className="inline-flex items-center gap-1 mt-1">
+                        <span className={`w-2 h-2 rounded-full ${getActivityColor(selectedCandidate)}`}></span>
+                        <span className="text-white uppercase font-bold text-[10px]">{selectedCandidate.status || "Active"}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 border-b border-slate-800 pb-2.5">
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Full Name</span>
+                      <span className="text-xs text-white block mt-0.5 font-bold">{selectedCandidate.name}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Email Address</span>
+                      <span className="text-xs text-white block mt-0.5">{selectedCandidate.email}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Contact Number</span>
+                      <span className="text-xs text-white block mt-0.5">{selectedCandidate.mobile || "N/A"}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 border-b border-slate-800 pb-2.5">
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">City</span>
+                      <span className="text-xs text-white block mt-0.5">{selectedCandidate.city || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Pincode</span>
+                      <span className="text-xs text-white block mt-0.5">{selectedCandidate.pincode || "N/A"}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Wallet Balance</span>
+                      <span className="text-sm text-emerald-400 block mt-0.5 font-bold">₹{selectedCandidate.wallet_balance || 0}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Registration Date</span>
+                      <span className="text-xs text-white block mt-0.5">{selectedCandidate.created_at || "N/A"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-slate-800">
+                  <button type="button" onClick={() => setSelectedCandidate(null)} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer text-xs font-bold transition">Close Profile</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const container = document.getElementById('root');
+    const root = ReactDOM.createRoot(container);
+    root.render(<TeamLeaderPortal />);
+  </script>
+</body>
+</html>

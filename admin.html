@@ -18,8 +18,8 @@
   <!-- Google Fonts: Outfit & Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+  <script src="team_db.js"></script>
+  <script type="text/babel" src="team_admin_components.js"></script>
   <style type="text/css">
     body {
       font-family: 'Inter', sans-serif;
@@ -6315,9 +6315,13 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
       currentPage, setCurrentPage, currentUser, users, setUsers, tasks, setTasks,
       submissions, setSubmissions, kycRecords, setKycRecords, withdrawals, setWithdrawals,
       tickets, setTickets, notifications, setNotifications, handleLogout, theme, setTheme, triggerToast, updateWallet,
-      supabaseUrl, setSupabaseUrl, supabaseKey, setSupabaseKey
+      supabaseUrl, setSupabaseUrl, supabaseKey, setSupabaseKey,
+      teamLeaders, setTeamLeaders, teamAssignments, setTeamAssignments, teamReferrals, setTeamReferrals,
+      teamActivities, setTeamActivities, teamMessages, setTeamMessages, teamNotifications, setTeamNotifications,
+      teamPerformance, setTeamPerformance, teamIncentives, setTeamIncentives, teamIncentiveRules, setTeamIncentiveRules
     }) {
       const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+      const [teamLeaderMenuOpen, setTeamLeaderMenuOpen] = useState(false);
       const [previewImage, setPreviewImage] = useState(null);
 
       const menuItems = [
@@ -6372,7 +6376,64 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
 
               {/* Sidebar Menu */}
               <nav className="p-4 space-y-1">
-                {menuItems.map(item => (
+                {menuItems.slice(0, 3).map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Team Leader Management Dropdown */}
+                <div className="space-y-1">
+                  <button 
+                    onClick={() => setTeamLeaderMenuOpen(!teamLeaderMenuOpen)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer hover:bg-slate-800 hover:text-white whitespace-nowrap ${
+                      currentPage.startsWith("admin-team-") ? "text-blue-500 font-bold bg-slate-800/55 text-white" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name="shield" className="w-4 h-4 shrink-0 text-blue-500" />
+                      <span className="whitespace-nowrap text-slate-350">Team Leader Mgmt</span>
+                    </div>
+                    <Icon name={teamLeaderMenuOpen ? "chevron-up" : "chevron-down"} className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+
+                  {teamLeaderMenuOpen && (
+                    <div className="pl-4 space-y-1 border-l border-slate-800 ml-6">
+                      {[
+                        { id: "admin-team-leaders", label: "All Team Leaders" },
+                        { id: "admin-team-performance", label: "Team Performance" },
+                        { id: "admin-team-analytics", label: "Team Analytics" },
+                        { id: "admin-team-incentives", label: "Team Incentives" },
+                        { id: "admin-team-transfers", label: "Team Transfers" }
+                      ].map(sub => (
+                        <button 
+                          key={sub.id}
+                          onClick={() => setCurrentPage(sub.id)}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition cursor-pointer block ${
+                            currentPage === sub.id 
+                              ? "bg-blue-600/20 text-blue-400 border border-blue-600/30 font-bold" 
+                              : "hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          {sub.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {menuItems.slice(3).map(item => (
                   <button 
                     key={item.id}
                     onClick={() => setCurrentPage(item.id)}
@@ -6440,6 +6501,59 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
                   tasks={tasks} 
                   submissions={submissions} 
                   kycRecords={kycRecords} 
+                />
+              )}
+
+              {currentPage === "admin-team-leaders" && window.AdminTeamLeaders && (
+                <window.AdminTeamLeaders 
+                  users={users} 
+                  setUsers={setUsers}
+                  teamLeaders={teamLeaders}
+                  setTeamLeaders={setTeamLeaders}
+                  teamAssignments={teamAssignments}
+                  setTeamAssignments={setTeamAssignments}
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "admin-team-performance" && window.AdminTeamPerformance && (
+                <window.AdminTeamPerformance 
+                  users={users}
+                  teamLeaders={teamLeaders}
+                  teamAssignments={teamAssignments}
+                  submissions={submissions}
+                />
+              )}
+
+              {currentPage === "admin-team-analytics" && window.AdminTeamAnalytics && (
+                <window.AdminTeamAnalytics 
+                  users={users}
+                  teamLeaders={teamLeaders}
+                  teamAssignments={teamAssignments}
+                  teamReferrals={teamReferrals}
+                  submissions={submissions}
+                />
+              )}
+
+              {currentPage === "admin-team-incentives" && window.AdminTeamIncentives && (
+                <window.AdminTeamIncentives 
+                  users={users}
+                  teamLeaders={teamLeaders}
+                  teamIncentives={teamIncentives}
+                  setTeamIncentives={setTeamIncentives}
+                  teamIncentiveRules={teamIncentiveRules}
+                  setTeamIncentiveRules={setTeamIncentiveRules}
+                  triggerToast={triggerToast}
+                />
+              )}
+
+              {currentPage === "admin-team-transfers" && window.AdminTeamTransfers && (
+                <window.AdminTeamTransfers 
+                  users={users}
+                  teamLeaders={teamLeaders}
+                  teamAssignments={teamAssignments}
+                  setTeamAssignments={setTeamAssignments}
+                  triggerToast={triggerToast}
                 />
               )}
 
@@ -6621,8 +6735,18 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
       const [kycRecords, setKycRecords] = useState([]);
       const [withdrawals, setWithdrawals] = useState([]);
       const [tickets, setTickets] = useState([]);
-      const [notifications, setNotifications] = useState([]);
+       const [notifications, setNotifications] = useState([]);
       const [toast, setToast] = useState(null);
+
+      const [teamLeaders, setTeamLeaders] = useState([]);
+      const [teamAssignments, setTeamAssignments] = useState([]);
+      const [teamReferrals, setTeamReferrals] = useState([]);
+      const [teamActivities, setTeamActivities] = useState([]);
+      const [teamMessages, setTeamMessages] = useState([]);
+      const [teamNotifications, setTeamNotifications] = useState([]);
+      const [teamPerformance, setTeamPerformance] = useState([]);
+      const [teamIncentives, setTeamIncentives] = useState([]);
+      const [teamIncentiveRules, setTeamIncentiveRules] = useState([]);
 
       const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem("krv-supabase-url") || SUPABASE_URL_DEFAULT);
       const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem("krv-supabase-key") || SUPABASE_KEY_DEFAULT);
@@ -6758,12 +6882,32 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
                 prevTicketsRef.current = dbTickets;
               }
 
-              // 7. Fetch Notifications
+               // 7. Fetch Notifications
               const { data: dbNotifs, error: nErr } = await client.from("krv_notifications").select("*");
               if (!nErr && dbNotifs) {
                 setNotifications(dbNotifs);
                 prevNotificationsRef.current = dbNotifs;
               }
+
+              // Team Leader Module Data Fetch
+              const dbTls = await window.TeamDB.getTeamLeaders();
+              setTeamLeaders(dbTls);
+              const dbAsg = await window.TeamDB.getAssignments();
+              setTeamAssignments(dbAsg);
+              const dbRefs = await window.TeamDB.getReferrals();
+              setTeamReferrals(dbRefs);
+              const dbActs = await window.TeamDB.getActivities();
+              setTeamActivities(dbActs);
+              const dbMsgs = await window.TeamDB.getMessages();
+              setTeamMessages(dbMsgs);
+              const dbTeamNotifs = await window.TeamDB.getNotifications();
+              setTeamNotifications(dbTeamNotifs);
+              const dbPerfs = await window.TeamDB.getPerformance();
+              setTeamPerformance(dbPerfs);
+              const dbIncs = await window.TeamDB.getIncentives();
+              setTeamIncentives(dbIncs);
+              const dbRules = await window.TeamDB.getIncentiveRules();
+              setTeamIncentiveRules(dbRules);
 
               // Set up Real-time Socket Channels
               channel = client.channel('krv-realtime-channel')
@@ -7184,6 +7328,24 @@ ALTER TABLE krv_notifications DISABLE ROW LEVEL SECURITY;`;
           setSupabaseUrl={setSupabaseUrl}
           supabaseKey={supabaseKey}
           setSupabaseKey={setSupabaseKey}
+          teamLeaders={teamLeaders}
+          setTeamLeaders={setTeamLeaders}
+          teamAssignments={teamAssignments}
+          setTeamAssignments={setTeamAssignments}
+          teamReferrals={teamReferrals}
+          setTeamReferrals={setTeamReferrals}
+          teamActivities={teamActivities}
+          setTeamActivities={setTeamActivities}
+          teamMessages={teamMessages}
+          setTeamMessages={setTeamMessages}
+          teamNotifications={teamNotifications}
+          setTeamNotifications={setTeamNotifications}
+          teamPerformance={teamPerformance}
+          setTeamPerformance={setTeamPerformance}
+          teamIncentives={teamIncentives}
+          setTeamIncentives={setTeamIncentives}
+          teamIncentiveRules={teamIncentiveRules}
+          setTeamIncentiveRules={setTeamIncentiveRules}
         />
       );
     }

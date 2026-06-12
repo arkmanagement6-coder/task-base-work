@@ -16,8 +16,7 @@
   <!-- Google Fonts: Outfit & Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+  <script src="team_db.js"></script>
   <style type="text/css">
     body {
       font-family: 'Inter', sans-serif;
@@ -3035,9 +3034,26 @@
 
               // 7. Fetch Notifications
               const { data: dbNotifs, error: nErr } = await client.from("krv_notifications").select("*").eq("user_id", user.id);
-              if (!nErr && dbNotifs) {
-                setNotifications(dbNotifs);
-                prevNotificationsRef.current = dbNotifs;
+              let mergedNotifs = dbNotifs || [];
+              try {
+                const dbTeamNotifs = await window.TeamDB.getNotifications();
+                const tlNotifs = dbTeamNotifs.filter(n => n.user_id === user.id);
+                mergedNotifs = [...mergedNotifs, ...tlNotifs];
+              } catch (e) {
+                console.error("TL Notifications load error:", e);
+              }
+              setNotifications(mergedNotifs);
+              prevNotificationsRef.current = mergedNotifs;
+
+              // Log Candidate Login Activity
+              try {
+                await window.TeamDB.logActivity({
+                  user_id: user.id,
+                  action: "CANDIDATE_ACTIVE",
+                  details: `Candidate "${user.name}" accessed portal.`
+                });
+              } catch (e) {
+                console.error("TL Log activity error:", e);
               }
 
               // Dynamic Inactivity Check & Auto-Persistence

@@ -54,6 +54,7 @@
       color: #f8fafc;
     }
   </style>
+  <script src="team_db.js"></script>
 </head>
 <body class="app-bg min-h-screen text-[var(--text-main)] transition-colors duration-300">
   
@@ -141,19 +142,44 @@
       const [toast, setToast] = useState(null);
       const [agents, setAgents] = useState([]);
 
+      const [referredByTL, setReferredByTL] = useState(null);
+
       useEffect(() => {
-        const client = getSupabaseClient();
-        if (client) {
-          client.from("krv_users").select("*").eq("role", "agent").then(({ data, error }) => {
-            if (!error && data) {
-              // Filter out agents who are blocked or inactive
-              const activeAgents = data.filter(
-                a => a.status !== "Blocked" && a.kyc_status !== "Blocked" && a.status !== "Inactive"
+        const loadInitData = async () => {
+          try {
+            // Load agents
+            const dbUsers = await window.TeamDB.getUsers();
+            if (dbUsers) {
+              const activeAgents = dbUsers.filter(
+                a => a.role === "agent" && a.status !== "Blocked" && a.kyc_status !== "Blocked" && a.status !== "Inactive"
               );
               setAgents(activeAgents);
             }
-          });
-        }
+
+            // Parse URL ref
+            const refCode = new URLSearchParams(window.location.search).get('ref');
+            if (refCode) {
+              const tls = await window.TeamDB.getTeamLeaders();
+              const matchedTL = tls.find(t => t.tl_code.toUpperCase() === refCode.toUpperCase() && t.status !== 'Inactive');
+              if (matchedTL) {
+                // Find user info for this TL to get their name
+                const tlUser = dbUsers.find(u => u.id === matchedTL.user_id);
+                if (tlUser) {
+                  setReferredByTL({
+                    user_id: matchedTL.user_id,
+                    tl_code: matchedTL.tl_code,
+                    name: tlUser.name
+                  });
+                  // Pre-populate referral field to satisfy validation
+                  setFormData(prev => ({ ...prev, referral: "TL_REF" }));
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Error loading register initial data:", e);
+          }
+        };
+        loadInitData();
       }, []);
 
       useEffect(() => {
@@ -178,7 +204,7 @@
       const handleRegisterSubmit = async (e) => {
         e.preventDefault();
         
-        if (!formData.referral) {
+        if (!formData.referral && !referredByTL) {
           triggerToast("Please select the agent who referred you.", "error");
           return;
         }
@@ -188,15 +214,9 @@
           return;
         }
 
-        const client = getSupabaseClient();
-        if (!client) {
-          triggerToast("Supabase client connection error.", "error");
-          return;
-        }
-
         try {
-          const { data: dbUsers, error } = await client.from("krv_users").select("*");
-          if (error || !dbUsers) {
+          const dbUsers = await window.TeamDB.getUsers();
+          if (!dbUsers) {
             triggerToast("Failed to connect to database.", "error");
             return;
           }
@@ -219,7 +239,7 @@
             mobile: formData.mobile,
             city: formData.city,
             pincode: formData.pincode,
-            referral_code: formData.referral,
+            referral_code: referredByTL ? referredByTL.tl_code : formData.referral,
             wallet_balance: 0,
             earnings_pending: 0,
             earnings_paid: 0,
@@ -241,13 +261,36 @@
             status: "Pending"
           };
 
-          const { error: insertErr } = await client.from("krv_users").insert([newUser]);
-          if (insertErr) {
-            triggerToast("Failed to create account in cloud.", "error");
-            console.error("Cloud insert error:", insertErr);
+          const { success: insertSuccess } = await window.TeamDB.saveUser(newUser);
+          if (!insertSuccess) {
+            triggerToast("Failed to create account in database.", "error");
           } else {
             // Auto create candidate kyc profile in database for direct admin approval
-            await client.from("krv_kyc").insert([newKyc]);
+            await window.TeamDB.upsert("krv_kyc", "krv-kyc", newKyc);
+
+            // Auto-assign to Team Leader if registered via TL link
+            if (referredByTL) {
+              await window.TeamDB.saveAssignment({
+                id: "asg_" + newId,
+                tl_id: referredByTL.user_id,
+                candidate_id: newId,
+                assigned_at: new Date().toISOString().split('T')[0]
+              });
+
+              await window.TeamDB.saveReferral({
+                id: "ref_" + newId,
+                tl_id: referredByTL.user_id,
+                candidate_id: newId,
+                registered_at: new Date().toISOString().split('T')[0]
+              });
+
+              await window.TeamDB.logActivity({
+                user_id: newId,
+                action: "CANDIDATE_REGISTER",
+                details: `Registered via Team Leader referral code: ${referredByTL.tl_code}`
+              });
+            }
+
             triggerToast("Account created successfully! Redirecting to login...");
             setTimeout(() => {
               window.location.href = "login.html";
@@ -312,15 +355,22 @@
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Referred By</label>
-                  <select required name="referral" value={formData.referral} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-900 focus:outline-none focus:border-blue-500 text-white cursor-pointer">
-                    <option value="">-- Select Agent --</option>
-                    {agents.map(a => (
-                      <option key={a.id} value={a.name}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {referredByTL ? (
+                  <div className="p-3.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-xs font-semibold flex items-center gap-2">
+                    <Icon name="check-circle" className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>Referred by Team Leader: <strong className="text-white">{referredByTL.name}</strong> ({referredByTL.tl_code})</span>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-400 mb-1.5">Referred By</label>
+                    <select required name="referral" value={formData.referral} onChange={handleChange} className="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-900 focus:outline-none focus:border-blue-500 text-white cursor-pointer">
+                      <option value="">-- Select Agent --</option>
+                      {agents.map(a => (
+                        <option key={a.id} value={a.name}>{a.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

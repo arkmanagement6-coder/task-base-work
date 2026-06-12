@@ -50,6 +50,7 @@
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
   </style>
+  <script src="team_db.js"></script>
   <script>
     // Cryptographic Secure Hashing function for auto-redirection
     const sha256Direct = async (text) => {
@@ -72,6 +73,8 @@
                 window.location.href = "admin.html";
               } else if (user.role === "agent") {
                 window.location.href = "agent.html";
+              } else if (user.role === "team_leader") {
+                window.location.href = "teamleader.html";
               } else {
                 window.location.href = "candidate.html";
               }
@@ -197,15 +200,9 @@
 
       const handleLoginSubmit = async (e) => {
         e.preventDefault();
-        const client = getSupabaseClient();
-        if (!client) {
-          triggerToast("Supabase client connection error.", "error");
-          return;
-        }
-
         try {
-          const { data: dbUsers, error } = await client.from("krv_users").select("*");
-          if (error || !dbUsers) {
+          const dbUsers = await window.TeamDB.getUsers();
+          if (!dbUsers) {
             triggerToast("Failed to connect to database.", "error");
             return;
           }
@@ -237,6 +234,8 @@
               window.location.href = "admin.html";
             } else if (matchedUser.role === "agent") {
               window.location.href = "agent.html";
+            } else if (matchedUser.role === "team_leader") {
+              window.location.href = "teamleader.html";
             } else {
               window.location.href = "candidate.html";
             }
@@ -249,15 +248,9 @@
 
       const handleForgotSubmit = async (e) => {
         e.preventDefault();
-        const client = getSupabaseClient();
-        if (!client) {
-          triggerToast("Supabase client connection error.", "error");
-          return;
-        }
-
         try {
           if (forgotStep === 1) {
-            const { data: dbUsers } = await client.from("krv_users").select("*");
+            const dbUsers = await window.TeamDB.getUsers();
             const matched = dbUsers?.some(u => u.email.toLowerCase() === formData.email.toLowerCase());
             if (!matched) {
               triggerToast("Email not found.", "error");
@@ -276,8 +269,15 @@
             }
           } else {
             const hashedPassword = await getSaltedHash(formData.email, formData.password);
-            const { error } = await client.from("krv_users").update({ password: hashedPassword }).eq("email", formData.email);
-            if (error) {
+            const dbUsers = await window.TeamDB.getUsers();
+            const matchedUser = dbUsers.find(u => u.email.toLowerCase() === formData.email.toLowerCase());
+            if (!matchedUser) {
+              triggerToast("Account not found.", "error");
+              return;
+            }
+            matchedUser.password = hashedPassword;
+            const { success } = await window.TeamDB.saveUser(matchedUser);
+            if (!success) {
               triggerToast("Failed to update password in database.", "error");
             } else {
               triggerToast("Password reset successfully! Log in now.");
