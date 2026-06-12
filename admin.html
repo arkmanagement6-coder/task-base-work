@@ -6342,7 +6342,8 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
       teamPerformance, setTeamPerformance, teamIncentives, setTeamIncentives, teamIncentiveRules, setTeamIncentiveRules
     }) {
       const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
-      const [teamLeaderMenuOpen, setTeamLeaderMenuOpen] = useState(false);
+      const [teamLeaderMenuOpen, setTeamLeaderMenuOpen] = useState(() => currentPage.startsWith("admin-team-"));
+      const [reviewMenuOpen, setReviewMenuOpen] = useState(() => currentPage.startsWith("admin-review-"));
       const [previewImage, setPreviewImage] = useState(null);
 
       const menuItems = [
@@ -6454,7 +6455,62 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
                   )}
                 </div>
 
-                {menuItems.slice(3).map(item => (
+                {menuItems.slice(3, 5).map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Review Verification Dropdown */}
+                <div className="space-y-1">
+                  <button 
+                    onClick={() => setReviewMenuOpen(!reviewMenuOpen)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer hover:bg-slate-800 hover:text-white whitespace-nowrap ${
+                      currentPage.startsWith("admin-review-") ? "text-blue-500 font-bold bg-slate-800/55 text-white" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name="check-circle" className="w-4 h-4 shrink-0 text-blue-500" />
+                      <span className="whitespace-nowrap text-slate-350">Review Verification</span>
+                    </div>
+                    <Icon name={reviewMenuOpen ? "chevron-up" : "chevron-down"} className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+
+                  {reviewMenuOpen && (
+                    <div className="pl-4 space-y-1 border-l border-slate-800 ml-6">
+                      {[
+                        { id: "admin-review-verification", label: "Review Verification" },
+                        { id: "admin-review-analytics", label: "Review Analytics" },
+                        { id: "admin-review-logs", label: "Verification Logs" }
+                      ].map(sub => (
+                        <button 
+                          key={sub.id}
+                          onClick={() => setCurrentPage(sub.id)}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition cursor-pointer block ${
+                            currentPage === sub.id 
+                              ? "bg-blue-600/20 text-blue-400 border border-blue-600/30 font-bold" 
+                              : "hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          {sub.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {menuItems.slice(8).map(item => (
                   <button 
                     key={item.id}
                     onClick={() => setCurrentPage(item.id)}
