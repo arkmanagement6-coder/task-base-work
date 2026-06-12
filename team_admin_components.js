@@ -826,6 +826,24 @@
       return submissions.filter(s => s.user_id === selectedCandidate.id);
     }, [selectedCandidate, submissions]);
 
+    const selectedTL = useMemo(() => {
+      if (!selectedTLId) return null;
+      return teamLeaders.find(t => t.user_id === selectedTLId);
+    }, [selectedTLId, teamLeaders]);
+
+    const selectedTLUser = useMemo(() => {
+      if (!selectedTLId) return {};
+      return users.find(u => u.id === selectedTLId) || {};
+    }, [selectedTLId, users]);
+
+    const selectedTLCandidates = useMemo(() => {
+      if (!selectedTLId) return [];
+      const teamCandIds = teamAssignments
+        .filter(a => a.tl_id === selectedTLId)
+        .map(a => a.candidate_id);
+      return users.filter(u => teamCandIds.includes(u.id));
+    }, [selectedTLId, teamAssignments, users]);
+
     return (
       <div className="space-y-6">
         {/* Metric Cards */}
@@ -941,100 +959,91 @@
         </div>
 
         {/* Selected Team Leader Candidates List */}
-        {selectedTLId && (() => {
-          const tl = teamLeaders.find(t => t.user_id === selectedTLId);
-          const tlUser = users.find(u => u.id === selectedTLId) || {};
-          const teamCandIds = teamAssignments
-            .filter(a => a.tl_id === selectedTLId)
-            .map(a => a.candidate_id);
-          const teamCands = users.filter(u => teamCandIds.includes(u.id));
-
-          return (
-            <div className="glass-card rounded-2xl p-6 border border-slate-800/40 space-y-4 animate-fade-in">
-              <div className="flex justify-between items-center border-b border-slate-800/60 pb-3">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Icon name="profile" className="w-4.5 h-4.5 text-blue-500" />
-                    Team Candidates: {tlUser.name || "N/A"} ({tl?.tl_code || "N/A"})
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Click on a candidate's name to view their complete work details and history.</p>
-                </div>
-                <button 
-                  onClick={() => setSelectedTLId(null)} 
-                  className="text-xs font-bold text-rose-400 hover:text-rose-350 cursor-pointer"
-                >
-                  Close Section
-                </button>
+        {selectedTLId && (
+          <div className="glass-card rounded-2xl p-6 border border-slate-800/40 space-y-4 animate-fade-in">
+            <div className="flex justify-between items-center border-b border-slate-800/60 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Icon name="profile" className="w-4.5 h-4.5 text-blue-500" />
+                  Team Candidates: {selectedTLUser.name || "N/A"} ({selectedTL?.tl_code || "N/A"})
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Click on a candidate's name to view their complete work details and history.</p>
               </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 bg-slate-900/40 text-slate-400 uppercase text-[10px] font-bold tracking-wider">
-                      <th className="p-3">Candidate Name</th>
-                      <th className="p-3">Contact Details</th>
-                      <th className="p-3">City / Pincode</th>
-                      <th className="p-3">KYC Status</th>
-                      <th className="p-3">Wallet Balance</th>
-                      <th className="p-3">Total Submissions</th>
-                      <th className="p-3 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/40 text-xs font-medium">
-                    {teamCands.length === 0 ? (
-                      <tr>
-                        <td colSpan="7" className="p-8 text-center text-slate-500">No candidates assigned to this Team Leader.</td>
-                      </tr>
-                    ) : (
-                      teamCands.map(cand => {
-                        const candSubs = submissions.filter(s => s.user_id === cand.id);
-                        return (
-                          <tr key={cand.id} className="hover:bg-slate-800/10 text-slate-350">
-                            <td className="p-3">
-                              <span 
-                                onClick={() => setSelectedCandidate(cand)}
-                                className="font-bold text-blue-400 hover:text-blue-300 cursor-pointer hover:underline block"
-                              >
-                                {cand.name}
-                              </span>
-                              <span className="text-[9px] text-slate-500 font-bold">ID: {cand.id}</span>
-                            </td>
-                            <td className="p-3">
-                              <span className="block text-white font-mono text-[11px]">{cand.email}</span>
-                              <span className="block text-slate-500 text-[10px]">{cand.mobile || "No Mobile"}</span>
-                            </td>
-                            <td className="p-3">
-                              <span className="block text-white">{cand.city || "N/A"}</span>
-                              <span className="block text-slate-500 text-[10px]">{cand.pincode || ""}</span>
-                            </td>
-                            <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase ${
-                                cand.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                                cand.kyc_status === "Rejected" ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
-                                "bg-yellow-500/10 text-yellow-400 border-yellow-500/20 animate-pulse"
-                              }`}>
-                                {cand.kyc_status || "Pending"}
-                              </span>
-                            </td>
-                            <td className="p-3 font-bold text-white">₹{cand.wallet_balance || 0}</td>
-                            <td className="p-3 text-slate-400"><span className="font-bold text-white">{candSubs.length}</span> tasks</td>
-                            <td className="p-3 text-center">
-                              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                                cand.status === "Active" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                              }`}>
-                                {cand.status || "Active"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <button 
+                onClick={() => setSelectedTLId(null)} 
+                className="text-xs font-bold text-rose-400 hover:text-rose-350 cursor-pointer"
+              >
+                Close Section
+              </button>
             </div>
-          );
-        })()}
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/40 text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+                    <th className="p-3">Candidate Name</th>
+                    <th className="p-3">Contact Details</th>
+                    <th className="p-3">City / Pincode</th>
+                    <th className="p-3">KYC Status</th>
+                    <th className="p-3">Wallet Balance</th>
+                    <th className="p-3">Total Submissions</th>
+                    <th className="p-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/40 text-xs font-medium">
+                  {selectedTLCandidates.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="p-8 text-center text-slate-500">No candidates assigned to this Team Leader.</td>
+                    </tr>
+                  ) : (
+                    selectedTLCandidates.map(cand => {
+                      const candSubs = submissions.filter(s => s.user_id === cand.id);
+                      return (
+                        <tr key={cand.id} className="hover:bg-slate-800/10 text-slate-350">
+                          <td className="p-3">
+                            <span 
+                              onClick={() => setSelectedCandidate(cand)}
+                              className="font-bold text-blue-400 hover:text-blue-300 cursor-pointer hover:underline block"
+                            >
+                              {cand.name}
+                            </span>
+                            <span className="text-[9px] text-slate-500 font-bold">ID: {cand.id}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className="block text-white font-mono text-[11px]">{cand.email}</span>
+                            <span className="block text-slate-500 text-[10px]">{cand.mobile || "No Mobile"}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className="block text-white">{cand.city || "N/A"}</span>
+                            <span className="block text-slate-500 text-[10px]">{cand.pincode || ""}</span>
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase ${
+                              cand.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                              cand.kyc_status === "Rejected" ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                              "bg-yellow-500/10 text-yellow-400 border-yellow-500/20 animate-pulse"
+                            }`}>
+                              {cand.kyc_status || "Pending"}
+                            </span>
+                          </td>
+                          <td className="p-3 font-bold text-white">₹{cand.wallet_balance || 0}</td>
+                          <td className="p-3 text-slate-400"><span className="font-bold text-white">{candSubs.length}</span> tasks</td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                              cand.status === "Active" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            }`}>
+                              {cand.status || "Active"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Candidate Detail Modal */}
         {selectedCandidate && (
@@ -1168,6 +1177,7 @@
             </div>
           </div>
         )}
+      </div>
     );
   }
 
