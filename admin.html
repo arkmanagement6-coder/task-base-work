@@ -6352,7 +6352,7 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
       const menuItems = [
         { id: "admin-dashboard", icon: "home", label: "Dashboard" },
         { id: "admin-candidates", icon: "profile", label: "Candidates" },
-        { id: "admin-agents", icon: "shield", label: "Agent Control" },
+        { id: "admin-agents", icon: "shield", label: "HR Management" },
         { id: "admin-tasks", icon: "tasks", label: "Task CRUD" },
         { id: "admin-reviews", icon: "check-circle", label: "Task Reviews" },
         { id: "admin-review-verification", icon: "check-circle", label: "Review Verification" },
@@ -6455,24 +6455,6 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
                     </div>
                   )}
                 </div>
-
-                {/* 3. Agent Control */}
-                {menuItems.filter(item => item.id === "admin-agents").map(item => (
-                  <button 
-                    key={item.id}
-                    onClick={() => setCurrentPage(item.id)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
-                      currentPage === item.id 
-                        ? "bg-blue-600 text-white shadow-lg" 
-                        : "hover:bg-slate-800 hover:text-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
-                      <span className="whitespace-nowrap">{item.label}</span>
-                    </div>
-                  </button>
-                ))}
 
                 {/* 4. Team Leader Management Dropdown */}
                 <div className="space-y-1">
@@ -6625,6 +6607,24 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
                     </div>
                   )}
                 </div>
+
+                {/* 3. HR Management (Agent Control) */}
+                {menuItems.filter(item => item.id === "admin-agents").map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    </div>
+                  </button>
+                ))}
 
                 {/* 8. Remaining Menu Items */}
                 {menuItems.filter(item => [
