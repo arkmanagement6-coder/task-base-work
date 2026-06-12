@@ -763,8 +763,12 @@
     users,
     teamLeaders,
     teamAssignments,
-    submissions
+    submissions,
+    tasks = []
   }) {
+    const [selectedTLId, setSelectedTLId] = useState(null);
+    const [selectedCandidate, setSelectedCandidate] = useState(null);
+
     // Computing performance scores
     const teamPerformances = useMemo(() => {
       return teamLeaders.map(tl => {
@@ -815,6 +819,12 @@
       const sum = activeTeams.reduce((acc, t) => acc + t.score, 0);
       return Math.round(sum / activeTeams.length);
     }, [teamPerformances]);
+
+    // Filter submissions for selected candidate
+    const candidateSubmissions = useMemo(() => {
+      if (!selectedCandidate) return [];
+      return submissions.filter(s => s.user_id === selectedCandidate.id);
+    }, [selectedCandidate, submissions]);
 
     return (
       <div className="space-y-6">
@@ -872,46 +882,292 @@
                     <td colSpan="7" className="p-8 text-center text-slate-500">No teams registered.</td>
                   </tr>
                 ) : (
-                  teamPerformances.map(tp => (
-                    <tr key={tp.id} className="hover:bg-slate-800/20 text-slate-300">
-                      <td className="p-4">
-                        <span className="font-bold text-white block">{tp.name}</span>
-                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Code: {tp.code}</span>
-                      </td>
-                      <td className="p-4"><span className="font-bold text-white">{tp.size}</span> candidates</td>
-                      <td className="p-4 text-yellow-500 font-bold">{tp.pending} tasks</td>
-                      <td className="p-4 text-emerald-400 font-bold">{tp.approved} tasks</td>
-                      <td className="p-4 text-rose-500 font-bold">{tp.rejected} tasks</td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-white">{tp.score}%</span>
-                          <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                            <div className="h-full bg-blue-500" style={{ width: `${tp.score}%` }}></div>
+                  teamPerformances.map(tp => {
+                    const currentTL = teamLeaders.find(t => t.id === tp.id);
+                    const isSelected = currentTL && selectedTLId === currentTL.user_id;
+                    
+                    return (
+                      <tr key={tp.id} className={`hover:bg-slate-800/20 text-slate-300 transition ${isSelected ? "bg-blue-500/5" : ""}`}>
+                        <td className="p-4 font-medium">
+                          <span 
+                            onClick={() => {
+                              if (currentTL) {
+                                setSelectedTLId(isSelected ? null : currentTL.user_id);
+                              }
+                            }}
+                            className={`font-bold block cursor-pointer transition hover:underline ${
+                              isSelected ? "text-blue-400" : "text-white hover:text-blue-400"
+                            }`}
+                          >
+                            {tp.name}
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">
+                            Code: {tp.code} • Click to view team
+                          </span>
+                        </td>
+                        <td className="p-4"><span className="font-bold text-white">{tp.size}</span> candidates</td>
+                        <td className="p-4 text-yellow-500 font-bold">{tp.pending} tasks</td>
+                        <td className="p-4 text-emerald-400 font-bold">{tp.approved} tasks</td>
+                        <td className="p-4 text-rose-500 font-bold">{tp.rejected} tasks</td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-white">{tp.score}%</span>
+                            <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                              <div className="h-full bg-blue-500" style={{ width: `${tp.score}%` }}></div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-                          tp.activityStatus === "Green"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : tp.activityStatus === "Yellow"
-                            ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
-                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            tp.activityStatus === "Green" ? "bg-emerald-500 animate-pulse" : tp.activityStatus === "Yellow" ? "bg-yellow-500" : "bg-rose-500"
-                          }`}></span>
-                          {tp.activityStatus === "Green" ? "Active" : tp.activityStatus === "Yellow" ? "Low Activity" : "Inactive"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
+                            tp.activityStatus === "Green"
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : tp.activityStatus === "Yellow"
+                              ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+                              : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              tp.activityStatus === "Green" ? "bg-emerald-500 animate-pulse" : tp.activityStatus === "Yellow" ? "bg-yellow-500" : "bg-rose-500"
+                            }`}></span>
+                            {tp.activityStatus === "Green" ? "Active" : tp.activityStatus === "Yellow" ? "Low Activity" : "Inactive"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+
+        {/* Selected Team Leader Candidates List */}
+        {selectedTLId && (() => {
+          const tl = teamLeaders.find(t => t.user_id === selectedTLId);
+          const tlUser = users.find(u => u.id === selectedTLId) || {};
+          const teamCandIds = teamAssignments
+            .filter(a => a.tl_id === selectedTLId)
+            .map(a => a.candidate_id);
+          const teamCands = users.filter(u => teamCandIds.includes(u.id));
+
+          return (
+            <div className="glass-card rounded-2xl p-6 border border-slate-800/40 space-y-4 animate-fade-in">
+              <div className="flex justify-between items-center border-b border-slate-800/60 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Icon name="profile" className="w-4.5 h-4.5 text-blue-500" />
+                    Team Candidates: {tlUser.name || "N/A"} ({tl?.tl_code || "N/A"})
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Click on a candidate's name to view their complete work details and history.</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedTLId(null)} 
+                  className="text-xs font-bold text-rose-400 hover:text-rose-350 cursor-pointer"
+                >
+                  Close Section
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-900/40 text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+                      <th className="p-3">Candidate Name</th>
+                      <th className="p-3">Contact Details</th>
+                      <th className="p-3">City / Pincode</th>
+                      <th className="p-3">KYC Status</th>
+                      <th className="p-3">Wallet Balance</th>
+                      <th className="p-3">Total Submissions</th>
+                      <th className="p-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/40 text-xs font-medium">
+                    {teamCands.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="p-8 text-center text-slate-500">No candidates assigned to this Team Leader.</td>
+                      </tr>
+                    ) : (
+                      teamCands.map(cand => {
+                        const candSubs = submissions.filter(s => s.user_id === cand.id);
+                        return (
+                          <tr key={cand.id} className="hover:bg-slate-800/10 text-slate-350">
+                            <td className="p-3">
+                              <span 
+                                onClick={() => setSelectedCandidate(cand)}
+                                className="font-bold text-blue-400 hover:text-blue-300 cursor-pointer hover:underline block"
+                              >
+                                {cand.name}
+                              </span>
+                              <span className="text-[9px] text-slate-500 font-bold">ID: {cand.id}</span>
+                            </td>
+                            <td className="p-3">
+                              <span className="block text-white font-mono text-[11px]">{cand.email}</span>
+                              <span className="block text-slate-500 text-[10px]">{cand.mobile || "No Mobile"}</span>
+                            </td>
+                            <td className="p-3">
+                              <span className="block text-white">{cand.city || "N/A"}</span>
+                              <span className="block text-slate-500 text-[10px]">{cand.pincode || ""}</span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase ${
+                                cand.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                cand.kyc_status === "Rejected" ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                                "bg-yellow-500/10 text-yellow-400 border-yellow-500/20 animate-pulse"
+                              }`}>
+                                {cand.kyc_status || "Pending"}
+                              </span>
+                            </td>
+                            <td className="p-3 font-bold text-white">₹{cand.wallet_balance || 0}</td>
+                            <td className="p-3 text-slate-400"><span className="font-bold text-white">{candSubs.length}</span> tasks</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                                cand.status === "Active" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                              }`}>
+                                {cand.status || "Active"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Candidate Detail Modal */}
+        {selectedCandidate && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl animate-fade-in">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-850 flex justify-between items-center bg-slate-950/40">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Icon name="profile" className="w-5 h-5 text-blue-500" />
+                    {selectedCandidate.name} - Work Portfolio
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Email: {selectedCandidate.email} • Mobile: {selectedCandidate.mobile || "N/A"} • City: {selectedCandidate.city || "N/A"}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedCandidate(null)} 
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer transition"
+                >
+                  <Icon name="x-circle" className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto space-y-6 flex-grow">
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="glass-card rounded-2xl p-4 bg-slate-950/20">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Wallet Balance</span>
+                    <span className="text-xl font-extrabold text-white mt-1 block">₹{selectedCandidate.wallet_balance || 0}</span>
+                  </div>
+                  <div className="glass-card rounded-2xl p-4 bg-slate-950/20">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending Earnings</span>
+                    <span className="text-xl font-extrabold text-yellow-500 mt-1 block">₹{selectedCandidate.earnings_pending || 0}</span>
+                  </div>
+                  <div className="glass-card rounded-2xl p-4 bg-slate-950/20">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Paid Earnings</span>
+                    <span className="text-xl font-extrabold text-emerald-400 mt-1 block">₹{selectedCandidate.earnings_paid || 0}</span>
+                  </div>
+                  <div className="glass-card rounded-2xl p-4 bg-slate-950/20">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">KYC Status</span>
+                    <span className={`text-sm font-extrabold mt-1.5 inline-block px-2.5 py-0.5 rounded-full uppercase ${
+                      selectedCandidate.kyc_status === "Approved" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                      selectedCandidate.kyc_status === "Rejected" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" :
+                      "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse"
+                    }`}>
+                      {selectedCandidate.kyc_status || "Pending"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Submissions Table */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Submissions History</h4>
+                  <div className="glass-card rounded-2xl overflow-hidden border border-slate-800">
+                    <div className="overflow-x-auto max-h-[300px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400 uppercase text-[10px] font-bold tracking-wider">
+                            <th className="p-3">Task / App</th>
+                            <th className="p-3">Submitted Link</th>
+                            <th className="p-3">Date</th>
+                            <th className="p-3">Amount</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3">Audit Details</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/40 text-xs font-medium text-slate-350">
+                          {candidateSubmissions.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" className="p-8 text-center text-slate-500">No submissions recorded for this candidate.</td>
+                            </tr>
+                          ) : (
+                            candidateSubmissions.map(sub => {
+                              const t = tasks.find(tsk => tsk.id === sub.task_id) || {};
+                              return (
+                                <tr key={sub.id} className="hover:bg-slate-800/10">
+                                  <td className="p-3">
+                                    <span className="font-bold text-white block">{t.title || sub.task_id}</span>
+                                    <span className="text-[9px] text-slate-500 font-bold uppercase">{t.type || "Review"}</span>
+                                  </td>
+                                  <td className="p-3">
+                                    <a 
+                                      href={sub.submitted_link} 
+                                      target="_blank" 
+                                      rel="noreferrer" 
+                                      className="text-blue-400 hover:underline flex items-center gap-1 max-w-[150px] truncate"
+                                    >
+                                      <Icon name="link" className="w-3.5 h-3.5 shrink-0" />
+                                      {sub.submitted_link}
+                                    </a>
+                                  </td>
+                                  <td className="p-3 font-mono text-[11px]">{sub.date || "N/A"}</td>
+                                  <td className="p-3 font-bold text-white">₹{sub.amount}</td>
+                                  <td className="p-3">
+                                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase ${
+                                      sub.review_status === "Approved" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                      sub.review_status === "Rejected" ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                                      sub.review_status === "Under Review" ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20" :
+                                      sub.review_status === "Re-Submit" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                      "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                                    }`}>
+                                      {sub.review_status}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-[10px] leading-relaxed max-w-[200px]">
+                                    {sub.remarks && <p className="text-slate-400 italic font-normal">"{sub.remarks}"</p>}
+                                    {sub.rejection_reason && <p className="text-rose-400 font-semibold mt-1">Reason: {sub.rejection_reason}</p>}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-slate-850 bg-slate-950/20 flex justify-end">
+                <button 
+                  onClick={() => setSelectedCandidate(null)} 
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs cursor-pointer transition"
+                >
+                  Close Portfolio
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     );
   }
 
