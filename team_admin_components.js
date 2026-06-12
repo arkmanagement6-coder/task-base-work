@@ -33,6 +33,24 @@
     const [newPassword, setNewPassword] = useState("");
     const [selectedCandidates, setSelectedCandidates] = useState([]);
     const [assignSearchTerm, setAssignSearchTerm] = useState("");
+    const [dbMode, setDbMode] = useState("checking"); // 'checking' | 'live' | 'local'
+
+    useEffect(() => {
+      let isMounted = true;
+      const checkStatus = async () => {
+        if (window.TeamDB && typeof window.TeamDB.checkCloudStatus === 'function') {
+          const isLive = await window.TeamDB.checkCloudStatus();
+          if (isMounted) {
+            setDbMode(isLive ? "live" : "local");
+          }
+        } else {
+          // Retry checking status after a delay
+          setTimeout(checkStatus, 500);
+        }
+      };
+      checkStatus();
+      return () => { isMounted = false; };
+    }, []);
 
     // Stats calculations
     const stats = useMemo(() => {
@@ -383,13 +401,39 @@
           </div>
           <div className="glass-card rounded-2xl p-5 flex flex-col justify-between col-span-2">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Module Operational Status</span>
-            <span className="text-xl font-extrabold mt-2 text-emerald-400 flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Local Testing Sandbox Active
-            </span>
-            <span className="text-[10px] text-slate-400 mt-2 block leading-relaxed">
-              New collections: team_leaders, team_assignments, team_referrals, team_activities, team_messages, team_notifications, team_performance, team_incentives
-            </span>
+            {dbMode === "live" && (
+              <>
+                <span className="text-xl font-extrabold mt-2 text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Live Cloud Mode Active
+                </span>
+                <span className="text-[10px] text-slate-400 mt-2 block leading-relaxed">
+                  Connected to Supabase Cloud Database. Synchronizing collections: team_leaders, team_assignments, team_referrals, team_activities, team_messages, team_notifications, team_performance, team_incentives
+                </span>
+              </>
+            )}
+            {dbMode === "local" && (
+              <>
+                <span className="text-xl font-extrabold mt-2 text-amber-400 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  Local Testing Sandbox Active
+                </span>
+                <span className="text-[10px] text-slate-400 mt-2 block leading-relaxed">
+                  Using local browser storage fallback. Supabase connection inactive or tables missing.
+                </span>
+              </>
+            )}
+            {dbMode === "checking" && (
+              <>
+                <span className="text-xl font-extrabold mt-2 text-slate-400 flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-500 animate-pulse"></span>
+                  Checking Database Status...
+                </span>
+                <span className="text-[10px] text-slate-400 mt-2 block leading-relaxed">
+                  Verifying Supabase cloud database connection...
+                </span>
+              </>
+            )}
           </div>
         </div>
 

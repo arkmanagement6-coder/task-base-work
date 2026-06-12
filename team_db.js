@@ -288,6 +288,23 @@
       return this.upsert("team_incentive_rules", "krv-team-incentive-rules", rule);
     },
 
+    // Dynamic connection check
+    async checkCloudStatus() {
+      const client = getSupabaseClient();
+      if (!client) return false;
+      try {
+        const { data, error } = await client.from("team_leaders").select("id").limit(1);
+        if (error) {
+          console.warn("Supabase connection check error:", error);
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.warn("Supabase connection check exception:", e);
+        return false;
+      }
+    },
+
     // Seeding function (run on startup)
     async init() {
       // 1. Ensure users database is loaded
