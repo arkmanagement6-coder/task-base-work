@@ -6342,6 +6342,7 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
       teamPerformance, setTeamPerformance, teamIncentives, setTeamIncentives, teamIncentiveRules, setTeamIncentiveRules
     }) {
       const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
+      const [candidateMenuOpen, setCandidateMenuOpen] = useState(() => currentPage === "admin-candidates" || currentPage === "admin-kyc");
       const [teamLeaderMenuOpen, setTeamLeaderMenuOpen] = useState(() => currentPage.startsWith("admin-team-"));
       const [reviewMenuOpen, setReviewMenuOpen] = useState(() => currentPage.startsWith("admin-review-"));
       const [taskMenuOpen, setTaskMenuOpen] = useState(() => currentPage === "admin-tasks" || currentPage === "admin-reviews");
@@ -6399,7 +6400,8 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
 
               {/* Sidebar Menu */}
               <nav className="p-4 space-y-1">
-                {menuItems.slice(0, 3).map(item => (
+                {/* 1. Dashboard */}
+                {menuItems.filter(item => item.id === "admin-dashboard").map(item => (
                   <button 
                     key={item.id}
                     onClick={() => setCurrentPage(item.id)}
@@ -6416,7 +6418,62 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
                   </button>
                 ))}
 
-                {/* Team Leader Management Dropdown */}
+                {/* 2. Candidate Management Dropdown */}
+                <div className="space-y-1">
+                  <button 
+                    onClick={() => setCandidateMenuOpen(!candidateMenuOpen)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer hover:bg-slate-800 hover:text-white whitespace-nowrap ${
+                      currentPage === "admin-candidates" || currentPage === "admin-kyc" ? "text-blue-500 font-bold bg-slate-800/55 text-white" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name="profile" className="w-4 h-4 shrink-0 text-blue-500" />
+                      <span className="whitespace-nowrap text-slate-350">Candidate Mgmt</span>
+                    </div>
+                    <Icon name={candidateMenuOpen ? "chevron-up" : "chevron-down"} className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+
+                  {candidateMenuOpen && (
+                    <div className="pl-4 space-y-1 border-l border-slate-800 ml-6">
+                      {[
+                        { id: "admin-candidates", label: "Candidates" },
+                        { id: "admin-kyc", label: "KYC Documents" }
+                      ].map(sub => (
+                        <button 
+                          key={sub.id}
+                          onClick={() => setCurrentPage(sub.id)}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition cursor-pointer block ${
+                            currentPage === sub.id 
+                              ? "bg-blue-600/20 text-blue-400 border border-blue-600/30 font-bold" 
+                              : "hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          {sub.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Agent Control */}
+                {menuItems.filter(item => item.id === "admin-agents").map(item => (
+                  <button 
+                    key={item.id}
+                    onClick={() => setCurrentPage(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm font-semibold transition cursor-pointer whitespace-nowrap ${
+                      currentPage === item.id 
+                        ? "bg-blue-600 text-white shadow-lg" 
+                        : "hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon name={item.icon} className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    </div>
+                  </button>
+                ))}
+
+                {/* 4. Team Leader Management Dropdown */}
                 <div className="space-y-1">
                   <button 
                     onClick={() => setTeamLeaderMenuOpen(!teamLeaderMenuOpen)}
@@ -6456,7 +6513,7 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
                   )}
                 </div>
 
-                {/* Task Management Dropdown */}
+                {/* 5. Task Management Dropdown */}
                 <div className="space-y-1">
                   <button 
                     onClick={() => setTaskMenuOpen(!taskMenuOpen)}
@@ -6493,7 +6550,7 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
                   )}
                 </div>
 
-                {/* Review Verification Dropdown */}
+                {/* 6. Review Verification Dropdown */}
                 <div className="space-y-1">
                   <button 
                     onClick={() => setReviewMenuOpen(!reviewMenuOpen)}
@@ -6531,7 +6588,14 @@ ALTER TABLE team_incentive_rules DISABLE ROW LEVEL SECURITY;`;
                   )}
                 </div>
 
-                {menuItems.slice(8).map(item => (
+                {/* 7. Remaining Menu Items */}
+                {menuItems.filter(item => [
+                  "admin-earnings",
+                  "admin-reports",
+                  "admin-proofs",
+                  "admin-support",
+                  "admin-settings"
+                ].includes(item.id)).map(item => (
                   <button 
                     key={item.id}
                     onClick={() => setCurrentPage(item.id)}
